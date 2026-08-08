@@ -17,6 +17,7 @@ const LEVEL_INTRO_COUNT_SEC = 3;
 const LEVEL_INTRO_GO_SEC = 0.6;
 const LEVEL_INTRO_SEC = LEVEL_INTRO_COUNT_SEC + LEVEL_INTRO_GO_SEC;
 const LEVEL_CLEAR_SEC = 1.6;
+const HIT_FREEZE_SEC = 2;
 
 function hexColor(cssHex) {
   return Phaser.Display.Color.HexStringToColor(cssHex).color;
@@ -272,6 +273,13 @@ export class GameScene extends Phaser.Scene {
       case GAME_STATES.PLAYING:
         this.updatePlaying(dt);
         break;
+      case GAME_STATES.HIT_FREEZE:
+        this.stateTimer -= dt;
+        if (this.stateTimer <= 0) {
+          if (this.pendingGameOver) this.finishRun('gameover');
+          else this.restartLevel();
+        }
+        break;
       case GAME_STATES.LEVEL_CLEAR:
         this.stateTimer -= dt;
         if (this.stateTimer <= 0) this.advanceLevel();
@@ -402,9 +410,19 @@ export class GameScene extends Phaser.Scene {
     if (lostLife) {
       this.audio.hit();
       this.lives -= 1;
-      if (this.lives <= 0) this.finishRun('gameover');
-      else this.restartLevel();
+      this.startHitFreeze(this.lives <= 0);
     }
+  }
+
+  // Freeze-frame everything (player, balls, projectiles) for a beat after
+  // a hit lands, before restarting the level or ending the run -- same
+  // physics.pause() mechanism as LEVEL_INTRO/PAUSED, so nothing simulates
+  // while the frozen picture is on screen.
+  startHitFreeze(isGameOver) {
+    this.pendingGameOver = isGameOver;
+    this.state = GAME_STATES.HIT_FREEZE;
+    this.stateTimer = HIT_FREEZE_SEC;
+    this.physics.pause();
   }
 
   onPlayerCollectPowerup(playerGO, bonusGO) {
