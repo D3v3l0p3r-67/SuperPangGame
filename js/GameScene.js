@@ -149,8 +149,17 @@ export class GameScene extends Phaser.Scene {
     this.justSubmittedEntry = null;
     this.effects.reset(this);
     this.loadLevel(this.levelIndex);
+    this.startLevelIntro();
+  }
+
+  // Balls and the player must stay frozen for the whole "3, 2, 1, GO!"
+  // countdown -- Arcade Physics keeps stepping every frame regardless of
+  // scene state unless explicitly paused, so without this balls would
+  // already be falling/bouncing while the countdown is still on screen.
+  startLevelIntro() {
     this.state = GAME_STATES.LEVEL_INTRO;
     this.stateTimer = LEVEL_INTRO_SEC;
+    this.physics.pause();
   }
 
   // Fully (re)loads the current level: balls, obstacles, projectiles,
@@ -171,16 +180,14 @@ export class GameScene extends Phaser.Scene {
 
   restartLevel() {
     this.loadLevel(this.levelIndex);
-    this.state = GAME_STATES.LEVEL_INTRO;
-    this.stateTimer = LEVEL_INTRO_SEC;
+    this.startLevelIntro();
   }
 
   advanceLevel() {
     if (this.levelIndex + 1 < LEVELS.length) {
       this.levelIndex += 1;
       this.loadLevel(this.levelIndex);
-      this.state = GAME_STATES.LEVEL_INTRO;
-      this.stateTimer = LEVEL_INTRO_SEC;
+      this.startLevelIntro();
     } else {
       this.finishRun('victory');
     }
@@ -257,7 +264,10 @@ export class GameScene extends Phaser.Scene {
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
         this.stateTimer -= dt;
-        if (this.stateTimer <= 0) this.state = GAME_STATES.PLAYING;
+        if (this.stateTimer <= 0) {
+          this.physics.resume();
+          this.state = GAME_STATES.PLAYING;
+        }
         break;
       case GAME_STATES.PLAYING:
         this.updatePlaying(dt);
