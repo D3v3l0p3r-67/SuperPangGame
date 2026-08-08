@@ -12,7 +12,10 @@ import { Debug } from './debug.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
 
-const LEVEL_INTRO_SEC = 1.6;
+// 1s each for "3", "2", "1", then a shorter "GO!" beat before play starts.
+const LEVEL_INTRO_COUNT_SEC = 3;
+const LEVEL_INTRO_GO_SEC = 0.6;
+const LEVEL_INTRO_SEC = LEVEL_INTRO_COUNT_SEC + LEVEL_INTRO_GO_SEC;
 const LEVEL_CLEAR_SEC = 1.6;
 
 function hexColor(cssHex) {
@@ -119,6 +122,14 @@ export class GameScene extends Phaser.Scene {
     const def = this.currentLevelDef;
     if (!def || !def.timeLimitSec) return 0;
     return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
+  }
+
+  // "3", "2", "1" for one second each, then "GO!" for the final beat --
+  // stateTimer counts down from LEVEL_INTRO_SEC to 0 during LEVEL_INTRO.
+  get introCountdownLabel() {
+    if (this.state !== GAME_STATES.LEVEL_INTRO) return '';
+    const countTime = this.stateTimer - LEVEL_INTRO_GO_SEC;
+    return countTime > 0 ? String(Math.ceil(countTime)) : 'GO!';
   }
 
   get weaponLabel() {

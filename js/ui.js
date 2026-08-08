@@ -20,7 +20,7 @@ const HUD_VISIBLE_STATES = new Set([
 
 const ELEMENT_IDS = [
   'hud', 'hud-score', 'hud-level', 'hud-lives', 'hud-time', 'hud-weapon', 'powerup-indicators',
-  'screen-menu', 'screen-level-intro', 'level-intro-title', 'level-intro-name',
+  'screen-menu', 'screen-level-intro', 'level-intro-title', 'level-intro-name', 'level-intro-countdown',
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
   'touch-controls',
@@ -116,6 +116,10 @@ export class UI {
     if (g.state !== this.lastState) {
       this.setScreen(g.state);
       this.lastState = g.state;
+    }
+
+    if (g.state === GAME_STATES.LEVEL_INTRO) {
+      this.el['level-intro-countdown'].textContent = g.introCountdownLabel;
     }
 
     if (HUD_VISIBLE_STATES.has(g.state)) {

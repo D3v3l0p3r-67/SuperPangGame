@@ -163,6 +163,13 @@ body {
   margin: 0;
 }
 
+.countdown {
+  font-size: clamp(30px, 9vmin, 64px) !important;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #000, 0 0 18px rgba(255, 210, 63, 0.4);
+  margin-top: 1.5vmin !important;
+}
+
 .screen .hint {
   opacity: 0.65;
   font-size: clamp(8px, 1.6vmin, 12px);
