@@ -4,8 +4,8 @@
 export const VIRTUAL_W = 256;
 export const VIRTUAL_H = 224;
 
-export const STEP_MS = 1000 / 60;
-export const MAX_FRAME_MS = 250;
+export const GROUND_MARGIN = 10;
+export const GROUND_Y = VIRTUAL_H - GROUND_MARGIN;
 
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;

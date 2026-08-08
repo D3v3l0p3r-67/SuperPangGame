@@ -23,6 +23,14 @@ pixel-grid data, not image files), and all sound effects and music are
 synthesized at runtime with the Web Audio API. No copied assets of any
 kind — nothing from the original games is reused.
 
+Built on **Phaser 3** (Arcade Physics), vendored locally in
+`js/vendor/phaser.min.js` so the game still runs with no build step and no
+network dependency. Phaser owns the render loop, the canvas, keyboard
+input, and collision/overlap detection; the game only sets explicit
+velocities in its own collision callbacks to keep the deterministic
+Pang-style bounce feel, rather than leaning on generic physics
+restitution.
+
 ## Play it
 
 A live build is deployed automatically to GitHub Pages on every push to
@@ -101,25 +109,47 @@ Useful while tuning levels or ball behavior:
 ## Project structure
 
 ```
-index.html          Canvas + DOM overlay (menus, HUD, touch controls)
+index.html          Phaser injects its own canvas into #game-container;
+                      DOM overlay for menus/HUD/touch controls sits on top
 style.css            All visual styling, responsive/touch layout
 js/
-  main.js            Bootstrap + fixed-timestep game loop
+  vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
+  main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
+                      requestAnimationFrame loop anywhere in the project
+  GameConfig.js      Phaser.Game config (resolution, Arcade Physics,
+                      pixel-art scaling, scene list)
+  BootScene.js       Generates every texture procedurally at boot (pixel
+                      grids, Graphics-drawn shapes, glyph icons) and
+                      registers them with Phaser's texture manager
+  GameScene.js       The whole game: state machine, Arcade colliders/
+                      overlaps, keyboard input, particle bursts, and the
+                      public API (startNewGame/pause/etc.) ui.js talks to
+  Player.js          Phaser.Physics.Arcade.Sprite: explicit per-frame
+                      velocity from input, shield outline, walk animation
+  Ball.js            Phaser.Physics.Arcade.Sprite: round/hex shape x size
+                      1-5, deterministic landOnTop()/bounce methods,
+                      split-children descriptors
+  Projectile.js      Phaser.Physics.Arcade.Sprite for the harpoon shot
+  Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body;
+                      destructible via takeHit()
+  Bonus.js           Phaser.Physics.Arcade.Sprite for power-up pickups
+  LevelManager.js    Loads a levels.js definition into a GameScene's groups
   config.js          Gameplay tuning values + extensibility registries
-                      (ball shapes/sizes, weapon, power-ups)
-  constants.js        Technical constants (resolution, physics, palette)
-  game.js            State machine, update/render orchestration
-  entities.js        Player, Projectile, Ball, Obstacle, PowerUp, Particle
-  levels.js          The 10 level definitions
-  weapons.js         Weapon firing + power-up effect timers
-  physics.js         Collision math (circle-based for balls, side-aware
-                      circle-vs-rect resolution for obstacles, AABB elsewhere)
-  audio.js           Synthesized SFX + procedural music
-  input.js           Unified keyboard + touch input state
+                      (ball shapes/sizes, weapon, power-ups, obstacles) --
+                      engine-agnostic, untouched by the Phaser migration
+  constants.js        Technical constants (resolution, ground line, palette)
+  levels.js          The 10 level definitions (untouched by the migration)
+  weapons.js         Weapon state + power-up effect timers
+  audio.js           Synthesized SFX + procedural music (Web Audio API --
+                      there are no audio files, so Phaser's file-based
+                      Sound Manager doesn't apply here)
+  input.js           Thin DOM bridge for the on-screen touch buttons only
+                      (keyboard is native Phaser input, see GameScene)
   ui.js              DOM menus/HUD/screens
   storage.js         Versioned localStorage persistence
-  sprites.js         Hand-authored pixel-art sprite data
-  debug.js           Debug overlay and dev tools
+  sprites.js         Hand-authored pixel-grid data + canvas builders,
+                      consumed by BootScene
+  debug.js           Debug overlay (Phaser Graphics) and dev tools
 ```
 
 ### Adding content
@@ -138,5 +168,5 @@ core game logic:
 - **New level**: append a new object to `LEVELS` in `js/levels.js`, with
   its own `obstacles` and `balls` arrays.
 
-`game.js`, `entities.js`, and `physics.js` all read these registries
+`GameScene.js`, `Ball.js`, and `LevelManager.js` all read these registries
 generically, so nothing else needs to change.

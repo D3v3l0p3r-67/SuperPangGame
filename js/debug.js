@@ -1,15 +1,17 @@
-import { GAME_STATES, VIRTUAL_W } from './constants.js';
+import { VIRTUAL_W } from './constants.js';
 import { BALL_SHAPE_KEYS, BALL_SIZES, MAX_BALL_SIZE, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
-import { Ball, PowerUp } from './entities.js';
+import { Ball } from './Ball.js';
+import { Bonus } from './Bonus.js';
 import { LEVELS } from './levels.js';
 
-// Purely observational + a couple of manual test hooks -- reads game state,
-// never mutates gameplay logic. Can be deleted without affecting the game.
+// Purely observational + a couple of manual test hooks -- reads scene
+// state and draws over it, never mutates gameplay logic. Can be deleted
+// without affecting the game. FPS comes straight from Phaser's own loop,
+// no separate frame-timing code needed on our side.
 export class Debug {
-  constructor(game) {
-    this.game = game;
+  constructor(scene) {
+    this.scene = scene;
     this.enabled = new URLSearchParams(location.search).get('debug') === '1';
-    this.frameTimes = [];
     this.panelEl = document.getElementById('debug-panel');
     this.textEl = null;
     this.spawnPanelBuilt = false;
@@ -27,17 +29,6 @@ export class Debug {
   sync() {
     this.panelEl.classList.toggle('hidden', !this.enabled);
     if (this.enabled && !this.spawnPanelBuilt) this.buildSpawnPanel();
-  }
-
-  recordFrame(deltaMs) {
-    this.frameTimes.push(deltaMs);
-    if (this.frameTimes.length > 30) this.frameTimes.shift();
-  }
-
-  get fps() {
-    if (!this.frameTimes.length) return 0;
-    const avg = this.frameTimes.reduce((a, c) => a + c, 0) / this.frameTimes.length;
-    return avg > 0 ? Math.round(1000 / avg) : 0;
   }
 
   addSectionLabel(parent, text) {
@@ -79,12 +70,13 @@ export class Debug {
     const spawnBallBtn = document.createElement('button');
     spawnBallBtn.textContent = 'Spawn';
     spawnBallBtn.onclick = () => {
-      this.game.balls.push(new Ball(shapeSelect.value, parseInt(sizeSelect.value, 10), VIRTUAL_W / 2, 30));
+      const ball = new Ball(this.scene, shapeSelect.value, parseInt(sizeSelect.value, 10), VIRTUAL_W / 2, 30);
+      this.scene.balls.add(ball);
     };
     const removeAllBtn = document.createElement('button');
     removeAllBtn.textContent = 'Remove all balls';
     removeAllBtn.onclick = () => {
-      this.game.balls = [];
+      this.scene.balls.clear(true, true);
     };
     ballRow.append(shapeSelect, sizeSelect, spawnBallBtn, removeAllBtn);
     wrap.appendChild(ballRow);
@@ -102,7 +94,8 @@ export class Debug {
       btn.textContent = def.label;
       btn.title = type;
       btn.onclick = () => {
-        this.game.powerups.push(new PowerUp(type, VIRTUAL_W / 2, 30));
+        const bonus = new Bonus(this.scene, type, VIRTUAL_W / 2, 30);
+        this.scene.powerups.add(bonus);
       };
       powerupRow.appendChild(btn);
     }
@@ -122,9 +115,9 @@ export class Debug {
     jumpBtn.textContent = 'Jump';
     jumpBtn.onclick = () => {
       const idx = Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
-      this.game.levelIndex = idx;
-      this.game.loadLevel(idx);
-      this.game.state = GAME_STATES.PLAYING;
+      this.scene.levelIndex = idx;
+      this.scene.loadLevel(idx);
+      this.scene.state = 'PLAYING';
     };
     levelRow.append(levelInput, jumpBtn);
     wrap.appendChild(levelRow);
@@ -132,58 +125,51 @@ export class Debug {
     this.panelEl.appendChild(wrap);
   }
 
-  render(ctx) {
+  render(graphics) {
+    graphics.clear();
     if (!this.enabled) return;
-    this.drawCollisionBounds(ctx);
+    this.drawCollisionBounds(graphics);
     this.updateText();
   }
 
   updateText() {
     if (!this.textEl) return;
-    const g = this.game;
+    const g = this.scene;
     const lines = [
-      `FPS ${this.fps}`,
+      `FPS ${Math.round(this.scene.game.loop.actualFps)}`,
       `STATE ${g.state}`,
       `LEVEL ${g.levelIndex + 1}/${LEVELS.length}  TIME ${g.remainingLevelTime}`,
       `SCORE ${g.score}  LIVES ${g.lives}  WEAPON ${g.weaponLabel}`,
-      `BALLS ${g.balls.length}  PROJ ${g.projectiles.length}  PARTICLES ${g.particles.length}`,
+      `BALLS ${g.balls.countActive(true)}  PROJ ${g.projectiles.countActive(true)}  POWERUPS ${g.powerups.countActive(true)}`,
       `EFFECTS ${[...g.effects.active.keys()].join(',') || '-'}`,
     ];
     this.textEl.textContent = lines.join('\n');
   }
 
-  drawCollisionBounds(ctx) {
-    const g = this.game;
-    ctx.save();
-    ctx.lineWidth = 1;
+  drawCollisionBounds(graphics) {
+    const g = this.scene;
 
-    ctx.strokeStyle = '#00ff00';
-    ctx.strokeRect(g.player.x, g.player.y, g.player.width, g.player.height);
+    graphics.lineStyle(1, 0x00ff00, 1);
+    graphics.strokeRect(g.player.x - g.player.body.width / 2, g.player.y - g.player.body.height / 2, g.player.body.width, g.player.body.height);
 
-    ctx.strokeStyle = '#ff00ff';
-    for (const ball of g.balls) {
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-      ctx.stroke();
+    graphics.lineStyle(1, 0xff00ff, 1);
+    for (const ball of g.balls.getChildren()) {
+      graphics.strokeCircle(ball.x, ball.y, ball.radius);
     }
 
-    ctx.strokeStyle = '#ffff00';
-    for (const proj of g.projectiles) {
-      const r = proj.rect;
-      ctx.strokeRect(r.x, r.y, r.w, r.h);
+    graphics.lineStyle(1, 0xffff00, 1);
+    for (const proj of g.projectiles.getChildren()) {
+      graphics.strokeRect(proj.x - proj.body.width / 2, proj.y - proj.body.height / 2, proj.body.width, proj.body.height);
     }
 
-    ctx.strokeStyle = '#00ffff';
-    for (const pu of g.powerups) {
-      const r = pu.rect;
-      ctx.strokeRect(r.x, r.y, r.w, r.h);
+    graphics.lineStyle(1, 0x00ffff, 1);
+    for (const pu of g.powerups.getChildren()) {
+      graphics.strokeRect(pu.x - pu.body.width / 2, pu.y - pu.body.height / 2, pu.body.width, pu.body.height);
     }
 
-    ctx.strokeStyle = '#ffffff';
-    for (const obstacle of g.obstacles) {
-      ctx.strokeRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+    graphics.lineStyle(1, 0xffffff, 1);
+    for (const obstacle of g.obstacles.getChildren()) {
+      graphics.strokeRect(obstacle.x - obstacle.width / 2, obstacle.y - obstacle.height / 2, obstacle.width, obstacle.height);
     }
-
-    ctx.restore();
   }
 }

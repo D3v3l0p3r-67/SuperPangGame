@@ -1,7 +1,10 @@
-// Unified input state: keyboard and touch/pointer controls both write into
-// the same plain object, so game.js never needs to know which one is used.
+// Keyboard input is handled natively by Phaser (see GameScene's cursors/
+// keys). This module only bridges the DOM touch-control overlay into a
+// small state object GameScene reads once per update() -- Phaser has no
+// built-in virtual on-screen button system, so this thin, non-looping
+// bridge is all that's left of the old manual input layer.
 
-export const input = {
+export const touchInput = {
   left: false,
   right: false,
   shoot: false,
@@ -10,44 +13,10 @@ export const input = {
 
 let pauseWasDown = false;
 
-export function consumePausePressed() {
-  const justPressed = input.pause && !pauseWasDown;
-  pauseWasDown = input.pause;
+export function consumeTouchPausePressed() {
+  const justPressed = touchInput.pause && !pauseWasDown;
+  pauseWasDown = touchInput.pause;
   return justPressed;
-}
-
-const KEY_MAP = {
-  ArrowLeft: 'left',
-  KeyA: 'left',
-  ArrowRight: 'right',
-  KeyD: 'right',
-  Space: 'shoot',
-  ArrowUp: 'shoot',
-  KeyW: 'shoot',
-  Escape: 'pause',
-  KeyP: 'pause',
-};
-
-function setKey(code, value) {
-  const action = KEY_MAP[code];
-  if (!action) return false;
-  input[action] = value;
-  return true;
-}
-
-function bindKeyboard() {
-  window.addEventListener('keydown', (e) => {
-    if (setKey(e.code, true)) e.preventDefault();
-  });
-  window.addEventListener('keyup', (e) => {
-    if (setKey(e.code, false)) e.preventDefault();
-  });
-  window.addEventListener('blur', () => {
-    input.left = false;
-    input.right = false;
-    input.shoot = false;
-    input.pause = false;
-  });
 }
 
 function bindTouchButton(id, action, { pulse = false } = {}) {
@@ -55,12 +24,12 @@ function bindTouchButton(id, action, { pulse = false } = {}) {
   if (!el) return;
   const press = (e) => {
     e.preventDefault();
-    input[action] = true;
-    if (pulse) requestAnimationFrame(() => { input[action] = false; });
+    touchInput[action] = true;
+    if (pulse) requestAnimationFrame(() => { touchInput[action] = false; });
   };
   const release = (e) => {
     e.preventDefault();
-    if (!pulse) input[action] = false;
+    if (!pulse) touchInput[action] = false;
   };
   el.addEventListener('pointerdown', press);
   el.addEventListener('pointerup', release);
@@ -68,14 +37,13 @@ function bindTouchButton(id, action, { pulse = false } = {}) {
   el.addEventListener('pointerleave', release);
 }
 
-function bindTouch() {
+let bound = false;
+
+export function initTouchInput() {
+  if (bound) return;
+  bound = true;
   bindTouchButton('btn-left', 'left');
   bindTouchButton('btn-right', 'right');
   bindTouchButton('btn-shoot', 'shoot');
   bindTouchButton('btn-pause-touch', 'pause', { pulse: true });
-}
-
-export function initInput() {
-  bindKeyboard();
-  bindTouch();
 }

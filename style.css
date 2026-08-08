@@ -45,7 +45,9 @@ body {
   height: 100%;
 }
 
-canvas#game-canvas {
+/* Phaser injects its own <canvas> into #game-container (see GameConfig.js
+   parent + scale.mode: FIT, which handles responsive sizing itself). */
+#game-container canvas {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
