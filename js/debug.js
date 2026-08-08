@@ -1,6 +1,6 @@
 import { GAME_STATES, VIRTUAL_W } from './constants.js';
-import { BALLOON_KIND_KEYS, POWERUP_TYPE_KEYS } from './config.js';
-import { Balloon, PowerUp } from './entities.js';
+import { BALL_SHAPE_KEYS, BALL_SIZES, MAX_BALL_SIZE, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
+import { Ball, PowerUp } from './entities.js';
 import { LEVELS } from './levels.js';
 
 // Purely observational + a couple of manual test hooks -- reads game state,
@@ -40,6 +40,13 @@ export class Debug {
     return avg > 0 ? Math.round(1000 / avg) : 0;
   }
 
+  addSectionLabel(parent, text) {
+    const label = document.createElement('div');
+    label.className = 'debug-section-label';
+    label.textContent = text;
+    parent.appendChild(label);
+  }
+
   buildSpawnPanel() {
     this.spawnPanelBuilt = true;
 
@@ -50,32 +57,56 @@ export class Debug {
     const wrap = document.createElement('div');
     wrap.id = 'debug-spawn-panel';
 
-    const kindSelect = document.createElement('select');
-    for (const kind of BALLOON_KIND_KEYS) {
+    // -- Balls: pick a shape + size, spawn at the top-center of the field.
+    this.addSectionLabel(wrap, 'Spawn ball');
+    const ballRow = document.createElement('div');
+    ballRow.className = 'debug-btn-row';
+    const shapeSelect = document.createElement('select');
+    for (const shape of BALL_SHAPE_KEYS) {
       const opt = document.createElement('option');
-      opt.value = kind;
-      opt.textContent = kind;
-      kindSelect.appendChild(opt);
+      opt.value = shape;
+      opt.textContent = shape;
+      shapeSelect.appendChild(opt);
     }
-    const spawnBtn = document.createElement('button');
-    spawnBtn.textContent = 'Spawn balloon';
-    spawnBtn.onclick = () => {
-      this.game.balloons.push(new Balloon(0, kindSelect.value, VIRTUAL_W / 2, 30));
+    const sizeSelect = document.createElement('select');
+    for (const { size } of BALL_SIZES) {
+      const opt = document.createElement('option');
+      opt.value = String(size);
+      opt.textContent = `size ${size}`;
+      sizeSelect.appendChild(opt);
+    }
+    sizeSelect.value = String(MAX_BALL_SIZE);
+    const spawnBallBtn = document.createElement('button');
+    spawnBallBtn.textContent = 'Spawn';
+    spawnBallBtn.onclick = () => {
+      this.game.balls.push(new Ball(shapeSelect.value, parseInt(sizeSelect.value, 10), VIRTUAL_W / 2, 30));
     };
+    ballRow.append(shapeSelect, sizeSelect, spawnBallBtn);
+    wrap.appendChild(ballRow);
 
-    const powerupSelect = document.createElement('select');
+    // -- Power-ups: one clearly-labeled quick-spawn button per type
+    // (fruit/bonus points, shield, weapon power-ups, and all the rest),
+    // driven entirely by the POWERUP_TYPES registry so new entries there
+    // show up automatically.
+    this.addSectionLabel(wrap, 'Spawn power-up');
+    const powerupRow = document.createElement('div');
+    powerupRow.className = 'debug-btn-row';
     for (const type of POWERUP_TYPE_KEYS) {
-      const opt = document.createElement('option');
-      opt.value = type;
-      opt.textContent = type;
-      powerupSelect.appendChild(opt);
+      const def = POWERUP_TYPES[type];
+      const btn = document.createElement('button');
+      btn.textContent = def.label;
+      btn.title = type;
+      btn.onclick = () => {
+        this.game.powerups.push(new PowerUp(type, VIRTUAL_W / 2, 30));
+      };
+      powerupRow.appendChild(btn);
     }
-    const spawnPowerupBtn = document.createElement('button');
-    spawnPowerupBtn.textContent = 'Spawn power-up';
-    spawnPowerupBtn.onclick = () => {
-      this.game.powerups.push(new PowerUp(powerupSelect.value, VIRTUAL_W / 2, 30));
-    };
+    wrap.appendChild(powerupRow);
 
+    // -- Level jump
+    this.addSectionLabel(wrap, 'Jump to level');
+    const levelRow = document.createElement('div');
+    levelRow.className = 'debug-btn-row';
     const levelInput = document.createElement('input');
     levelInput.type = 'number';
     levelInput.min = '1';
@@ -83,19 +114,16 @@ export class Debug {
     levelInput.value = '1';
     levelInput.style.width = '40px';
     const jumpBtn = document.createElement('button');
-    jumpBtn.textContent = 'Jump to level';
+    jumpBtn.textContent = 'Jump';
     jumpBtn.onclick = () => {
       const idx = Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
       this.game.levelIndex = idx;
       this.game.loadLevel(idx);
       this.game.state = GAME_STATES.PLAYING;
     };
+    levelRow.append(levelInput, jumpBtn);
+    wrap.appendChild(levelRow);
 
-    wrap.append(
-      kindSelect, spawnBtn, document.createElement('br'),
-      powerupSelect, spawnPowerupBtn, document.createElement('br'),
-      levelInput, jumpBtn,
-    );
     this.panelEl.appendChild(wrap);
   }
 
@@ -111,9 +139,9 @@ export class Debug {
     const lines = [
       `FPS ${this.fps}`,
       `STATE ${g.state}`,
-      `LEVEL ${g.levelIndex + 1}/${LEVELS.length}`,
-      `SCORE ${g.score}  LIVES ${g.lives}`,
-      `BALLOONS ${g.balloons.length}  PROJ ${g.projectiles.length}  PARTICLES ${g.particles.length}`,
+      `LEVEL ${g.levelIndex + 1}/${LEVELS.length}  TIME ${g.remainingLevelTime}`,
+      `SCORE ${g.score}  LIVES ${g.lives}  WEAPON ${g.weaponLabel}`,
+      `BALLS ${g.balls.length}  PROJ ${g.projectiles.length}  PARTICLES ${g.particles.length}`,
       `EFFECTS ${[...g.effects.active.keys()].join(',') || '-'}`,
     ];
     this.textEl.textContent = lines.join('\n');
@@ -128,9 +156,9 @@ export class Debug {
     ctx.strokeRect(g.player.x, g.player.y, g.player.width, g.player.height);
 
     ctx.strokeStyle = '#ff00ff';
-    for (const balloon of g.balloons) {
+    for (const ball of g.balls) {
       ctx.beginPath();
-      ctx.arc(balloon.x, balloon.y, balloon.radius, 0, Math.PI * 2);
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.stroke();
     }
 

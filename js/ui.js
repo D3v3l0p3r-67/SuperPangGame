@@ -19,7 +19,7 @@ const HUD_VISIBLE_STATES = new Set([
 ]);
 
 const ELEMENT_IDS = [
-  'hud', 'hud-score', 'hud-level', 'hud-lives', 'powerup-indicators',
+  'hud', 'hud-score', 'hud-level', 'hud-lives', 'hud-time', 'hud-weapon', 'powerup-indicators',
   'screen-menu', 'screen-level-intro', 'level-intro-title', 'level-intro-name',
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
@@ -123,6 +123,9 @@ export class UI {
       this.el['hud-score'].textContent = `SCORE ${g.score}`;
       this.el['hud-level'].textContent = `LEVEL ${g.levelIndex + 1}`;
       this.el['hud-lives'].textContent = `LIVES ${g.lives}`;
+      this.el['hud-time'].textContent = `TIME ${g.remainingLevelTime}`;
+      this.el['hud-time'].classList.toggle('hud-time-low', g.remainingLevelTime <= 10);
+      this.el['hud-weapon'].textContent = g.weaponLabel;
       this.renderPowerupIndicators();
     } else {
       this.el.hud.classList.add('hidden');

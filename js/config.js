@@ -1,7 +1,8 @@
 // Gameplay tuning values and extensibility registries.
-// Adding a new balloon kind, weapon, or power-up means adding an entry here
-// (plus an optional visual case in sprites.js) -- no changes needed in
-// game.js / physics.js / entities.js, which all iterate these registries generically.
+// Adding a new ball shape, weapon, or power-up means adding an entry here
+// (plus an optional visual case in sprites.js/game.js) -- no changes needed
+// in game.js's core loop, physics.js, or entities.js, which all iterate
+// these registries generically.
 
 export const PLAYER_CONFIG = {
   width: 12,
@@ -22,57 +23,38 @@ export const WEAPON_TYPES = {
   },
 };
 
-// Balloon size tiers: tier 0 = largest (starting size), higher tier = smaller child.
-export const BALLOON_TIERS = [
-  { tier: 0, radius: 20, baseSpeed: 55, points: 100 },
-  { tier: 1, radius: 14, baseSpeed: 75, points: 200 },
-  { tier: 2, radius: 9, baseSpeed: 100, points: 400 },
-  { tier: 3, radius: 5, baseSpeed: 130, points: 800 },
-];
-
-export const MAX_BALLOON_TIER = BALLOON_TIERS.length - 1;
-
-// Balloon "kind" layers behavior/visual variants on top of a tier.
-export const BALLOON_KINDS = {
-  normal: {
-    label: 'Normal',
+// Two ball shapes: round balls fall under gravity and bounce; hex balls
+// ignore gravity and drift at a constant diagonal speed, reflecting off
+// walls/floor/ceiling/platforms.
+export const BALL_SHAPES = {
+  round: {
+    label: 'Round',
+    gravity: true,
     color: '#ff6b6b',
     highlight: '#ffb3b3',
-    movement: 'standard',
-    splitsInto: 2,
-    bounceDamping: 1.0,
-    speedMultiplier: 1.0,
   },
-  zigzag: {
-    label: 'Zigzag',
+  hex: {
+    label: 'Hex',
+    gravity: false,
     color: '#4ecdc4',
     highlight: '#a8f0ea',
-    movement: 'sine',
-    splitsInto: 2,
-    bounceDamping: 1.0,
-    speedMultiplier: 1.0,
-    sineAmplitude: 45,
-    sineFrequency: 2.4,
-  },
-  heavy: {
-    label: 'Heavy',
-    color: '#8854d0',
-    highlight: '#c3a6ec',
-    movement: 'standard',
-    splitsInto: 2,
-    bounceDamping: 0.72,
-    speedMultiplier: 0.85,
-  },
-  splitter3: {
-    label: 'Splitter',
-    color: '#f7b731',
-    highlight: '#fde3a7',
-    movement: 'standard',
-    splitsInto: 3,
-    bounceDamping: 1.0,
-    speedMultiplier: 1.1,
   },
 };
+
+export const BALL_SHAPE_KEYS = Object.keys(BALL_SHAPES);
+
+// Sizes 1-5: size 1 is the smallest (destroyed on hit, worth the most),
+// size 5 is the largest (worth the least, splits the most times).
+export const BALL_SIZES = [
+  { size: 1, radius: 4, baseSpeed: 150, points: 800 },
+  { size: 2, radius: 8, baseSpeed: 120, points: 400 },
+  { size: 3, radius: 12, baseSpeed: 95, points: 200 },
+  { size: 4, radius: 16, baseSpeed: 70, points: 100 },
+  { size: 5, radius: 20, baseSpeed: 50, points: 50 },
+];
+
+export const MIN_BALL_SIZE = 1;
+export const MAX_BALL_SIZE = BALL_SIZES.length;
 
 export const POWERUP_DROP_CHANCE = 0.14;
 export const POWERUP_FALL_SPEED = 26;
@@ -81,6 +63,15 @@ export const POWERUP_TTL_MS = 7000;
 // Each power-up owns its own apply()/revert() so the effect is fully
 // self-contained -- Game just calls these, it doesn't know what they do.
 export const POWERUP_TYPES = {
+  bonus_fruit: {
+    label: 'Bonus Fruit',
+    color: '#ff9ff3',
+    icon: 'B',
+    durationMs: 0,
+    instant: true,
+    apply(game) { game.score += 500; },
+    revert() {},
+  },
   rapid_shot: {
     label: 'Rapid Shot',
     color: '#ff9f43',
@@ -127,8 +118,8 @@ export const POWERUP_TYPES = {
     color: '#48dbfb',
     icon: 'F',
     durationMs: 6000,
-    apply(game) { game.balloonsFrozen = true; },
-    revert(game) { game.balloonsFrozen = false; },
+    apply(game) { game.ballsFrozen = true; },
+    revert(game) { game.ballsFrozen = false; },
   },
   shield: {
     label: 'Shield',
@@ -141,4 +132,3 @@ export const POWERUP_TYPES = {
 };
 
 export const POWERUP_TYPE_KEYS = Object.keys(POWERUP_TYPES);
-export const BALLOON_KIND_KEYS = Object.keys(BALLOON_KINDS);

@@ -1,7 +1,7 @@
 import { VIRTUAL_W, VIRTUAL_H, COLORS, GAME_STATES } from './constants.js';
 import { PLAYER_CONFIG, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
 import {
-  Player, Platform, Balloon, PowerUp, GROUND_Y,
+  Player, Platform, Ball, PowerUp, GROUND_Y,
   spawnPopParticles, spawnSparkle,
 } from './entities.js';
 import { createWeaponState, tryFire, EffectManager } from './weapons.js';
@@ -23,7 +23,7 @@ export class Game {
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = 0;
     this.scoreMultiplier = 1;
-    this.balloonsFrozen = false;
+    this.ballsFrozen = false;
     this.elapsedMs = 0;
     this.levelTimer = 0;
     this.stateTimer = 0;
@@ -32,7 +32,7 @@ export class Game {
 
     this.player = new Player();
     this.projectiles = [];
-    this.balloons = [];
+    this.balls = [];
     this.powerups = [];
     this.particles = [];
     this.platforms = [];
@@ -45,12 +45,30 @@ export class Game {
     return LEVELS[this.levelIndex];
   }
 
+  // Seconds left on the current level's clock, always >= 0. Shown live in
+  // the HUD; running out only forfeits the level-clear time bonus.
+  get remainingLevelTime() {
+    const def = this.currentLevelDef;
+    if (!def || !def.timeLimitSec) return 0;
+    return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
+  }
+
+  // Human-readable label for the currently active weapon configuration,
+  // derived from whichever weapon-affecting power-ups are active.
+  get weaponLabel() {
+    const parts = [];
+    if (this.effects.active.has('rapid_shot')) parts.push('RAPID');
+    if (this.effects.active.has('wide_harpoon')) parts.push('WIDE');
+    parts.push('HARPOON');
+    return parts.join(' ');
+  }
+
   startNewGame() {
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = 0;
     this.scoreMultiplier = 1;
-    this.balloonsFrozen = false;
+    this.ballsFrozen = false;
     this.justSubmittedEntry = null;
     this.effects.reset(this);
     this.loadLevel(this.levelIndex);
@@ -58,10 +76,15 @@ export class Game {
     this.stateTimer = LEVEL_INTRO_SEC;
   }
 
+  // Fully (re)loads the current level: balls, platforms, projectiles,
+  // on-field power-ups, particles, player position, weapon state, active
+  // temporary effects, and the level timer. Score and lives are untouched,
+  // so this is safe to call both when advancing levels and when the
+  // current level restarts after a life is lost.
   loadLevel(idx) {
     const def = LEVELS[idx];
     this.platforms = def.platforms.map((p) => new Platform(p.x, p.y, p.w, p.h));
-    this.balloons = def.balloons.map((b) => new Balloon(b.tier, b.kind, b.x, b.y, b.vx, undefined));
+    this.balls = def.balls.map((b) => new Ball(b.shape, b.size, b.x, b.y, b.vx, undefined));
     this.projectiles = [];
     this.powerups = [];
     this.particles = [];
@@ -71,6 +94,12 @@ export class Game {
     this.levelTimer = 0;
     const musicGroup = idx < 3 ? 0 : idx < 6 ? 1 : 2;
     this.audio.playMusic(musicGroup);
+  }
+
+  restartLevel() {
+    this.loadLevel(this.levelIndex);
+    this.state = GAME_STATES.LEVEL_INTRO;
+    this.stateTimer = LEVEL_INTRO_SEC;
   }
 
   goToMenu() {
@@ -122,15 +151,15 @@ export class Game {
     this.stateTimer = LEVEL_CLEAR_SEC;
   }
 
-  popBalloon(balloon) {
-    this.score += Math.round(balloon.points * this.scoreMultiplier);
-    this.audio.pop(balloon.tier);
-    spawnPopParticles(this.particles, balloon.x, balloon.y, balloon.kindDef.color);
-    const children = balloon.onHit();
-    for (const child of children) this.balloons.push(child);
+  popBall(ball) {
+    this.score += Math.round(ball.points * this.scoreMultiplier);
+    this.audio.pop(5 - ball.size);
+    spawnPopParticles(this.particles, ball.x, ball.y, ball.shapeDef.color);
+    const children = ball.onHit();
+    for (const child of children) this.balls.push(child);
     if (Math.random() < POWERUP_DROP_CHANCE) {
       const type = POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)];
-      this.powerups.push(new PowerUp(type, balloon.x, balloon.y));
+      this.powerups.push(new PowerUp(type, ball.x, ball.y));
     }
     this.trimParticles();
   }
@@ -191,31 +220,34 @@ export class Game {
     }
 
     for (const p of this.projectiles) p.update(dt);
-    for (const b of this.balloons) b.update(dt, this.platforms, this.balloonsFrozen);
+    if (!this.ballsFrozen) {
+      for (const ball of this.balls) ball.update(dt, this.platforms);
+    }
     for (const pu of this.powerups) pu.update(dt, GROUND_Y - 6);
     for (const particle of this.particles) particle.update(dt);
 
-    this.resolveProjectileVsBalloon();
-    this.resolvePlayerVsBalloon();
+    this.resolveProjectileVsBall();
+    this.resolvePlayerVsBall();
+    if (this.state !== GAME_STATES.PLAYING) return; // a hit may have restarted/ended the level
     this.resolvePlayerVsPowerup();
 
     this.projectiles = this.projectiles.filter((p) => p.active);
-    this.balloons = this.balloons.filter((b) => b.active);
+    this.balls = this.balls.filter((b) => b.active);
     this.powerups = this.powerups.filter((pu) => pu.active);
     this.particles = this.particles.filter((p) => p.active);
 
-    if (this.state === GAME_STATES.PLAYING && this.balloons.length === 0) {
+    if (this.state === GAME_STATES.PLAYING && this.balls.length === 0) {
       this.levelClear();
     }
   }
 
-  resolveProjectileVsBalloon() {
+  resolveProjectileVsBall() {
     for (const proj of this.projectiles) {
       if (!proj.active) continue;
-      for (const balloon of this.balloons) {
-        if (!balloon.active) continue;
-        if (circleRectOverlap(balloon.circle, proj.rect)) {
-          this.popBalloon(balloon);
+      for (const ball of this.balls) {
+        if (!ball.active) continue;
+        if (circleRectOverlap(ball.circle, proj.rect)) {
+          this.popBall(ball);
           proj.hitsLeft -= 1;
           if (proj.hitsLeft <= 0) {
             proj.active = false;
@@ -226,16 +258,25 @@ export class Game {
     }
   }
 
-  resolvePlayerVsBalloon() {
-    for (const balloon of this.balloons) {
-      if (!balloon.active) continue;
-      if (circleRectOverlap(balloon.circle, this.player.rect)) {
+  resolvePlayerVsBall() {
+    for (const ball of this.balls) {
+      if (!ball.active) continue;
+      if (circleRectOverlap(ball.circle, this.player.rect)) {
+        const hadShield = this.player.shielded;
         const lostLife = this.player.takeHit();
+
+        if (!lostLife && hadShield) {
+          // Shield absorbed the hit: consumed immediately, level continues.
+          this.effects.active.delete('shield');
+        }
+
         if (lostLife) {
           this.audio.hit();
           this.lives -= 1;
           if (this.lives <= 0) {
             this.finishRun('gameover');
+          } else {
+            this.restartLevel();
           }
         }
         break;
@@ -259,7 +300,7 @@ export class Game {
     this.renderBackground(ctx);
     this.renderPlatforms(ctx);
     this.renderParticles(ctx);
-    this.renderBalloons(ctx);
+    this.renderBalls(ctx);
     this.renderPowerups(ctx);
     this.renderProjectiles(ctx);
     this.renderPlayer(ctx);
@@ -287,11 +328,15 @@ export class Game {
     }
   }
 
-  renderBalloons(ctx) {
-    for (const balloon of this.balloons) {
-      ctx.beginPath();
-      ctx.arc(balloon.x, balloon.y, balloon.radius, 0, Math.PI * 2);
-      ctx.fillStyle = balloon.kindDef.color;
+  renderBalls(ctx) {
+    for (const ball of this.balls) {
+      if (ball.shape === 'hex') {
+        tracePolygonPath(ctx, ball.x, ball.y, ball.radius, 6);
+      } else {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      }
+      ctx.fillStyle = ball.shapeDef.color;
       ctx.fill();
       ctx.lineWidth = 1;
       ctx.strokeStyle = COLORS.outline;
@@ -299,19 +344,16 @@ export class Game {
 
       ctx.beginPath();
       ctx.arc(
-        balloon.x - balloon.radius * 0.35,
-        balloon.y - balloon.radius * 0.35,
-        Math.max(1, balloon.radius * 0.32),
+        ball.x - ball.radius * 0.35,
+        ball.y - ball.radius * 0.35,
+        Math.max(1, ball.radius * 0.3),
         0,
         Math.PI * 2,
       );
-      ctx.fillStyle = balloon.kindDef.highlight;
+      ctx.fillStyle = ball.shapeDef.highlight;
       ctx.globalAlpha = 0.85;
       ctx.fill();
       ctx.globalAlpha = 1;
-
-      ctx.fillStyle = COLORS.outline;
-      ctx.fillRect(balloon.x - 1, balloon.y + balloon.radius - 1, 2, 3);
     }
   }
 
@@ -369,4 +411,16 @@ export class Game {
     }
     ctx.globalAlpha = 1;
   }
+}
+
+function tracePolygonPath(ctx, x, y, radius, sides) {
+  ctx.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const angle = (Math.PI * 2 * i) / sides - Math.PI / 2;
+    const px = x + radius * Math.cos(angle);
+    const py = y + radius * Math.sin(angle);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
 }

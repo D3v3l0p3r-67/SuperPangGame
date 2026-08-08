@@ -1,5 +1,5 @@
 import { VIRTUAL_W, VIRTUAL_H, GRAVITY } from './constants.js';
-import { PLAYER_CONFIG, BALLOON_TIERS, BALLOON_KINDS, MAX_BALLOON_TIER, POWERUP_TYPES, POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { PLAYER_CONFIG, BALL_SHAPES, BALL_SIZES, MIN_BALL_SIZE, POWERUP_TYPES, POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
 
 const GROUND_MARGIN = 10;
 export const GROUND_Y = VIRTUAL_H - GROUND_MARGIN;
@@ -55,7 +55,7 @@ export class Player {
     }
   }
 
-  // Returns true if a life should be lost.
+  // Returns true if a life should be lost (i.e. no shield absorbed the hit).
   takeHit() {
     if (this.shielded) {
       this.shielded = false;
@@ -96,24 +96,40 @@ export class Projectile {
   }
 }
 
-let balloonId = 0;
+let ballId = 0;
 
-export class Balloon {
-  constructor(tier, kind, x, y, vx, vy) {
-    this.id = ++balloonId;
-    this.tier = tier;
-    this.kind = kind;
-    const tierDef = BALLOON_TIERS[tier];
-    const kindDef = BALLOON_KINDS[kind];
-    this.radius = tierDef.radius;
-    this.points = tierDef.points;
-    this.kindDef = kindDef;
+// A ball is a (shape, size) pair. Shape (round/hex) controls physics and
+// color; size (1-5) controls radius/speed/points and split behavior. Both
+// are read from the BALL_SHAPES / BALL_SIZES registries in config.js, so
+// adding a new shape or size tier there is all that's needed elsewhere.
+export class Ball {
+  constructor(shape, size, x, y, vx, vy) {
+    this.id = ++ballId;
+    this.shape = shape;
+    this.size = size;
+    this.shapeDef = BALL_SHAPES[shape];
+    const sizeDef = BALL_SIZES[size - 1];
+    this.radius = sizeDef.radius;
+    this.points = sizeDef.points;
+    this.baseSpeed = sizeDef.baseSpeed;
     this.x = x;
     this.y = y;
-    const speedMul = kindDef.speedMultiplier ?? 1;
-    this.vx = vx !== undefined ? vx : tierDef.baseSpeed * speedMul * (Math.random() < 0.5 ? -1 : 1);
-    this.vy = vy !== undefined ? vy : -Math.abs(tierDef.baseSpeed) * 0.6;
-    this.sineTime = Math.random() * 10;
+
+    if (vx !== undefined && vy !== undefined) {
+      this.vx = vx;
+      this.vy = vy;
+    } else {
+      const dirX = Math.random() < 0.5 ? -1 : 1;
+      if (this.shapeDef.gravity) {
+        this.vx = this.baseSpeed * dirX;
+        this.vy = -this.baseSpeed * 0.6;
+      } else {
+        const dirY = Math.random() < 0.5 ? -1 : 1;
+        const component = this.baseSpeed * Math.SQRT1_2;
+        this.vx = component * dirX;
+        this.vy = component * dirY;
+      }
+    }
     this.active = true;
   }
 
@@ -121,17 +137,11 @@ export class Balloon {
     return { x: this.x, y: this.y, radius: this.radius };
   }
 
-  update(dt, platforms, frozen) {
-    if (frozen) return;
+  update(dt, platforms) {
+    if (this.shapeDef.gravity) this.vy += GRAVITY * dt;
 
-    this.vy += GRAVITY * dt;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-
-    if (this.kindDef.movement === 'sine') {
-      this.sineTime += dt;
-      this.x += Math.sin(this.sineTime * this.kindDef.sineFrequency) * this.kindDef.sineAmplitude * dt;
-    }
 
     if (this.x - this.radius < 0) {
       this.x = this.radius;
@@ -148,13 +158,13 @@ export class Balloon {
 
     if (this.y + this.radius > GROUND_Y) {
       this.y = GROUND_Y - this.radius;
-      this.vy = -Math.abs(this.vy) * this.kindDef.bounceDamping;
+      this.vy = -Math.abs(this.vy);
     }
 
     for (const platform of platforms) {
       if (this.hitsPlatformTop(platform)) {
         this.y = platform.y - this.radius;
-        this.vy = -Math.abs(this.vy) * this.kindDef.bounceDamping;
+        this.vy = -Math.abs(this.vy);
       }
     }
   }
@@ -165,19 +175,24 @@ export class Balloon {
     return withinX && crossingTop;
   }
 
-  // Marks this balloon inactive and returns the child balloons (may be empty).
+  // Marks this ball inactive and returns exactly two children one size
+  // smaller (one sent left, one sent right), or none if already size 1.
   onHit() {
     this.active = false;
-    if (this.tier >= MAX_BALLOON_TIER || this.kindDef.splitsInto === 0) return [];
+    if (this.size <= MIN_BALL_SIZE) return [];
 
-    const childTier = this.tier + 1;
-    const count = this.kindDef.splitsInto;
-    const baseVy = -Math.abs(BALLOON_TIERS[childTier].baseSpeed) * 0.9;
+    const childSize = this.size - 1;
+    const childSpeed = BALL_SIZES[childSize - 1].baseSpeed;
     const children = [];
-    for (let i = 0; i < count; i++) {
-      const spread = count === 1 ? (Math.random() < 0.5 ? -1 : 1) : i - (count - 1) / 2;
-      const vx = spread * 60 + (Math.random() * 10 - 5);
-      children.push(new Balloon(childTier, this.kind, this.x, this.y, vx, baseVy));
+
+    if (this.shapeDef.gravity) {
+      const vy = -Math.abs(childSpeed) * 0.6;
+      children.push(new Ball(this.shape, childSize, this.x, this.y, -Math.abs(childSpeed), vy));
+      children.push(new Ball(this.shape, childSize, this.x, this.y, Math.abs(childSpeed), vy));
+    } else {
+      const component = childSpeed * Math.SQRT1_2;
+      children.push(new Ball(this.shape, childSize, this.x, this.y, -component, -component));
+      children.push(new Ball(this.shape, childSize, this.x, this.y, component, component));
     }
     return children;
   }
