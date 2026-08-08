@@ -1,6 +1,6 @@
 import { GAME_STATES, VIRTUAL_W } from './constants.js';
-import { BALLOON_KIND_KEYS } from './config.js';
-import { Balloon } from './entities.js';
+import { BALLOON_KIND_KEYS, POWERUP_TYPE_KEYS } from './config.js';
+import { Balloon, PowerUp } from './entities.js';
 import { LEVELS } from './levels.js';
 
 // Purely observational + a couple of manual test hooks -- reads game state,
@@ -63,6 +63,19 @@ export class Debug {
       this.game.balloons.push(new Balloon(0, kindSelect.value, VIRTUAL_W / 2, 30));
     };
 
+    const powerupSelect = document.createElement('select');
+    for (const type of POWERUP_TYPE_KEYS) {
+      const opt = document.createElement('option');
+      opt.value = type;
+      opt.textContent = type;
+      powerupSelect.appendChild(opt);
+    }
+    const spawnPowerupBtn = document.createElement('button');
+    spawnPowerupBtn.textContent = 'Spawn power-up';
+    spawnPowerupBtn.onclick = () => {
+      this.game.powerups.push(new PowerUp(powerupSelect.value, VIRTUAL_W / 2, 30));
+    };
+
     const levelInput = document.createElement('input');
     levelInput.type = 'number';
     levelInput.min = '1';
@@ -78,7 +91,11 @@ export class Debug {
       this.game.state = GAME_STATES.PLAYING;
     };
 
-    wrap.append(kindSelect, spawnBtn, document.createElement('br'), levelInput, jumpBtn);
+    wrap.append(
+      kindSelect, spawnBtn, document.createElement('br'),
+      powerupSelect, spawnPowerupBtn, document.createElement('br'),
+      levelInput, jumpBtn,
+    );
     this.panelEl.appendChild(wrap);
   }
 

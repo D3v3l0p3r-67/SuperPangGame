@@ -69,8 +69,8 @@ Useful while tuning levels or balloon behavior:
   counts.
 - Draws collision bounds for the player, balloons, projectiles, power-ups,
   and platforms directly over the game.
-- Includes a small panel to spawn any balloon kind on demand or jump
-  straight to any level, without replaying the whole game.
+- Includes a small panel to spawn any balloon kind or power-up on demand,
+  or jump straight to any level, without replaying the whole game.
 
 ## Project structure
 
