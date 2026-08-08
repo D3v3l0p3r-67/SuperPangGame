@@ -57,16 +57,20 @@ export const BALL_SHAPE_KEYS = Object.keys(BALL_SHAPES);
 //   gravity         round-only: downward acceleration, px/s^2
 //   radius          collision + render radius, px
 //   points          score awarded when this size is popped
-// Size 1's bounceVelocity is tuned so its apex reaches just over half the
+// Size 1 is the deliberate exception to the size-2..5 progression below:
+// its bounceVelocity is tuned so its apex reaches just over half the
 // playfield's height (GROUND_Y, 214px) -- ~115px, i.e. about 54% -- a tall,
-// dramatic bounce a player has to actually watch and time around rather
-// than a low ankle-height hazard.
+// dramatic bounce a player has to actually watch and time around, since
+// it's also the smallest, fastest-to-reappear, highest-value ball.
+// Sizes 2-5 instead climb smoothly: each size a little taller (~40px ->
+// ~85px apex, well under size 1's) and visibly faster (speed +20px/s per
+// size) than the one below it.
 export const BALL_SIZES = [
   { size: 1, radius: 4, speed: 50, bounceVelocity: 245, gravity: 260, points: 800 },
-  { size: 2, radius: 8, speed: 70, bounceVelocity: 100, gravity: 260, points: 400 },
-  { size: 3, radius: 12, speed: 90, bounceVelocity: 120, gravity: 260, points: 200 },
-  { size: 4, radius: 16, speed: 110, bounceVelocity: 140, gravity: 260, points: 100 },
-  { size: 5, radius: 20, speed: 130, bounceVelocity: 160, gravity: 260, points: 50 },
+  { size: 2, radius: 8, speed: 70, bounceVelocity: 145, gravity: 260, points: 400 },
+  { size: 3, radius: 12, speed: 90, bounceVelocity: 170, gravity: 260, points: 200 },
+  { size: 4, radius: 16, speed: 110, bounceVelocity: 190, gravity: 260, points: 100 },
+  { size: 5, radius: 20, speed: 130, bounceVelocity: 210, gravity: 260, points: 50 },
 ];
 
 export const MIN_BALL_SIZE = 1;
