@@ -17,11 +17,25 @@ export const LEVELS = [
     id: 1,
     name: 'Rooftop Start',
     timeLimitSec: 90,
-    // Deliberately obstacle-free, single smallest/slowest ball, spawned
-    // off-center so it doesn't immediately threaten the player's spawn
-    // point: just movement, shooting, and ball physics, nothing more.
+    // Deliberately obstacle-free: 8 smallest/slowest balls, 4 moving left
+    // and 4 moving right. Left-movers sit on the left half heading further
+    // left (toward the left wall); right-movers sit on the right half
+    // heading further right (toward the right wall) -- so every ball's
+    // very first move is *away* from the player's center spawn, and each
+    // one bounces off a side wall at least once before its path could
+    // ever cross the player. Gives a moment to get oriented while still
+    // keeping the level busy.
     obstacles: [],
-    balls: [b('round', 1, 70, 60, 50)],
+    balls: [
+      b('round', 1, 20, 40, -50),
+      b('round', 1, 45, 60, -50),
+      b('round', 1, 70, 45, -50),
+      b('round', 1, 95, 65, -50),
+      b('round', 1, 161, 65, 50),
+      b('round', 1, 186, 45, 50),
+      b('round', 1, 211, 60, 50),
+      b('round', 1, 236, 40, 50),
+    ],
   },
   {
     id: 2,

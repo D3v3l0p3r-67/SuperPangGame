@@ -62,7 +62,9 @@ Touch controls appear automatically on devices with a coarse pointer
 
 - 10 hand-tuned levels with increasing difficulty (more/larger balls, more
   hex balls and obstacles mixed in, tighter time bonuses). Level 1 has no
-  obstacles at all -- just movement, shooting, and ball physics.
+  obstacles at all -- 8 smallest-size balls (4 heading left, 4 right, each
+  bouncing off a wall before its path can ever reach the player) for a
+  gentle but active first look at movement, shooting, and ball physics.
 - 2 ball shapes (round, hex) x 5 sizes, each with fixed, deterministic
   physics; splitting one size smaller (one left, one right) per hit.
 - Obstacles: indestructible platforms and shootable crates, both blocking
