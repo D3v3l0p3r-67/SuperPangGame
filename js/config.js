@@ -57,13 +57,12 @@ export const BALL_SHAPE_KEYS = Object.keys(BALL_SHAPES);
 //   gravity         round-only: downward acceleration, px/s^2
 //   radius          collision + render radius, px
 //   points          score awarded when this size is popped
-// Size 1's bounceVelocity is tuned so its apex clears the player's height
-// (18px) with a comfortable margin -- ~32.5px apex, i.e. roughly 14.5px of
-// clear air above the player's head at the peak of the bounce -- so a
-// well-timed player can duck underneath it rather than it being an
-// unavoidable ankle-height hazard.
+// Size 1's bounceVelocity is tuned so its apex reaches just over half the
+// playfield's height (GROUND_Y, 214px) -- ~115px, i.e. about 54% -- a tall,
+// dramatic bounce a player has to actually watch and time around rather
+// than a low ankle-height hazard.
 export const BALL_SIZES = [
-  { size: 1, radius: 4, speed: 50, bounceVelocity: 130, gravity: 260, points: 800 },
+  { size: 1, radius: 4, speed: 50, bounceVelocity: 245, gravity: 260, points: 800 },
   { size: 2, radius: 8, speed: 70, bounceVelocity: 100, gravity: 260, points: 400 },
   { size: 3, radius: 12, speed: 90, bounceVelocity: 120, gravity: 260, points: 200 },
   { size: 4, radius: 16, speed: 110, bounceVelocity: 140, gravity: 260, points: 100 },
