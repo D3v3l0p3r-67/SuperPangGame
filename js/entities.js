@@ -1,5 +1,6 @@
-import { VIRTUAL_W, VIRTUAL_H, GRAVITY } from './constants.js';
-import { PLAYER_CONFIG, BALL_SHAPES, BALL_SIZES, MIN_BALL_SIZE, POWERUP_TYPES, POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { VIRTUAL_W, VIRTUAL_H } from './constants.js';
+import { PLAYER_CONFIG, BALL_SHAPES, BALL_SIZES, MIN_BALL_SIZE, OBSTACLE_TYPES, POWERUP_TYPES, POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { resolveCircleRect } from './physics.js';
 
 const GROUND_MARGIN = 10;
 export const GROUND_Y = VIRTUAL_H - GROUND_MARGIN;
@@ -72,6 +73,10 @@ function clamp(v, min, max) {
   return Math.min(Math.max(v, min), max);
 }
 
+function randomSign() {
+  return Math.random() < 0.5 ? -1 : 1;
+}
+
 let projectileId = 0;
 
 export class Projectile {
@@ -98,10 +103,14 @@ export class Projectile {
 
 let ballId = 0;
 
-// A ball is a (shape, size) pair. Shape (round/hex) controls physics and
-// color; size (1-5) controls radius/speed/points and split behavior. Both
-// are read from the BALL_SHAPES / BALL_SIZES registries in config.js, so
-// adding a new shape or size tier there is all that's needed elsewhere.
+// A ball is a (shape, size) pair. Shape (round/hex) controls whether
+// gravity applies and how it looks; size (1-5) controls every physical
+// parameter (radius/speed/bounceVelocity/gravity/points), read straight
+// from the BALL_SHAPES / BALL_SIZES registries in config.js. Two balls of
+// the same size always move identically -- the only thing that can differ
+// is their direction -- because velocity is never randomized and a
+// landing always resets vertical speed to the size's fixed
+// bounceVelocity rather than reusing whatever the ball fell in at.
 export class Ball {
   constructor(shape, size, x, y, vx, vy) {
     this.id = ++ballId;
@@ -111,25 +120,34 @@ export class Ball {
     const sizeDef = BALL_SIZES[size - 1];
     this.radius = sizeDef.radius;
     this.points = sizeDef.points;
-    this.baseSpeed = sizeDef.baseSpeed;
+    this.speed = sizeDef.speed;
+    this.bounceVelocity = sizeDef.bounceVelocity;
+    this.gravity = sizeDef.gravity;
     this.x = x;
     this.y = y;
 
-    if (vx !== undefined && vy !== undefined) {
+    // vx and vy are independently optional: level data typically pins down
+    // just vx (direction), leaving vy to default sensibly per shape; split
+    // children always pass both explicitly.
+    if (vx !== undefined) {
       this.vx = vx;
-      this.vy = vy;
+    } else if (this.shapeDef.gravity) {
+      this.vx = this.speed * randomSign();
     } else {
-      const dirX = Math.random() < 0.5 ? -1 : 1;
-      if (this.shapeDef.gravity) {
-        this.vx = this.baseSpeed * dirX;
-        this.vy = -this.baseSpeed * 0.6;
-      } else {
-        const dirY = Math.random() < 0.5 ? -1 : 1;
-        const component = this.baseSpeed * Math.SQRT1_2;
-        this.vx = component * dirX;
-        this.vy = component * dirY;
-      }
+      this.vx = this.speed * Math.SQRT1_2 * randomSign();
     }
+
+    if (vy !== undefined) {
+      this.vy = vy;
+    } else if (this.shapeDef.gravity) {
+      // Fresh (non-split) round ball: no initial vertical speed -- it
+      // free-falls to its first landing, after which every bounce uses
+      // the size's standard bounceVelocity.
+      this.vy = 0;
+    } else {
+      this.vy = this.speed * Math.SQRT1_2 * randomSign();
+    }
+
     this.active = true;
   }
 
@@ -137,8 +155,24 @@ export class Ball {
     return { x: this.x, y: this.y, radius: this.radius };
   }
 
-  update(dt, platforms) {
-    if (this.shapeDef.gravity) this.vy += GRAVITY * dt;
+  // Round balls always leave a landing at exactly this speed, regardless
+  // of how fast they were falling -- the one deterministic bounce rule.
+  landOnTop() {
+    this.vy = -this.bounceVelocity;
+  }
+
+  update(dt, obstacles) {
+    // Sub-step so a fast ball can't cross an entire obstacle within one
+    // frame (tunneling): cap each sub-step's travel to roughly one radius.
+    const travel = Math.hypot(this.vx, this.vy) * dt;
+    const maxStepTravel = Math.max(1, this.radius);
+    const steps = Math.min(8, Math.max(1, Math.ceil(travel / maxStepTravel)));
+    const stepDt = dt / steps;
+    for (let i = 0; i < steps; i++) this.integrate(stepDt, obstacles);
+  }
+
+  integrate(dt, obstacles) {
+    if (this.shapeDef.gravity) this.vy += this.gravity * dt;
 
     this.x += this.vx * dt;
     this.y += this.vy * dt;
@@ -158,43 +192,85 @@ export class Ball {
 
     if (this.y + this.radius > GROUND_Y) {
       this.y = GROUND_Y - this.radius;
-      this.vy = -Math.abs(this.vy);
+      if (this.shapeDef.gravity) this.landOnTop();
+      else this.vy = -Math.abs(this.vy);
     }
 
-    for (const platform of platforms) {
-      if (this.hitsPlatformTop(platform)) {
-        this.y = platform.y - this.radius;
-        this.vy = -Math.abs(this.vy);
+    for (const obstacle of obstacles) {
+      if (!obstacle.active) continue;
+      const side = resolveCircleRect(this, obstacle.rect);
+      if (!side) continue;
+      if (side === 'top') {
+        if (this.shapeDef.gravity) this.landOnTop();
+        else this.vy = -Math.abs(this.vy);
+      } else if (side === 'bottom') {
+        this.vy = Math.abs(this.vy);
+      } else if (side === 'left') {
+        this.vx = -Math.abs(this.vx);
+      } else {
+        this.vx = Math.abs(this.vx);
       }
     }
   }
 
-  hitsPlatformTop(platform) {
-    const withinX = this.x + this.radius > platform.x && this.x - this.radius < platform.x + platform.w;
-    const crossingTop = this.vy > 0 && this.y + this.radius > platform.y && this.y - this.radius < platform.y + platform.h;
-    return withinX && crossingTop;
-  }
-
   // Marks this ball inactive and returns exactly two children one size
   // smaller (one sent left, one sent right), or none if already size 1.
+  // Children get a small one-time upward pop so they visibly separate
+  // from the hit point; the moment either one first lands, it switches to
+  // the standard bounce for its size like any other ball.
   onHit() {
     this.active = false;
     if (this.size <= MIN_BALL_SIZE) return [];
 
     const childSize = this.size - 1;
-    const childSpeed = BALL_SIZES[childSize - 1].baseSpeed;
+    const childSizeDef = BALL_SIZES[childSize - 1];
     const children = [];
 
     if (this.shapeDef.gravity) {
-      const vy = -Math.abs(childSpeed) * 0.6;
-      children.push(new Ball(this.shape, childSize, this.x, this.y, -Math.abs(childSpeed), vy));
-      children.push(new Ball(this.shape, childSize, this.x, this.y, Math.abs(childSpeed), vy));
+      const spawnKick = -childSizeDef.bounceVelocity * 0.35;
+      children.push(new Ball(this.shape, childSize, this.x, this.y, -childSizeDef.speed, spawnKick));
+      children.push(new Ball(this.shape, childSize, this.x, this.y, childSizeDef.speed, spawnKick));
     } else {
-      const component = childSpeed * Math.SQRT1_2;
+      const component = childSizeDef.speed * Math.SQRT1_2;
       children.push(new Ball(this.shape, childSize, this.x, this.y, -component, -component));
       children.push(new Ball(this.shape, childSize, this.x, this.y, component, component));
     }
     return children;
+  }
+}
+
+let obstacleId = 0;
+
+// A rectangular obstacle balls collide with from any side. Its type (from
+// OBSTACLE_TYPES in config.js) decides whether it can be destroyed and how
+// many shots it takes; adding a new obstacle type is purely a config
+// change, nothing here needs to change.
+export class Obstacle {
+  constructor(type, x, y, w, h) {
+    this.id = ++obstacleId;
+    this.type = type;
+    this.def = OBSTACLE_TYPES[type];
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.hitPoints = this.def.hitPoints;
+    this.active = true;
+  }
+
+  get rect() {
+    return { x: this.x, y: this.y, w: this.w, h: this.h };
+  }
+
+  // Returns true if this hit destroyed the obstacle.
+  takeHit() {
+    if (!this.def.destructible) return false;
+    this.hitPoints -= 1;
+    if (this.hitPoints <= 0) {
+      this.active = false;
+      return true;
+    }
+    return false;
   }
 }
 
@@ -222,15 +298,6 @@ export class PowerUp {
     }
     this.ttl -= dt * 1000;
     if (this.ttl <= 0) this.active = false;
-  }
-}
-
-export class Platform {
-  constructor(x, y, w, h) {
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
   }
 }
 

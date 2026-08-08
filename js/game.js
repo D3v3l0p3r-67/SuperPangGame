@@ -1,7 +1,7 @@
 import { VIRTUAL_W, VIRTUAL_H, COLORS, GAME_STATES } from './constants.js';
 import { PLAYER_CONFIG, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
 import {
-  Player, Platform, Ball, PowerUp, GROUND_Y,
+  Player, Obstacle, Ball, PowerUp, GROUND_Y,
   spawnPopParticles, spawnSparkle,
 } from './entities.js';
 import { createWeaponState, tryFire, EffectManager } from './weapons.js';
@@ -35,7 +35,7 @@ export class Game {
     this.balls = [];
     this.powerups = [];
     this.particles = [];
-    this.platforms = [];
+    this.obstacles = [];
 
     this.weaponState = createWeaponState();
     this.effects = new EffectManager();
@@ -76,14 +76,14 @@ export class Game {
     this.stateTimer = LEVEL_INTRO_SEC;
   }
 
-  // Fully (re)loads the current level: balls, platforms, projectiles,
+  // Fully (re)loads the current level: balls, obstacles, projectiles,
   // on-field power-ups, particles, player position, weapon state, active
   // temporary effects, and the level timer. Score and lives are untouched,
   // so this is safe to call both when advancing levels and when the
   // current level restarts after a life is lost.
   loadLevel(idx) {
     const def = LEVELS[idx];
-    this.platforms = def.platforms.map((p) => new Platform(p.x, p.y, p.w, p.h));
+    this.obstacles = def.obstacles.map((o) => new Obstacle(o.type, o.x, o.y, o.w, o.h));
     this.balls = def.balls.map((b) => new Ball(b.shape, b.size, b.x, b.y, b.vx, undefined));
     this.projectiles = [];
     this.powerups = [];
@@ -221,11 +221,12 @@ export class Game {
 
     for (const p of this.projectiles) p.update(dt);
     if (!this.ballsFrozen) {
-      for (const ball of this.balls) ball.update(dt, this.platforms);
+      for (const ball of this.balls) ball.update(dt, this.obstacles);
     }
     for (const pu of this.powerups) pu.update(dt, GROUND_Y - 6);
     for (const particle of this.particles) particle.update(dt);
 
+    this.resolveProjectileVsObstacle();
     this.resolveProjectileVsBall();
     this.resolvePlayerVsBall();
     if (this.state !== GAME_STATES.PLAYING) return; // a hit may have restarted/ended the level
@@ -233,11 +234,31 @@ export class Game {
 
     this.projectiles = this.projectiles.filter((p) => p.active);
     this.balls = this.balls.filter((b) => b.active);
+    this.obstacles = this.obstacles.filter((o) => o.active);
     this.powerups = this.powerups.filter((pu) => pu.active);
     this.particles = this.particles.filter((p) => p.active);
 
     if (this.state === GAME_STATES.PLAYING && this.balls.length === 0) {
       this.levelClear();
+    }
+  }
+
+  // A shot that hits an obstacle stops there -- it never passes through to
+  // pop a ball behind it in the same frame. Destructible obstacles lose a
+  // hit point and are removed once destroyed; balls can then pass freely
+  // through the space they occupied.
+  resolveProjectileVsObstacle() {
+    for (const proj of this.projectiles) {
+      if (!proj.active) continue;
+      for (const obstacle of this.obstacles) {
+        if (!obstacle.active) continue;
+        if (aabbOverlap(proj.rect, obstacle.rect)) {
+          proj.active = false;
+          const destroyed = obstacle.takeHit();
+          if (destroyed) spawnPopParticles(this.particles, obstacle.x + obstacle.w / 2, obstacle.y + obstacle.h / 2, obstacle.def.color);
+          break;
+        }
+      }
     }
   }
 
@@ -298,7 +319,7 @@ export class Game {
 
   render(ctx) {
     this.renderBackground(ctx);
-    this.renderPlatforms(ctx);
+    this.renderObstacles(ctx);
     this.renderParticles(ctx);
     this.renderBalls(ctx);
     this.renderPowerups(ctx);
@@ -319,12 +340,17 @@ export class Game {
     ctx.fillRect(0, GROUND_Y, VIRTUAL_W, 2);
   }
 
-  renderPlatforms(ctx) {
-    for (const platform of this.platforms) {
-      ctx.fillStyle = COLORS.platform;
-      ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
-      ctx.fillStyle = COLORS.platformEdge;
-      ctx.fillRect(platform.x, platform.y, platform.w, 2);
+  renderObstacles(ctx) {
+    for (const obstacle of this.obstacles) {
+      ctx.fillStyle = obstacle.def.color;
+      ctx.fillRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+      ctx.fillStyle = obstacle.def.edgeColor;
+      ctx.fillRect(obstacle.x, obstacle.y, obstacle.w, 2);
+      if (obstacle.def.destructible) {
+        ctx.strokeStyle = COLORS.outline;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(obstacle.x + 0.5, obstacle.y + 0.5, obstacle.w - 1, obstacle.h - 1);
+      }
     }
   }
 

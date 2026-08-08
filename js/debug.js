@@ -81,7 +81,12 @@ export class Debug {
     spawnBallBtn.onclick = () => {
       this.game.balls.push(new Ball(shapeSelect.value, parseInt(sizeSelect.value, 10), VIRTUAL_W / 2, 30));
     };
-    ballRow.append(shapeSelect, sizeSelect, spawnBallBtn);
+    const removeAllBtn = document.createElement('button');
+    removeAllBtn.textContent = 'Remove all balls';
+    removeAllBtn.onclick = () => {
+      this.game.balls = [];
+    };
+    ballRow.append(shapeSelect, sizeSelect, spawnBallBtn, removeAllBtn);
     wrap.appendChild(ballRow);
 
     // -- Power-ups: one clearly-labeled quick-spawn button per type
@@ -175,8 +180,8 @@ export class Debug {
     }
 
     ctx.strokeStyle = '#ffffff';
-    for (const platform of g.platforms) {
-      ctx.strokeRect(platform.x, platform.y, platform.w, platform.h);
+    for (const obstacle of g.obstacles) {
+      ctx.strokeRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
     }
 
     ctx.restore();

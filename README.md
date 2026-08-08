@@ -8,6 +8,16 @@ drift at a constant diagonal speed -- each in sizes 1 (smallest) to 5
 (largest). Hitting a ball of size 2-5 splits it into two balls one size
 smaller, one sent left and one right; size-1 balls are destroyed outright.
 
+Every ball's motion is fully deterministic: each size has fixed speed,
+bounce height, and gravity, so two balls of the same size always move and
+bounce identically no matter how they got there -- a landing always resets
+vertical speed to that size's standard bounce velocity rather than
+reflecting whatever speed it fell in at. Levels can also contain solid
+obstacles that balls bounce off from any side (top/bottom/left/right,
+correctly, with no clipping or tunneling even at high speed); some
+obstacle types can be shot down by the player, after which balls pass
+freely through the space they occupied.
+
 All graphics are original, hand-authored pixel art (drawn from plain JS
 pixel-grid data, not image files), and all sound effects and music are
 synthesized at runtime with the Web Audio API. No copied assets of any
@@ -51,9 +61,12 @@ Touch controls appear automatically on devices with a coarse pointer
 ## Features
 
 - 10 hand-tuned levels with increasing difficulty (more/larger balls, more
-  hex balls mixed in, tighter time bonuses).
-- 2 ball shapes (round, hex) x 5 sizes, splitting one size smaller (one
-  left, one right) per hit.
+  hex balls and obstacles mixed in, tighter time bonuses). Level 1 has no
+  obstacles at all -- just movement, shooting, and ball physics.
+- 2 ball shapes (round, hex) x 5 sizes, each with fixed, deterministic
+  physics; splitting one size smaller (one left, one right) per hit.
+- Obstacles: indestructible platforms and shootable crates, both blocking
+  ball movement from every side with proper anti-tunneling collision.
 - 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
   life, score multiplier, time freeze, shield.
 - A shield absorbs one hit with no life lost and no interruption; without
@@ -76,11 +89,12 @@ Useful while tuning levels or ball behavior:
 - Shows an FPS counter, the current game state/level, remaining time,
   score/lives/weapon, and live entity counts.
 - Draws collision bounds for the player, balls, projectiles, power-ups,
-  and platforms directly over the game.
-- A clearly labeled spawn panel: pick a ball shape + size and spawn it;
-  one quick-spawn button per power-up (bonus fruit, shield, every weapon
+  and obstacles directly over the game.
+- A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
+  clear every ball on the field instantly with **Remove all balls**; one
+  quick-spawn button per power-up (bonus fruit, shield, every weapon
   power-up, and all the others); jump straight to any level -- all without
-  replaying the whole game.
+  replaying the whole game or affecting normal play when the panel is off.
 
 ## Project structure
 
@@ -93,10 +107,11 @@ js/
                       (ball shapes/sizes, weapon, power-ups)
   constants.js        Technical constants (resolution, physics, palette)
   game.js            State machine, update/render orchestration
-  entities.js        Player, Projectile, Ball, PowerUp, Platform, Particle
+  entities.js        Player, Projectile, Ball, Obstacle, PowerUp, Particle
   levels.js          The 10 level definitions
   weapons.js         Weapon firing + power-up effect timers
-  physics.js         Collision math (circle-based for balls, AABB elsewhere)
+  physics.js         Collision math (circle-based for balls, side-aware
+                      circle-vs-rect resolution for obstacles, AABB elsewhere)
   audio.js           Synthesized SFX + procedural music
   input.js           Unified keyboard + touch input state
   ui.js              DOM menus/HUD/screens
@@ -111,11 +126,15 @@ The architecture is data-driven so new content doesn't require touching
 core game logic:
 
 - **New ball shape**: add an entry to `BALL_SHAPES` in `js/config.js`.
-- **New ball size tier**: append an entry to `BALL_SIZES` in `js/config.js`.
+- **New ball size tier**: append an entry to `BALL_SIZES` in `js/config.js`
+  (radius, speed, bounceVelocity, gravity, points).
+- **New obstacle type** (e.g. more hit points, or indestructible): add an
+  entry to `OBSTACLE_TYPES` in `js/config.js`.
 - **New power-up**: add an entry (with its own `apply()`/`revert()`) to
   `POWERUP_TYPES` in `js/config.js` -- it also shows up automatically as a
   quick-spawn button in debug mode.
-- **New level**: append a new object to `LEVELS` in `js/levels.js`.
+- **New level**: append a new object to `LEVELS` in `js/levels.js`, with
+  its own `obstacles` and `balls` arrays.
 
 `game.js`, `entities.js`, and `physics.js` all read these registries
 generically, so nothing else needs to change.
