@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Balloon Buster</title>
+<meta name="description" content="A retro pixel-art balloon-popping arcade game, inspired by classic Pang-style gameplay.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game-canvas" width="256" height="224"></canvas>
+
+  <div id="ui-layer">
+    <div id="hud" class="hidden">
+      <span id="hud-score">SCORE 0</span>
+      <span id="hud-level">LEVEL 1</span>
+      <span id="hud-lives">LIVES 3</span>
+    </div>
+    <div id="powerup-indicators"></div>
+
+    <div id="screen-menu" class="screen">
+      <h1>BALLOON<br>BUSTER</h1>
+      <button id="btn-start" class="menu-btn">START GAME</button>
+      <button id="btn-highscores" class="menu-btn">HIGH SCORES</button>
+      <button id="btn-fullscreen" class="menu-btn">FULLSCREEN</button>
+      <div id="settings-row">
+        <label><input type="checkbox" id="chk-mute"> MUTE</label>
+        <label>SFX <input type="range" id="rng-sfx" min="0" max="1" step="0.05"></label>
+        <label>MUSIC <input type="range" id="rng-music" min="0" max="1" step="0.05"></label>
+      </div>
+      <p class="hint">Arrows/WASD move &middot; Space shoot &middot; P pause &middot; F1 debug</p>
+    </div>
+
+    <div id="screen-level-intro" class="screen hidden">
+      <h2 id="level-intro-title">LEVEL 1</h2>
+      <p id="level-intro-name"></p>
+    </div>
+
+    <div id="screen-pause" class="screen hidden">
+      <h2>PAUSED</h2>
+      <button id="btn-resume" class="menu-btn">RESUME</button>
+      <button id="btn-fullscreen-pause" class="menu-btn">FULLSCREEN</button>
+      <button id="btn-quit" class="menu-btn">QUIT TO MENU</button>
+    </div>
+
+    <div id="screen-game-over" class="screen hidden">
+      <h2>GAME OVER</h2>
+      <p id="final-score"></p>
+      <button id="btn-restart" class="menu-btn">PLAY AGAIN</button>
+      <button id="btn-menu" class="menu-btn">MAIN MENU</button>
+    </div>
+
+    <div id="screen-victory" class="screen hidden">
+      <h2>YOU WIN!</h2>
+      <p id="victory-score"></p>
+      <button id="btn-victory-restart" class="menu-btn">PLAY AGAIN</button>
+      <button id="btn-victory-menu" class="menu-btn">MAIN MENU</button>
+    </div>
+
+    <div id="screen-high-score-entry" class="screen hidden">
+      <h2>NEW HIGH SCORE!</h2>
+      <p id="entry-score"></p>
+      <input id="entry-name" maxlength="3" autocomplete="off" spellcheck="false">
+      <button id="btn-submit-score" class="menu-btn">SUBMIT</button>
+    </div>
+
+    <div id="screen-high-scores" class="screen hidden">
+      <h2>HIGH SCORES</h2>
+      <ol id="high-score-list"></ol>
+      <button id="btn-close-highscores" class="menu-btn">BACK</button>
+    </div>
+
+    <div id="touch-controls" class="hidden">
+      <div class="touch-group">
+        <button id="btn-left" class="touch-btn" aria-label="Left">&#9664;</button>
+        <button id="btn-right" class="touch-btn" aria-label="Right">&#9654;</button>
+      </div>
+      <div class="touch-group">
+        <button id="btn-pause-touch" class="touch-btn touch-btn-small" aria-label="Pause">&#10073;&#10073;</button>
+        <button id="btn-shoot" class="touch-btn touch-btn-primary" aria-label="Shoot">&#9650;</button>
+      </div>
+    </div>
+
+    <div id="debug-panel" class="hidden"></div>
+  </div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

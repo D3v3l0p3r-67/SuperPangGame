@@ -1,0 +1,297 @@
+@font-face {
+  font-family: 'Retro';
+  src: local('Courier New');
+}
+
+:root {
+  --bg: #05040a;
+  --panel: #1c1042;
+  --panel-border: #6d5fa0;
+  --text: #f4f1de;
+  --accent: #ffd23f;
+  --danger: #e94560;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Retro', 'Courier New', monospace;
+  color: var(--text);
+}
+
+#game-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+canvas#game-canvas {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  background: #0b0e2a;
+  display: block;
+}
+
+#ui-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ui-layer > * {
+  pointer-events: auto;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 0.5vmin;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1.5vmin;
+  font-size: clamp(10px, 2.4vmin, 18px);
+  text-shadow: 2px 2px 0 #000;
+  pointer-events: none;
+  letter-spacing: 1px;
+}
+
+#powerup-indicators {
+  position: absolute;
+  top: clamp(20px, 5vmin, 40px);
+  left: 1.5vmin;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.powerup-chip {
+  font-size: clamp(7px, 1.6vmin, 12px);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--panel-border);
+  padding: 2px 5px;
+  border-radius: 3px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* Screens (menu, pause, game over, etc.) */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4vmin;
+  background: rgba(5, 4, 10, 0.88);
+  text-align: center;
+  padding: 4vmin 3vmin;
+}
+
+.screen h1 {
+  font-size: clamp(22px, 7vmin, 52px);
+  margin: 0 0 2vmin;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #000, 0 0 18px rgba(255, 210, 63, 0.4);
+  line-height: 1.15;
+}
+
+.screen h2 {
+  font-size: clamp(18px, 5vmin, 36px);
+  margin: 0 0 1vmin;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #000;
+}
+
+.screen p {
+  font-size: clamp(11px, 2.4vmin, 18px);
+  margin: 0;
+}
+
+.screen .hint {
+  opacity: 0.65;
+  font-size: clamp(8px, 1.6vmin, 12px);
+  margin-top: 1.5vmin;
+}
+
+.menu-btn {
+  font-family: inherit;
+  font-size: clamp(11px, 2.4vmin, 16px);
+  background: var(--panel);
+  color: var(--text);
+  border: 2px solid var(--panel-border);
+  padding: 1.2vmin 3vmin;
+  min-width: 180px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.menu-btn:hover,
+.menu-btn:focus-visible {
+  background: var(--panel-border);
+  outline: none;
+}
+
+.menu-btn:active {
+  transform: translateY(1px);
+}
+
+#settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vmin;
+  font-size: clamp(9px, 1.8vmin, 13px);
+  margin-top: 1vmin;
+}
+
+#settings-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+#entry-name {
+  font-family: inherit;
+  font-size: clamp(16px, 4vmin, 28px);
+  text-align: center;
+  text-transform: uppercase;
+  width: 5ch;
+  background: var(--panel);
+  color: var(--accent);
+  border: 2px solid var(--panel-border);
+  padding: 0.5vmin;
+  letter-spacing: 4px;
+}
+
+#high-score-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1vmin;
+  font-size: clamp(10px, 2.2vmin, 16px);
+  width: min(80vw, 320px);
+}
+
+#high-score-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3vmin 0.6vmin;
+  border-bottom: 1px dashed var(--panel-border);
+}
+
+#high-score-list li.new-entry {
+  color: var(--accent);
+}
+
+/* Touch controls */
+#touch-controls {
+  position: absolute;
+  bottom: 2vmin;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2vmin;
+  pointer-events: none;
+}
+
+.touch-group {
+  display: flex;
+  gap: 2.5vmin;
+  pointer-events: none;
+}
+
+.touch-btn {
+  pointer-events: auto;
+  width: clamp(44px, 13vmin, 72px);
+  height: clamp(44px, 13vmin, 72px);
+  border-radius: 50%;
+  background: rgba(28, 16, 66, 0.7);
+  border: 2px solid var(--panel-border);
+  color: var(--text);
+  font-size: clamp(16px, 4vmin, 26px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn-primary {
+  background: rgba(233, 69, 96, 0.75);
+}
+
+.touch-btn-small {
+  width: clamp(32px, 8vmin, 48px);
+  height: clamp(32px, 8vmin, 48px);
+  font-size: clamp(11px, 2.6vmin, 16px);
+  align-self: flex-end;
+}
+
+.touch-btn:active {
+  transform: scale(0.92);
+}
+
+/* Debug panel */
+#debug-panel {
+  position: absolute;
+  top: 0.5vmin;
+  right: 0.5vmin;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid #0f0;
+  color: #0f0;
+  font-size: 10px;
+  padding: 4px 6px;
+  line-height: 1.4;
+  white-space: pre;
+  pointer-events: none;
+  max-width: 46vw;
+}
+
+#debug-spawn-panel {
+  pointer-events: auto;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#debug-spawn-panel select,
+#debug-spawn-panel button {
+  font-size: 10px;
+  font-family: inherit;
+}
+
+@media (pointer: coarse) {
+  #touch-controls.enabled {
+    display: flex;
+  }
+}
