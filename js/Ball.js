@@ -59,22 +59,43 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  // Round balls always leave a landing at exactly this speed, regardless
-  // of how fast they were falling -- the one deterministic bounce rule.
-  landOnTop() {
-    this.body.setVelocityY(-this.bounceVelocity);
+  // Horizontal speed magnitude never changes over a round ball's flight
+  // (only vertical speed does, via gravity/landOnTop); a hex ball's
+  // diagonal speed splits evenly between both axes at a constant
+  // magnitude. Every bounce response below reapplies one of these fixed
+  // magnitudes rather than reflecting the body's current velocity --
+  // Arcade Physics resolves the collision (with bounce explicitly 0, see
+  // constructor) by zeroing the colliding axis's velocity *before* the
+  // collision callback runs, so "reflect whatever's there" would just
+  // leave the ball motionless at the wall/obstacle instead of bouncing.
+  get hSpeed() {
+    return this.shapeDef.gravity ? this.speed : this.speed * Math.SQRT1_2;
   }
 
+  get vSpeed() {
+    return this.speed * Math.SQRT1_2; // only meaningful for hex balls
+  }
+
+  // Ball landed on a surface below it (ground or an obstacle top). Round
+  // balls always leave at exactly bounceVelocity regardless of how fast
+  // they were falling; hex balls reflect at their fixed diagonal speed.
+  landOnTop() {
+    this.body.setVelocityY(this.shapeDef.gravity ? -this.bounceVelocity : -this.vSpeed);
+  }
+
+  // Ball hit a surface above it (ceiling, or an obstacle's underside)
+  // while moving up. Round balls just start falling again under gravity;
+  // hex balls reflect at their fixed diagonal speed.
   bounceOffBottom() {
-    this.body.setVelocityY(Math.abs(this.body.velocity.y));
+    this.body.setVelocityY(this.shapeDef.gravity ? 0 : this.vSpeed);
   }
 
   bounceOffLeft() {
-    this.body.setVelocityX(Math.abs(this.body.velocity.x));
+    this.body.setVelocityX(this.hSpeed);
   }
 
   bounceOffRight() {
-    this.body.setVelocityX(-Math.abs(this.body.velocity.x));
+    this.body.setVelocityX(-this.hSpeed);
   }
 
   // Descriptors for exactly two children one size smaller (one sent left,

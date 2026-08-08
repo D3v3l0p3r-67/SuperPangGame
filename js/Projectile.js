@@ -9,6 +9,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.body.setSize(width, 7);
     this.setDisplaySize(width, 7);
     this.body.setVelocityY(-speed);
+    // Both are required: onWorldBounds only controls whether the event
+    // fires, setCollideWorldBounds is what actually makes the body stop
+    // at (and report reaching) the boundary in the first place.
+    this.body.setCollideWorldBounds(true);
     this.body.onWorldBounds = true;
 
     this.hitsLeft = pierce;

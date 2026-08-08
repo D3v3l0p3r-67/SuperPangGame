@@ -341,13 +341,10 @@ export class GameScene extends Phaser.Scene {
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
     if (go instanceof Ball) {
-      if (down) {
-        if (go.shapeDef.gravity) go.landOnTop();
-        else go.body.setVelocityY(-Math.abs(go.body.velocity.y));
-      }
-      if (up) go.body.setVelocityY(Math.abs(go.body.velocity.y));
-      if (left) go.body.setVelocityX(Math.abs(go.body.velocity.x));
-      if (right) go.body.setVelocityX(-Math.abs(go.body.velocity.x));
+      if (down) go.landOnTop();
+      if (up) go.bounceOffBottom();
+      if (left) go.bounceOffLeft();
+      if (right) go.bounceOffRight();
     } else if (go instanceof Projectile) {
       if (up) go.destroy();
     }
@@ -355,16 +352,10 @@ export class GameScene extends Phaser.Scene {
 
   onBallHitObstacle(ballGO, obstacleGO) {
     const body = ballGO.body;
-    if (body.touching.down) {
-      if (ballGO.shapeDef.gravity) ballGO.landOnTop();
-      else ballGO.body.setVelocityY(-Math.abs(body.velocity.y));
-    } else if (body.touching.up) {
-      ballGO.body.setVelocityY(Math.abs(body.velocity.y));
-    } else if (body.touching.left) {
-      ballGO.body.setVelocityX(Math.abs(body.velocity.x));
-    } else if (body.touching.right) {
-      ballGO.body.setVelocityX(-Math.abs(body.velocity.x));
-    }
+    if (body.touching.down) ballGO.landOnTop();
+    else if (body.touching.up) ballGO.bounceOffBottom();
+    else if (body.touching.left) ballGO.bounceOffLeft();
+    else if (body.touching.right) ballGO.bounceOffRight();
   }
 
   onProjectileHitObstacle(projGO, obstacleGO) {
