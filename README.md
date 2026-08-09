@@ -99,8 +99,7 @@ Touch controls appear automatically on devices with a coarse pointer
 
 Useful while tuning levels or ball behavior:
 
-- Toggle with **F1** or the **`** (backtick) key, or load the page with
-  `?debug=1` in the URL.
+- Toggle with **Shift+D**, or load the page with `?debug=1` in the URL.
 - Shows an FPS counter, the current game state/level, remaining time,
   score/lives/weapon, and live entity counts.
 - Draws collision bounds for the player, balls, projectiles, power-ups,

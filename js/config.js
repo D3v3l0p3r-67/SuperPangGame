@@ -53,6 +53,10 @@ export const BALL_SHAPES = {
     maxSize: 3,
     color: '#4ecdc4',
     highlight: '#a8f0ea',
+    // Hex balls fly at 1.5x the speed a round ball of the same size would
+    // use (see BALL_SIZES) -- applied in Ball.js's constructor/
+    // getSplitChildren so it's never lost on split or bounce.
+    speedMultiplier: 1.5,
   },
 };
 

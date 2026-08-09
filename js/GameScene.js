@@ -401,6 +401,7 @@ export class GameScene extends Phaser.Scene {
     for (const ball of this.balls.getChildren()) {
       ball.body.moves = !this.ballsFrozen;
       ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
+      if (!this.ballsFrozen) ball.spin(dt);
     }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
 
@@ -427,15 +428,19 @@ export class GameScene extends Phaser.Scene {
     this.spawnBurst(ball.x, ball.y, ball.shapeDef.color, 10);
 
     const children = ball.getSplitChildren();
+    const forcedPowerup = ball.forcedPowerup;
     ball.destroy();
     for (const spec of children) {
       const child = new Ball(this, spec.shape, spec.size, spec.x, spec.y, spec.vx, spec.vy);
       this.balls.add(child);
     }
 
-    if (Math.random() < POWERUP_DROP_CHANCE) {
-      const type = POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)];
-      const bonus = new Bonus(this, type, ball.x, ball.y);
+    // A ball the level editor tagged with a powerup guarantees that drop
+    // (bypassing the random roll below) -- see Ball.js's forcedPowerup.
+    const dropType = forcedPowerup
+      || (Math.random() < POWERUP_DROP_CHANCE ? POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)] : null);
+    if (dropType) {
+      const bonus = new Bonus(this, dropType, ball.x, ball.y);
       this.powerups.add(bonus);
     }
   }
@@ -498,8 +503,17 @@ export class GameScene extends Phaser.Scene {
   onProjectileHitObstacle(projGO, obstacleGO) {
     if (!projGO.active) return;
     projGO.destroy();
+    const forcedPowerup = obstacleGO.forcedPowerup;
     const destroyed = obstacleGO.takeHit();
-    if (destroyed) this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+    if (destroyed) {
+      this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+      // A crate the level editor tagged with a powerup drops it the
+      // moment it's shot down -- see Obstacle.js's forcedPowerup.
+      if (forcedPowerup) {
+        const bonus = new Bonus(this, forcedPowerup, obstacleGO.x, obstacleGO.y);
+        this.powerups.add(bonus);
+      }
+    }
   }
 
   onProjectileHitBall(projGO, ballGO) {

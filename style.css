@@ -344,7 +344,12 @@ body {
 }
 
 /* Level editor panel -- same look/classes as the debug panel (.debug-
-   btn-row, .debug-text), just its own top-left slot and accent color. */
+   btn-row, .debug-text), just its own top-left slot and accent color.
+   Like #debug-panel, the panel itself is pointer-events: none and only
+   its interactive controls opt back in -- otherwise its own background
+   (and any gaps/padding/status text between buttons) would swallow
+   clicks meant for the canvas underneath it, which grows a real dead
+   zone over the playfield as the panel picks up more rows/buttons. */
 #editor-panel {
   position: absolute;
   top: 0.5vmin;
@@ -355,7 +360,7 @@ body {
   font-size: 10px;
   padding: 4px 6px;
   line-height: 1.4;
-  pointer-events: auto;
+  pointer-events: none;
   max-width: 60vw;
   display: flex;
   flex-direction: column;
@@ -364,7 +369,9 @@ body {
 
 #editor-panel select,
 #editor-panel button,
-#editor-panel input {
+#editor-panel input,
+#editor-panel label {
+  pointer-events: auto;
   font-size: 10px;
   font-family: inherit;
 }

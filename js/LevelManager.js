@@ -39,13 +39,13 @@ export function loadLevel(scene, idxOrDef) {
 
   for (const o of def.obstacles) {
     for (const [dx, dy, bw, bh] of obstacleBlocks(o)) {
-      const block = new Obstacle(scene, o.type, o.x + dx, o.y + dy, bw, bh);
+      const block = new Obstacle(scene, o.type, o.x + dx, o.y + dy, bw, bh, o.powerup || null);
       scene.obstacles.add(block);
     }
   }
 
   for (const b of def.balls) {
-    const ball = new Ball(scene, b.shape, b.size, b.x, b.y, b.vx, undefined);
+    const ball = new Ball(scene, b.shape, b.size, b.x, b.y, b.vx, b.vy, b.powerup || null);
     scene.balls.add(ball);
   }
 

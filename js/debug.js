@@ -18,7 +18,7 @@ export class Debug {
     this.spawnPanelBuilt = false;
 
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'F1' || e.code === 'Backquote') {
+      if (e.code === 'KeyD' && e.shiftKey) {
         this.enabled = !this.enabled;
         this.sync();
       } else if (e.code === 'KeyG' && this.enabled) {

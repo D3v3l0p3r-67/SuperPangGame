@@ -16,7 +16,7 @@ function hexColor(cssHex) {
 // how many shots it takes. Uses Phaser's plain Rectangle shape (not a
 // texture) so each block can be sized exactly with no stretching.
 export class Obstacle extends Phaser.GameObjects.Rectangle {
-  constructor(scene, type, x, y, w, h) {
+  constructor(scene, type, x, y, w, h, powerup = null) {
     const def = OBSTACLE_TYPES[type];
     super(scene, x + w / 2, y + h / 2, w, h, hexColor(def.color));
 
@@ -27,6 +27,11 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
     this.type = type;
     this.def = def;
     this.hitPoints = def.hitPoints;
+    // Set by the level editor (or level data) to guarantee a specific
+    // power-up drops when this block is destroyed -- see
+    // GameScene.onProjectileHitObstacle. Meaningless (never read) for an
+    // indestructible platform block, which never takes damage.
+    this.forcedPowerup = powerup;
 
     // Every obstacle -- breakable crate or unbreakable wall -- is the same
     // beveled-block wall texture (see BootScene.buildWallTexture), tiled

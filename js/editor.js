@@ -1,5 +1,5 @@
 import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
-import { BALL_SHAPES, BALL_SIZES, OBSTACLE_TYPE_KEYS } from './config.js';
+import { BALL_SHAPES, BALL_SIZES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES } from './config.js';
 import { Obstacle } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import * as storage from './storage.js';
@@ -28,9 +28,10 @@ function ballBrushes() {
 // actually CONTAINS it (floor, not round-to-nearest -- rounding to the
 // nearest grid line could snap up to half a cell away from the pointer,
 // so the highlighted cell wouldn't be the one the pointer is inside of),
-// clamped so a placed obstacle block always stays fully inside the
+// clamped so a placed obstacle/ball always stays fully inside the
 // playfield (never overlapping the border) -- same rule every
-// hand-authored level in levels.js already follows.
+// hand-authored level in levels.js already follows. Every editor object
+// (walls, crates, balls) is placed on this exact grid, no free placement.
 function snapObstacleOrigin(x, y) {
   const bt = OBSTACLE_BLOCK_SIZE;
   const gx = Math.floor((x - bt) / bt) * bt + bt;
@@ -38,6 +39,20 @@ function snapObstacleOrigin(x, y) {
   const maxX = VIRTUAL_W - bt * 2;
   const maxY = GROUND_Y - bt * 2;
   return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
+}
+
+// Initial velocity for a ball placed with a given (dirX, dirY) direction
+// toggle -- mirrors the default-direction logic in Ball.js's constructor,
+// just deterministic instead of random. Round (gravity) balls only move
+// horizontally at first (dirY is meaningless for them); hex balls split
+// their speed diagonally across both axes.
+function computeBallVelocity(shape, size, dirX, dirY) {
+  const shapeDef = BALL_SHAPES[shape];
+  const sizeDef = BALL_SIZES[Math.min(size, shapeDef.maxSize) - 1];
+  const speed = sizeDef.speed * (shapeDef.speedMultiplier || 1);
+  if (shapeDef.gravity) return { vx: speed * dirX, vy: 0 };
+  const component = speed * Math.SQRT1_2;
+  return { vx: component * dirX, vy: component * dirY };
 }
 
 // In-scene level editor: paint obstacle blocks and ball spawn points onto
@@ -50,7 +65,10 @@ export class Editor {
     this.scene = scene;
     this.brush = 'platform';
     this.blocks = new Map(); // "gx,gy" -> Obstacle instance
-    this.balls = []; // { shape, size, x, y, sprite }
+    this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
+    this.dirX = 1; // next-placed ball's horizontal direction: 1 = right, -1 = left
+    this.dirY = -1; // next-placed ball's vertical direction (hex only): -1 = up, 1 = down
+    this.selectedPowerup = null; // next-placed crate/ball's guaranteed powerup drop, if any
     this.panelBuilt = false;
     this.cursorGraphics = scene.add.graphics();
     this.cursorGraphics.setDepth(50);
@@ -76,6 +94,49 @@ export class Editor {
       this.brushButtons[brush.id] = btn;
     }
     this.panelEl.appendChild(brushRow);
+
+    // Options that apply to the NEXT placed ball/crate: initial direction
+    // (round balls only use the X one; hex balls use both) and a
+    // guaranteed powerup drop on pop/destroy. Chosen before placing, then
+    // baked into that specific instance -- see placeBall/placeBlock.
+    const optionsRow = document.createElement('div');
+    optionsRow.className = 'debug-btn-row';
+
+    this.dirXBtn = document.createElement('button');
+    this.dirXBtn.title = 'Ball direction (horizontal)';
+    this.dirXBtn.onclick = () => {
+      this.dirX *= -1;
+      this.updateOptionLabels();
+    };
+    optionsRow.appendChild(this.dirXBtn);
+
+    this.dirYBtn = document.createElement('button');
+    this.dirYBtn.title = 'Ball direction (vertical) -- hex balls only, round balls always start falling';
+    this.dirYBtn.onclick = () => {
+      this.dirY *= -1;
+      this.updateOptionLabels();
+    };
+    optionsRow.appendChild(this.dirYBtn);
+
+    const powerupLabel = document.createElement('label');
+    powerupLabel.textContent = 'On break/pop: ';
+    this.powerupSelect = document.createElement('select');
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = 'No powerup';
+    this.powerupSelect.appendChild(noneOpt);
+    for (const key of POWERUP_TYPE_KEYS) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = POWERUP_TYPES[key].label;
+      this.powerupSelect.appendChild(opt);
+    }
+    this.powerupSelect.onchange = () => { this.selectedPowerup = this.powerupSelect.value || null; };
+    powerupLabel.appendChild(this.powerupSelect);
+    optionsRow.appendChild(powerupLabel);
+
+    this.panelEl.appendChild(optionsRow);
+    this.updateOptionLabels();
 
     const actionRow = document.createElement('div');
     actionRow.className = 'debug-btn-row';
@@ -137,6 +198,11 @@ export class Editor {
     this.setBrush(this.brush);
   }
 
+  updateOptionLabels() {
+    if (this.dirXBtn) this.dirXBtn.textContent = `Dir X: ${this.dirX > 0 ? '→' : '←'}`;
+    if (this.dirYBtn) this.dirYBtn.textContent = `Dir Y: ${this.dirY < 0 ? '↑' : '↓'}`;
+  }
+
   setBrush(id) {
     this.brush = id;
     if (!this.brushButtons) return;
@@ -167,67 +233,92 @@ export class Editor {
     for (const o of def.obstacles || []) {
       if (!OBSTACLE_TYPE_KEYS.includes(o.type)) continue;
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) continue;
+      const powerup = POWERUP_TYPE_KEYS.includes(o.powerup) ? o.powerup : null;
       for (let dy = 0; dy < o.h; dy += OBSTACLE_BLOCK_SIZE) {
         for (let dx = 0; dx < o.w; dx += OBSTACLE_BLOCK_SIZE) {
-          this.placeBlock(o.x + dx, o.y + dy, o.type);
+          this.setBlock(o.x + dx, o.y + dy, o.type, powerup);
         }
       }
     }
     for (const b of def.balls || []) {
       if (!BALL_SHAPES[b.shape] || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-      this.placeBall(b.x, b.y, b.shape, b.size);
+      const snapped = snapObstacleOrigin(b.x, b.y);
+      const hasVelocity = Number.isFinite(b.vx) && Number.isFinite(b.vy);
+      const { vx, vy } = hasVelocity ? { vx: b.vx, vy: b.vy } : computeBallVelocity(b.shape, b.size, 1, -1);
+      const powerup = POWERUP_TYPE_KEYS.includes(b.powerup) ? b.powerup : null;
+      this.setBall(snapped, b.shape, b.size, vx, vy, powerup);
     }
   }
 
   clearAll() {
     for (const block of this.blocks.values()) block.destroy();
     this.blocks.clear();
-    for (const b of this.balls) b.sprite.destroy();
-    this.balls = [];
+    for (const ball of this.balls.values()) ball.sprite.destroy();
+    this.balls.clear();
   }
 
   keyFor(x, y) {
     return `${x},${y}`;
   }
 
-  placeBlock(x, y, type) {
+  // Low-level placement (grid cell already known) shared by the live
+  // pointer brush and loadDef() -- a wall/crate block always fully
+  // occupies its cell, so placing one evicts any ball sitting there.
+  setBlock(x, y, type, powerup) {
     const key = this.keyFor(x, y);
-    const existing = this.blocks.get(key);
-    if (existing) existing.destroy();
-    this.removeBallNear(x + OBSTACLE_BLOCK_SIZE / 2, y + OBSTACLE_BLOCK_SIZE / 2, OBSTACLE_BLOCK_SIZE / 2);
-    const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
+    const existingBlock = this.blocks.get(key);
+    if (existingBlock) existingBlock.destroy();
+    const existingBall = this.balls.get(key);
+    if (existingBall) {
+      existingBall.sprite.destroy();
+      this.balls.delete(key);
+    }
+    const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
     this.scene.obstacles.add(block);
     this.blocks.set(key, block);
   }
 
+  placeBlock(x, y, type) {
+    this.setBlock(x, y, type, this.selectedPowerup);
+  }
+
   eraseAt(x, y) {
     const key = this.keyFor(x, y);
-    const existing = this.blocks.get(key);
-    if (existing) {
-      existing.destroy();
+    const block = this.blocks.get(key);
+    if (block) {
+      block.destroy();
       this.blocks.delete(key);
     }
-    this.removeBallNear(x + OBSTACLE_BLOCK_SIZE / 2, y + OBSTACLE_BLOCK_SIZE / 2, OBSTACLE_BLOCK_SIZE);
-  }
-
-  removeBallNear(x, y, radius) {
-    const keep = [];
-    for (const b of this.balls) {
-      if (Math.hypot(b.x - x, b.y - y) <= radius) b.sprite.destroy();
-      else keep.push(b);
+    const ball = this.balls.get(key);
+    if (ball) {
+      ball.sprite.destroy();
+      this.balls.delete(key);
     }
-    this.balls = keep;
   }
 
-  placeBall(x, y, shape, size) {
-    this.removeBallNear(x, y, OBSTACLE_BLOCK_SIZE);
-    const snapped = snapObstacleOrigin(x, y);
-    if (this.blocks.has(this.keyFor(snapped.x, snapped.y))) return; // don't stack a ball on a wall block
-    const sprite = new Ball(this.scene, shape, size, x, y, 0, 0);
+  // Low-level placement (grid cell + exact velocity/powerup already
+  // known) shared by the live pointer brush and loadDef() -- loadDef
+  // passes each ball's own saved vx/vy/powerup directly so restoring a
+  // level reproduces it exactly, rather than reapplying whatever the
+  // editor's CURRENT direction/powerup toggles happen to be set to.
+  setBall(snapped, shape, size, vx, vy, powerup) {
+    const key = this.keyFor(snapped.x, snapped.y);
+    if (this.blocks.has(key)) return; // don't stack a ball on a wall block
+    const existing = this.balls.get(key);
+    if (existing) existing.sprite.destroy();
+    const cx = snapped.x + OBSTACLE_BLOCK_SIZE / 2;
+    const cy = snapped.y + OBSTACLE_BLOCK_SIZE / 2;
+    const sprite = new Ball(this.scene, shape, size, cx, cy, 0, 0);
     sprite.body.setAllowGravity(false);
     sprite.body.setVelocity(0, 0);
     this.scene.balls.add(sprite);
-    this.balls.push({ shape, size, x, y, sprite });
+    this.balls.set(key, { shape, size, x: cx, y: cy, vx, vy, powerup, sprite });
+  }
+
+  placeBall(x, y, shape, size) {
+    const snapped = snapObstacleOrigin(x, y);
+    const { vx, vy } = computeBallVelocity(shape, size, this.dirX, this.dirY);
+    this.setBall(snapped, shape, size, vx, vy, this.selectedPowerup);
   }
 
   // isDown is true only for the initial 'pointerdown' call, false for
@@ -242,7 +333,6 @@ export class Editor {
 
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;
-    this.hoverPointer = { x, y };
 
     if (!pointer.isDown) return;
     const isBallBrush = this.brush.startsWith('ball-');
@@ -262,18 +352,9 @@ export class Editor {
     this.cursorGraphics.clear();
     if (this.scene.state !== GAME_STATES.EDITOR || !this.hoverCell) return;
     this.cursorGraphics.lineStyle(1, 0xffd23f, 0.9);
-    if (this.brush.startsWith('ball-')) {
-      // A ball doesn't snap to the grid -- it spawns at the exact pointer
-      // position (see placeBall) -- so the cursor must track the raw
-      // pointer, not the block-grid cell, or it would visibly disagree
-      // with where the ball actually lands.
-      const [, , sizeStr] = this.brush.split('-');
-      const size = Math.min(parseInt(sizeStr, 10), BALL_SIZES.length);
-      const radius = BALL_SIZES[size - 1].radius;
-      this.cursorGraphics.strokeCircle(this.hoverPointer.x, this.hoverPointer.y, radius);
-    } else {
-      this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
-    }
+    // Every brush -- ball included -- snaps to the same grid cell, so the
+    // highlighted cell is always exactly where the next object lands.
+    this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
     if (this.statusEl) {
       // A transient message (e.g. an import error) takes over the status
       // line for a few seconds instead of being overwritten on the very
@@ -282,7 +363,7 @@ export class Editor {
         this.statusEl.textContent = this.statusMessage;
       } else {
         this.statusMessage = null;
-        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.length}`;
+        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.size}`;
       }
     }
   }
@@ -295,9 +376,15 @@ export class Editor {
   buildDef() {
     const obstacles = [...this.blocks.entries()].map(([key, block]) => {
       const [x, y] = key.split(',').map(Number);
-      return { type: block.type, x, y, w: OBSTACLE_BLOCK_SIZE, h: OBSTACLE_BLOCK_SIZE };
+      const entry = { type: block.type, x, y, w: OBSTACLE_BLOCK_SIZE, h: OBSTACLE_BLOCK_SIZE };
+      if (block.forcedPowerup) entry.powerup = block.forcedPowerup;
+      return entry;
     });
-    const balls = this.balls.map((b) => ({ shape: b.shape, size: b.size, x: b.x, y: b.y, vx: undefined }));
+    const balls = [...this.balls.values()].map((b) => {
+      const entry = { shape: b.shape, size: b.size, x: b.x, y: b.y, vx: b.vx, vy: b.vy };
+      if (b.powerup) entry.powerup = b.powerup;
+      return entry;
+    });
     const timeLimitSec = Math.max(10, Math.min(300, parseInt(this.timeInput.value, 10) || 60));
     return { id: 'custom', name: 'Custom Level', timeLimitSec, obstacles, balls };
   }
@@ -347,7 +434,7 @@ export class Editor {
   }
 
   play() {
-    if (this.balls.length === 0) return; // nothing to pop, refuse to start
+    if (this.balls.size === 0) return; // nothing to pop, refuse to start
     this.save();
     const def = this.buildDef();
     this.disable();
