@@ -13,8 +13,8 @@
 export const PLAYER_CONFIG = {
   spriteWidth: 16,
   spriteHeight: 32,
-  hitboxWidth: 12,
-  hitboxHeight: 24,
+  hitboxWidth: 10,
+  hitboxHeight: 22,
   shieldSize: 32,
   speed: 90,
   startLives: 3,

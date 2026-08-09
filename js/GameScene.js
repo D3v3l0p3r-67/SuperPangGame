@@ -1,4 +1,4 @@
-import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
@@ -62,7 +62,15 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
     this.drawBorder();
 
-    this.physics.world.setBounds(0, 0, VIRTUAL_W, GROUND_Y);
+    // Inset by the border's thickness (OBSTACLE_BLOCK_SIZE) on top/left/
+    // right so a ball/player actually bounces off the border's visible
+    // inner face instead of the (invisible) canvas edge underneath it --
+    // without this the ball would visually travel OBSTACLE_BLOCK_SIZE px
+    // into the border tiles before bouncing. The bottom is unaffected:
+    // the bottom border sits just past GROUND_Y already (see drawBorder),
+    // so GROUND_Y is already exactly the border's inner face there.
+    const bt = OBSTACLE_BLOCK_SIZE;
+    this.physics.world.setBounds(bt, bt, VIRTUAL_W - bt * 2, GROUND_Y - bt);
     this.physics.world.on('worldbounds', this.onWorldBounds, this);
 
     this.obstacles = this.physics.add.staticGroup();
@@ -110,9 +118,16 @@ export class GameScene extends Phaser.Scene {
     g.fillGradientStyle(hexColor(COLORS.bgTop), hexColor(COLORS.bgTop), hexColor(COLORS.bgBottom), hexColor(COLORS.bgBottom), 1);
     g.fillRect(0, 0, VIRTUAL_W, GROUND_Y);
     g.fillStyle(hexColor(COLORS.ground), 1);
-    g.fillRect(0, GROUND_Y, VIRTUAL_W, this.game.config.height - GROUND_Y);
+    g.fillRect(0, GROUND_Y, VIRTUAL_W, PLAYFIELD_H - GROUND_Y);
     g.fillStyle(hexColor(COLORS.groundEdge), 1);
     g.fillRect(0, GROUND_Y, VIRTUAL_W, 2);
+    // Dedicated HUD bar below the bordered playfield (see constants.js
+    // HUD_H) -- the DOM #hud overlay is positioned to exactly cover this
+    // same strip, see style.css.
+    g.fillStyle(hexColor(COLORS.hudBg), 1);
+    g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, this.game.config.height - PLAYFIELD_H);
+    g.fillStyle(hexColor(COLORS.accent), 1);
+    g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, 2);
     g.setDepth(0);
   }
 

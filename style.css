@@ -72,14 +72,20 @@ body {
   display: none !important;
 }
 
-/* HUD */
+/* HUD -- lives in the dedicated bar below the bordered playfield (see
+   constants.js HUD_H/PLAYFIELD_H and GameScene.drawBackground, which
+   paints the matching dark strip on the canvas itself). The percentages
+   below are PLAYFIELD_H/VIRTUAL_H and HUD_H/VIRTUAL_H -- keep them in
+   sync if those constants ever change. */
 #hud {
   position: absolute;
-  top: 0.5vmin;
+  top: 84.848%;
+  height: 15.152%;
   left: 0;
   right: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
   padding: 0 1.5vmin;
   text-shadow: 2px 2px 0 #000;
@@ -251,10 +257,12 @@ body {
   color: var(--accent);
 }
 
-/* Touch controls */
+/* Touch controls -- anchored just above the HUD bar (see #hud) rather
+   than the bottom of the whole canvas, since that bottom strip is now
+   the HUD. */
 #touch-controls {
   position: absolute;
-  bottom: 2vmin;
+  bottom: calc(15.152% + 1.5vmin);
   left: 0;
   right: 0;
   display: flex;
