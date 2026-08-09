@@ -7,13 +7,21 @@ import { VIRTUAL_W, GROUND_Y } from './constants.js';
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene) {
     const x = VIRTUAL_W / 2;
-    const y = GROUND_Y - PLAYER_CONFIG.height / 2;
+    const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
     super(scene, x, y, 'player-idle');
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.body.setSize(PLAYER_CONFIG.width, PLAYER_CONFIG.height);
+    // Hitbox is smaller than the sprite and bottom-anchored: centered
+    // horizontally (offsetX), flush with the sprite's bottom edge/feet
+    // (offsetY = spriteHeight - hitboxHeight) rather than the sprite's
+    // own vertical center.
+    this.body.setSize(PLAYER_CONFIG.hitboxWidth, PLAYER_CONFIG.hitboxHeight);
+    this.body.setOffset(
+      (PLAYER_CONFIG.spriteWidth - PLAYER_CONFIG.hitboxWidth) / 2,
+      PLAYER_CONFIG.spriteHeight - PLAYER_CONFIG.hitboxHeight
+    );
     this.body.setAllowGravity(false);
     this.body.setCollideWorldBounds(true);
 
@@ -25,7 +33,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.shielded = false;
     this.invulnTimer = 0;
 
-    this.shieldOutline = scene.add.rectangle(x, y, PLAYER_CONFIG.width + 2, PLAYER_CONFIG.height + 2);
+    this.shieldOutline = scene.add.rectangle(x, y, PLAYER_CONFIG.shieldSize, PLAYER_CONFIG.shieldSize);
     this.shieldOutline.setStrokeStyle(1, 0xffd23f);
     this.shieldOutline.setFillStyle();
     this.shieldOutline.setVisible(false);
@@ -38,7 +46,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   reset() {
-    this.setPosition(VIRTUAL_W / 2, GROUND_Y - PLAYER_CONFIG.height / 2);
+    this.setPosition(VIRTUAL_W / 2, GROUND_Y - PLAYER_CONFIG.spriteHeight / 2);
     this.body.setVelocity(0, 0);
     this.speedMultiplier = 1;
     this.shielded = false;

@@ -4,9 +4,18 @@
 // in game.js's core loop, physics.js, or entities.js, which all iterate
 // these registries generically.
 
+// spriteWidth/Height is the logical size the player sprite is drawn/
+// positioned at (matches the PLAYER_IDLE/WALK pixel grids in sprites.js);
+// hitboxWidth/Height is the smaller Arcade collision box, centered
+// horizontally and anchored to the bottom of that sprite (see Player.js)
+// -- every animation frame shares this one hitbox. P1 and P2 (when added)
+// use the same dimensions.
 export const PLAYER_CONFIG = {
-  width: 12,
-  height: 18,
+  spriteWidth: 16,
+  spriteHeight: 32,
+  hitboxWidth: 12,
+  hitboxHeight: 24,
+  shieldSize: 32,
   speed: 90,
   startLives: 3,
   invulnMs: 1500,

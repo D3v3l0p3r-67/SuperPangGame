@@ -158,8 +158,11 @@ export class Debug {
   drawCollisionBounds(graphics) {
     const g = this.scene;
 
+    // body.x/y are the body's actual top-left world position, already
+    // accounting for its offset within the sprite (see Player.js) -- not
+    // simply centered on the sprite's x/y anymore.
     graphics.lineStyle(1, 0x00ff00, 1);
-    graphics.strokeRect(g.player.x - g.player.body.width / 2, g.player.y - g.player.body.height / 2, g.player.body.width, g.player.body.height);
+    graphics.strokeRect(g.player.body.x, g.player.body.y, g.player.body.width, g.player.body.height);
 
     graphics.lineStyle(1, 0xff00ff, 1);
     for (const ball of g.balls.getChildren()) {

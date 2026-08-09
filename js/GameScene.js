@@ -324,7 +324,7 @@ export class GameScene extends Phaser.Scene {
     const base = WEAPON_TYPES.harpoon;
     const width = base.width * this.weaponState.widthMultiplier;
     const tipX = this.player.x;
-    const tipY = this.player.y - PLAYER_CONFIG.height / 2;
+    const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
     const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce);
     this.projectiles.add(proj);
     this.audio.shoot();
