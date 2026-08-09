@@ -48,7 +48,7 @@ export const LEVELS = [
     name: 'Back Alley',
     timeLimitSec: 90,
     obstacles: [
-      o('platform', 0, GROUND_Y - 64, 64, 8),
+      o('platform', 8, GROUND_Y - 64, 64, 8),
       o('platform', VIRTUAL_W - 96, GROUND_Y - 64, 64, 8),
     ],
     balls: [b('round', 3, 60, 30, 45), b('round', 3, 192, 25, -35), b('round', 3, 324, 30, 40)],
@@ -58,7 +58,7 @@ export const LEVELS = [
     name: 'Market Square',
     timeLimitSec: 90,
     obstacles: [
-      o('platform', 0, GROUND_Y - 64, 56, 8),
+      o('platform', 8, GROUND_Y - 64, 56, 8),
       o('platform', VIRTUAL_W - 84, GROUND_Y - 64, 56, 8),
       o('platform', VIRTUAL_W / 2 - 36, GROUND_Y - 104, 48, 8),
     ],
@@ -69,7 +69,7 @@ export const LEVELS = [
     name: 'Wind Tunnel',
     timeLimitSec: 85,
     obstacles: [
-      o('platform', 0, GROUND_Y - 64, 56, 8),
+      o('platform', 8, GROUND_Y - 64, 56, 8),
       o('platform', VIRTUAL_W - 84, GROUND_Y - 64, 56, 8),
       o('crate', VIRTUAL_W / 2 - 18, GROUND_Y - 44, 24, 16),
     ],
@@ -153,7 +153,7 @@ export const LEVELS = [
       o('platform', 24, GROUND_Y - 124, 44, 8),
       o('platform', VIRTUAL_W - 90, GROUND_Y - 124, 44, 8),
       o('platform', VIRTUAL_W / 2 - 33, GROUND_Y - 164, 44, 8),
-      o('crate', 6, GROUND_Y - 44, 18, 16),
+      o('crate', 8, GROUND_Y - 44, 18, 16),
       o('crate', VIRTUAL_W - 33, GROUND_Y - 44, 18, 16),
     ],
     balls: [b('round', 5, 45, 20, 40), b('hex', 3, 339, 20, -45), b('round', 3, 135, 55, -35), b('hex', 3, 249, 55, 40)],

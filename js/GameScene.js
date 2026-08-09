@@ -396,12 +396,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnBurst(x, y, colorHex, count, small = false) {
+    // Kept tight and short-lived on purpose: a wide/fast/long-lived burst
+    // visibly drifts away from the hit point before it fades, which reads
+    // as "the effect isn't where the ball was" even though it started
+    // exactly there.
     const emitter = this.add.particles(x, y, 'particle', {
-      lifespan: small ? 300 : 400,
-      speed: small ? { min: 15, max: 40 } : { min: 30, max: 90 },
+      lifespan: small ? 220 : 280,
+      speed: small ? { min: 10, max: 25 } : { min: 15, max: 45 },
       scale: { start: small ? 1.5 : 2, end: 0 },
       alpha: { start: 1, end: 0 },
-      gravityY: 140,
+      gravityY: 60,
       tint: hexColor(colorHex),
       quantity: count,
       emitting: false,
@@ -431,10 +435,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   onBallHitObstacle(ballGO, obstacleGO) {
+    // Vertical and horizontal contact are independent, not else-if-chained
+    // together: a corner hit can have both touching.down (or up) AND
+    // touching.left (or right) true at once. Chaining all four as one
+    // else-if only fired the vertical bounce and silently skipped the
+    // horizontal one -- since Arcade Physics (bounce 0, see Ball.js)
+    // already zeroed vx as part of resolving that same collision, the
+    // ball was left drifting with zero horizontal speed, bouncing
+    // straight up and down like it was stuck on a rail.
     const body = ballGO.body;
     if (body.touching.down) ballGO.landOnTop();
     else if (body.touching.up) ballGO.bounceOffBottom();
-    else if (body.touching.left) ballGO.bounceOffLeft();
+    if (body.touching.left) ballGO.bounceOffLeft();
     else if (body.touching.right) ballGO.bounceOffRight();
   }
 

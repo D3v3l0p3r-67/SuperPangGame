@@ -115,7 +115,7 @@ export const OBSTACLE_TYPES = {
 export const OBSTACLE_TYPE_KEYS = Object.keys(OBSTACLE_TYPES);
 
 export const POWERUP_DROP_CHANCE = 0.14;
-export const POWERUP_FALL_SPEED = 26;
+export const POWERUP_FALL_SPEED = 52;
 export const POWERUP_TTL_MS = 7000;
 
 // Each power-up owns its own apply()/revert() so the effect is fully
