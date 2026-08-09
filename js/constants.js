@@ -4,10 +4,8 @@
 export const VIRTUAL_W = 256;
 export const VIRTUAL_H = 224;
 
-export const STEP_MS = 1000 / 60;
-export const MAX_FRAME_MS = 250;
-
-export const GRAVITY = 260; // px/s^2 in virtual units, shared by all falling/bouncing entities
+export const GROUND_MARGIN = 10;
+export const GROUND_Y = VIRTUAL_H - GROUND_MARGIN;
 
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;
@@ -17,8 +15,6 @@ export const COLORS = {
   bgBottom: '#1c1042',
   ground: '#3a2d5c',
   groundEdge: '#5a4a8a',
-  platform: '#4a3f6b',
-  platformEdge: '#6d5fa0',
   text: '#f4f1de',
   textShadow: '#000000',
   hud: '#f4f1de',
@@ -32,6 +28,7 @@ export const GAME_STATES = Object.freeze({
   MENU: 'MENU',
   LEVEL_INTRO: 'LEVEL_INTRO',
   PLAYING: 'PLAYING',
+  HIT_FREEZE: 'HIT_FREEZE',
   PAUSED: 'PAUSED',
   LEVEL_CLEAR: 'LEVEL_CLEAR',
   GAME_OVER: 'GAME_OVER',

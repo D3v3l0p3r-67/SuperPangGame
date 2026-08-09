@@ -45,7 +45,9 @@ body {
   height: 100%;
 }
 
-canvas#game-canvas {
+/* Phaser injects its own <canvas> into #game-container (see GameConfig.js
+   parent + scale.mode: FIT, which handles responsive sizing itself). */
+#game-container canvas {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
@@ -77,12 +79,36 @@ canvas#game-canvas {
   left: 0;
   right: 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 2px;
   padding: 0 1.5vmin;
-  font-size: clamp(10px, 2.4vmin, 18px);
   text-shadow: 2px 2px 0 #000;
   pointer-events: none;
   letter-spacing: 1px;
+}
+
+.hud-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5vmin;
+}
+
+.hud-row-primary {
+  font-size: clamp(10px, 2.4vmin, 18px);
+  color: var(--accent, #ffd23f);
+}
+
+.hud-row-secondary {
+  font-size: clamp(8px, 1.8vmin, 14px);
+  opacity: 0.85;
+}
+
+#hud-time {
+  font-variant-numeric: tabular-nums;
+}
+
+#hud-time.hud-time-low {
+  color: var(--danger, #e94560);
 }
 
 #powerup-indicators {
@@ -117,6 +143,12 @@ canvas#game-canvas {
   padding: 4vmin 3vmin;
 }
 
+/* Countdown screen: no dimming overlay, so the level is fully visible
+   (frozen -- see GameScene.startLevelIntro) behind the "3, 2, 1, GO!" text. */
+#screen-level-intro {
+  background: transparent;
+}
+
 .screen h1 {
   font-size: clamp(22px, 7vmin, 52px);
   margin: 0 0 2vmin;
@@ -135,6 +167,13 @@ canvas#game-canvas {
 .screen p {
   font-size: clamp(11px, 2.4vmin, 18px);
   margin: 0;
+}
+
+.countdown {
+  font-size: clamp(30px, 9vmin, 64px) !important;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #000, 0 0 18px rgba(255, 210, 63, 0.4);
+  margin-top: 1.5vmin !important;
 }
 
 .screen .hint {
@@ -282,12 +321,28 @@ canvas#game-canvas {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  max-width: 44vw;
 }
 
 #debug-spawn-panel select,
-#debug-spawn-panel button {
+#debug-spawn-panel button,
+#debug-spawn-panel input {
   font-size: 10px;
   font-family: inherit;
+}
+
+.debug-section-label {
+  color: #ffd23f;
+  font-weight: bold;
+  margin-top: 4px;
+  border-top: 1px solid #0f0;
+  padding-top: 3px;
+}
+
+.debug-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
 @media (pointer: coarse) {

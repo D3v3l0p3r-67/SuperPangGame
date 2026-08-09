@@ -1,8 +1,8 @@
 // Hand-authored pixel-grid sprites, defined as plain JS string arrays (no
-// binary image assets at all) and pre-baked once onto small offscreen
-// canvases, which are then blitted every frame.
+// binary image assets at all). BootScene bakes these onto small offscreen
+// canvases and registers them with Phaser's texture manager once at boot.
 
-const PLAYER_PALETTE = {
+export const PLAYER_PALETTE = {
   '.': null,
   O: '#12102a',
   H: '#5b3a29',
@@ -13,7 +13,7 @@ const PLAYER_PALETTE = {
   W: '#12102a',
 };
 
-const PLAYER_IDLE = [
+export const PLAYER_IDLE = [
   '..OOOOOO....',
   '..OHHHHO....',
   '.OHHHHHHO...',
@@ -34,7 +34,7 @@ const PLAYER_IDLE = [
   '..OO..OO....',
 ];
 
-const PLAYER_WALK = [
+export const PLAYER_WALK = [
   '..OOOOOO....',
   '..OHHHHO....',
   '.OHHHHHHO...',
@@ -55,7 +55,7 @@ const PLAYER_WALK = [
   '..O....OO...',
 ];
 
-const GLYPHS = {
+export const GLYPHS = {
   R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
   W: ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
   S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
@@ -65,13 +65,13 @@ const GLYPHS = {
   2: ['01110', '10001', '00010', '00100', '01000', '10000', '11111'],
 };
 
-function buildSprite(rows, palette) {
+export function buildPixelCanvas(rows, palette) {
   const width = rows[0].length;
   const height = rows.length;
-  const off = document.createElement('canvas');
-  off.width = width;
-  off.height = height;
-  const c = off.getContext('2d');
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const c = canvas.getContext('2d');
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const color = palette[rows[y][x]];
@@ -81,32 +81,15 @@ function buildSprite(rows, palette) {
       }
     }
   }
-  return off;
+  return canvas;
 }
 
-let playerIdleSprite = null;
-let playerWalkSprite = null;
-
-export function getPlayerSprite(walkFrame, isMoving) {
-  if (!isMoving) {
-    if (!playerIdleSprite) playerIdleSprite = buildSprite(PLAYER_IDLE, PLAYER_PALETTE);
-    return playerIdleSprite;
-  }
-  if (!playerWalkSprite) playerWalkSprite = buildSprite(PLAYER_WALK, PLAYER_PALETTE);
-  return walkFrame === 0 ? (playerIdleSprite ?? (playerIdleSprite = buildSprite(PLAYER_IDLE, PLAYER_PALETTE))) : playerWalkSprite;
-}
-
-const powerupIconCache = new Map();
-
-export function getPowerupIconSprite(type, glyphChar, color) {
-  let sprite = powerupIconCache.get(type);
-  if (sprite) return sprite;
-
+export function buildPowerupCanvas(glyphChar, color) {
   const size = 9;
-  const off = document.createElement('canvas');
-  off.width = size;
-  off.height = size;
-  const c = off.getContext('2d');
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const c = canvas.getContext('2d');
 
   c.fillStyle = '#12102a';
   c.beginPath();
@@ -128,6 +111,5 @@ export function getPowerupIconSprite(type, glyphChar, color) {
     }
   });
 
-  powerupIconCache.set(type, off);
-  return off;
+  return canvas;
 }

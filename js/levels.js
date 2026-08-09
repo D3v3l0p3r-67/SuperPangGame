@@ -1,174 +1,155 @@
 import { VIRTUAL_W } from './constants.js';
 
-function b(tier, kind, x, y, vx) {
-  return { tier, kind, x, y, vx };
+function b(shape, size, x, y, vx) {
+  return { shape, size, x, y, vx };
+}
+
+function o(type, x, y, w, h) {
+  return { type, x, y, w, h };
 }
 
 // Data-driven level list: adding level 11+ means pushing a new object here,
-// nothing in game.js needs to change.
+// nothing in game.js needs to change. Obstacle `type` keys into
+// OBSTACLE_TYPES in config.js ('platform' = indestructible ledge, 'crate'
+// = destroyed by one shot).
 export const LEVELS = [
   {
     id: 1,
     name: 'Rooftop Start',
     timeLimitSec: 90,
-    platforms: [
-      { x: 0, y: 150, w: 64, h: 8 },
-      { x: VIRTUAL_W - 64, y: 150, w: 64, h: 8 },
+    // Deliberately obstacle-free: 8 smallest/slowest balls, 4 moving left
+    // and 4 moving right. Left-movers sit on the left half heading further
+    // left (toward the left wall); right-movers sit on the right half
+    // heading further right (toward the right wall) -- so every ball's
+    // very first move is *away* from the player's center spawn, and each
+    // one bounces off a side wall at least once before its path could
+    // ever cross the player. Gives a moment to get oriented while still
+    // keeping the level busy.
+    obstacles: [],
+    balls: [
+      b('round', 1, 20, 40, -50),
+      b('round', 1, 45, 60, -50),
+      b('round', 1, 70, 45, -50),
+      b('round', 1, 95, 65, -50),
+      b('round', 1, 161, 65, 50),
+      b('round', 1, 186, 45, 50),
+      b('round', 1, 211, 60, 50),
+      b('round', 1, 236, 40, 50),
     ],
-    balloons: [b(0, 'normal', 60, 30, 40), b(0, 'normal', 196, 30, -40)],
   },
   {
     id: 2,
     name: 'Back Alley',
     timeLimitSec: 90,
-    platforms: [
-      { x: 0, y: 150, w: 64, h: 8 },
-      { x: VIRTUAL_W - 64, y: 150, w: 64, h: 8 },
+    obstacles: [
+      o('platform', 0, 150, 64, 8),
+      o('platform', VIRTUAL_W - 64, 150, 64, 8),
     ],
-    balloons: [b(0, 'normal', 40, 30, 45), b(0, 'normal', 128, 25, -35), b(0, 'normal', 216, 30, 40)],
+    balls: [b('round', 3, 40, 30, 45), b('round', 3, 128, 25, -35), b('round', 3, 216, 30, 40)],
   },
   {
     id: 3,
     name: 'Market Square',
-    timeLimitSec: 85,
-    platforms: [
-      { x: 0, y: 150, w: 56, h: 8 },
-      { x: VIRTUAL_W - 56, y: 150, w: 56, h: 8 },
-      { x: VIRTUAL_W / 2 - 24, y: 110, w: 48, h: 8 },
+    timeLimitSec: 90,
+    obstacles: [
+      o('platform', 0, 150, 56, 8),
+      o('platform', VIRTUAL_W - 56, 150, 56, 8),
+      o('platform', VIRTUAL_W / 2 - 24, 110, 48, 8),
     ],
-    balloons: [
-      b(0, 'normal', 30, 25, 45),
-      b(0, 'normal', 128, 20, -30),
-      b(0, 'normal', 226, 25, 40),
-      b(1, 'normal', 80, 60, -50),
-    ],
+    balls: [b('round', 3, 30, 25, 45), b('round', 3, 226, 25, 40), b('hex', 2, 128, 60, -50)],
   },
   {
     id: 4,
     name: 'Wind Tunnel',
     timeLimitSec: 85,
-    platforms: [
-      { x: 0, y: 150, w: 56, h: 8 },
-      { x: VIRTUAL_W - 56, y: 150, w: 56, h: 8 },
-      { x: VIRTUAL_W / 2 - 24, y: 110, w: 48, h: 8 },
+    obstacles: [
+      o('platform', 0, 150, 56, 8),
+      o('platform', VIRTUAL_W - 56, 150, 56, 8),
+      o('crate', VIRTUAL_W / 2 - 12, 170, 24, 16),
     ],
-    balloons: [
-      b(0, 'zigzag', 40, 25, 45),
-      b(0, 'normal', 128, 20, -35),
-      b(0, 'zigzag', 216, 25, 40),
-      b(1, 'normal', 70, 60, -50),
-    ],
+    balls: [b('round', 4, 128, 25, -35), b('hex', 2, 40, 60, 50), b('hex', 2, 216, 60, -50)],
   },
   {
     id: 5,
     name: 'Clocktower',
-    timeLimitSec: 80,
-    platforms: [
-      { x: 10, y: 170, w: 60, h: 8 },
-      { x: VIRTUAL_W - 70, y: 170, w: 60, h: 8 },
-      { x: VIRTUAL_W / 2 - 30, y: 120, w: 60, h: 8 },
+    timeLimitSec: 85,
+    obstacles: [
+      o('platform', 10, 170, 60, 8),
+      o('platform', VIRTUAL_W - 70, 170, 60, 8),
+      o('platform', VIRTUAL_W / 2 - 30, 120, 60, 8),
     ],
-    balloons: [
-      b(0, 'normal', 30, 25, 45),
-      b(0, 'zigzag', 128, 20, -40),
-      b(0, 'normal', 226, 25, 40),
-      b(1, 'zigzag', 80, 60, -45),
-      b(1, 'normal', 176, 60, 45),
-    ],
+    balls: [b('round', 3, 30, 25, 45), b('round', 3, 226, 25, 40), b('hex', 3, 80, 60, -45), b('hex', 3, 176, 60, 45)],
   },
   {
     id: 6,
     name: 'Iron Foundry',
     timeLimitSec: 80,
-    platforms: [
-      { x: 10, y: 170, w: 60, h: 8 },
-      { x: VIRTUAL_W - 70, y: 170, w: 60, h: 8 },
-      { x: VIRTUAL_W / 2 - 30, y: 120, w: 60, h: 8 },
-      { x: 20, y: 80, w: 50, h: 8 },
-      { x: VIRTUAL_W - 70, y: 80, w: 50, h: 8 },
+    obstacles: [
+      o('platform', 10, 170, 60, 8),
+      o('platform', VIRTUAL_W - 70, 170, 60, 8),
+      o('platform', VIRTUAL_W / 2 - 30, 120, 60, 8),
+      o('platform', 20, 80, 50, 8),
+      o('platform', VIRTUAL_W - 70, 80, 50, 8),
+      o('crate', VIRTUAL_W / 2 - 12, 170, 24, 16),
     ],
-    balloons: [
-      b(0, 'heavy', 40, 25, 35),
-      b(0, 'normal', 128, 20, -40),
-      b(0, 'zigzag', 216, 25, 40),
-      b(1, 'heavy', 80, 55, -40),
-    ],
+    balls: [b('round', 4, 40, 25, 35), b('round', 4, 216, 25, -40), b('hex', 3, 128, 55, 40)],
   },
   {
     id: 7,
     name: 'Sky Bridge',
-    timeLimitSec: 75,
-    platforms: [
-      { x: 10, y: 170, w: 60, h: 8 },
-      { x: VIRTUAL_W - 70, y: 170, w: 60, h: 8 },
-      { x: VIRTUAL_W / 2 - 30, y: 120, w: 60, h: 8 },
-      { x: 20, y: 80, w: 50, h: 8 },
-      { x: VIRTUAL_W - 70, y: 80, w: 50, h: 8 },
+    timeLimitSec: 80,
+    obstacles: [
+      o('platform', 10, 170, 60, 8),
+      o('platform', VIRTUAL_W - 70, 170, 60, 8),
+      o('platform', VIRTUAL_W / 2 - 30, 120, 60, 8),
+      o('platform', 20, 80, 50, 8),
+      o('platform', VIRTUAL_W - 70, 80, 50, 8),
     ],
-    balloons: [
-      b(0, 'zigzag', 30, 25, 45),
-      b(0, 'heavy', 128, 20, -30),
-      b(0, 'normal', 226, 25, 40),
-      b(1, 'zigzag', 70, 55, -45),
-      b(1, 'heavy', 186, 55, 40),
-    ],
+    balls: [b('round', 4, 128, 20, -30), b('hex', 4, 70, 55, 45), b('round', 3, 216, 25, 40)],
   },
   {
     id: 8,
     name: 'Storm Deck',
     timeLimitSec: 75,
-    platforms: [
-      { x: 10, y: 170, w: 56, h: 8 },
-      { x: VIRTUAL_W - 66, y: 170, w: 56, h: 8 },
-      { x: VIRTUAL_W / 2 - 28, y: 125, w: 56, h: 8 },
-      { x: 16, y: 80, w: 46, h: 8 },
-      { x: VIRTUAL_W - 62, y: 80, w: 46, h: 8 },
+    obstacles: [
+      o('platform', 10, 170, 56, 8),
+      o('platform', VIRTUAL_W - 66, 170, 56, 8),
+      o('platform', VIRTUAL_W / 2 - 28, 125, 56, 8),
+      o('platform', 16, 80, 46, 8),
+      o('platform', VIRTUAL_W - 62, 80, 46, 8),
+      o('crate', 30, 170, 20, 16),
+      o('crate', VIRTUAL_W - 50, 170, 20, 16),
     ],
-    balloons: [
-      b(0, 'splitter3', 128, 20, 30),
-      b(0, 'normal', 40, 25, 45),
-      b(0, 'zigzag', 216, 25, -40),
-      b(1, 'heavy', 80, 55, -35),
-    ],
+    balls: [b('round', 5, 128, 20, 30), b('hex', 3, 40, 55, 45), b('hex', 3, 216, 55, -40)],
   },
   {
     id: 9,
     name: 'Lightning Spire',
-    timeLimitSec: 70,
-    platforms: [
-      { x: 10, y: 170, w: 56, h: 8 },
-      { x: VIRTUAL_W - 66, y: 170, w: 56, h: 8 },
-      { x: VIRTUAL_W / 2 - 28, y: 125, w: 56, h: 8 },
-      { x: 16, y: 80, w: 46, h: 8 },
-      { x: VIRTUAL_W - 62, y: 80, w: 46, h: 8 },
+    timeLimitSec: 75,
+    obstacles: [
+      o('platform', 10, 170, 56, 8),
+      o('platform', VIRTUAL_W - 66, 170, 56, 8),
+      o('platform', VIRTUAL_W / 2 - 28, 125, 56, 8),
+      o('platform', 16, 80, 46, 8),
+      o('platform', VIRTUAL_W - 62, 80, 46, 8),
+      o('crate', VIRTUAL_W / 2 - 12, 170, 24, 16),
     ],
-    balloons: [
-      b(0, 'splitter3', 40, 25, 40),
-      b(0, 'zigzag', 128, 20, -35),
-      b(0, 'heavy', 216, 25, 45),
-      b(1, 'splitter3', 80, 55, -40),
-      b(1, 'normal', 176, 55, 40),
-    ],
+    balls: [b('round', 4, 40, 25, 40), b('hex', 4, 216, 25, -40), b('round', 3, 128, 55, -35)],
   },
   {
     id: 10,
     name: 'Final Ascent',
-    timeLimitSec: 65,
-    platforms: [
-      { x: 10, y: 170, w: 50, h: 8 },
-      { x: VIRTUAL_W - 60, y: 170, w: 50, h: 8 },
-      { x: VIRTUAL_W / 2 - 25, y: 130, w: 50, h: 8 },
-      { x: 16, y: 90, w: 44, h: 8 },
-      { x: VIRTUAL_W - 60, y: 90, w: 44, h: 8 },
-      { x: VIRTUAL_W / 2 - 22, y: 50, w: 44, h: 8 },
+    timeLimitSec: 70,
+    obstacles: [
+      o('platform', 10, 170, 50, 8),
+      o('platform', VIRTUAL_W - 60, 170, 50, 8),
+      o('platform', VIRTUAL_W / 2 - 25, 130, 50, 8),
+      o('platform', 16, 90, 44, 8),
+      o('platform', VIRTUAL_W - 60, 90, 44, 8),
+      o('platform', VIRTUAL_W / 2 - 22, 50, 44, 8),
+      o('crate', 4, 170, 18, 16),
+      o('crate', VIRTUAL_W - 22, 170, 18, 16),
     ],
-    balloons: [
-      b(0, 'splitter3', 30, 20, 40),
-      b(0, 'heavy', 90, 20, -35),
-      b(0, 'zigzag', 166, 20, 40),
-      b(0, 'splitter3', 226, 20, -45),
-      b(1, 'heavy', 60, 55, 45),
-      b(1, 'zigzag', 196, 55, -45),
-    ],
+    balls: [b('round', 5, 30, 20, 40), b('hex', 5, 226, 20, -45), b('round', 3, 90, 55, -35), b('hex', 3, 166, 55, 40)],
   },
 ];

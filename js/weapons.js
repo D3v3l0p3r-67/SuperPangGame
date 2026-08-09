@@ -1,5 +1,4 @@
 import { WEAPON_TYPES, POWERUP_TYPES } from './config.js';
-import { Projectile } from './entities.js';
 
 export function createWeaponState() {
   const base = WEAPON_TYPES.harpoon;
@@ -8,15 +7,6 @@ export function createWeaponState() {
     pierce: base.basePierce,
     widthMultiplier: 1,
   };
-}
-
-export function tryFire(weaponState, projectiles, x, y) {
-  const activeCount = projectiles.reduce((n, p) => n + (p.active ? 1 : 0), 0);
-  if (activeCount >= weaponState.maxActiveShots) return false;
-  const base = WEAPON_TYPES.harpoon;
-  const width = base.width * weaponState.widthMultiplier;
-  projectiles.push(new Projectile(x, y, width, base.shotSpeed, weaponState.pierce));
-  return true;
 }
 
 // Tracks which power-up effects are currently active and reverts them on
