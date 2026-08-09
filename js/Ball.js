@@ -1,11 +1,5 @@
 import { BALL_SHAPES, BALL_SIZES, MIN_BALL_SIZE } from './config.js';
-
-// Reference radius the round/hex textures are drawn at (see BootScene) --
-// matches the largest ball (size 5, radius 24) so it renders at native
-// resolution; every other Ball scales its sprite (and, via Arcade's
-// scale-aware circle body, its collision radius) down from this to its
-// actual size's radius.
-export const BALL_TEXTURE_REF_RADIUS = 24;
+import { ballTextureKey } from './assets.js';
 
 // A ball is a (shape, size) pair. Shape (round/hex) decides whether gravity
 // applies; size (1-5) decides every physical parameter -- radius, speed,
@@ -19,17 +13,21 @@ export const BALL_TEXTURE_REF_RADIUS = 24;
 // collision detection.
 export class Ball extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, shape, size, x, y, vx, vy, powerup = null) {
-    const textureKey = shape === 'hex' ? 'ball-hex' : 'ball-round';
-    super(scene, x, y, textureKey);
+    const shapeDef = BALL_SHAPES[shape];
+    // Hex only has 3 defined tiers (see BALL_SHAPES.hex.maxSize) -- clamp
+    // rather than index past the end of BALL_SIZES. Computed before
+    // super() since the clamped size picks which texture file to load
+    // (each size is its own native-resolution image -- see assets.js --
+    // not one shared texture scaled at runtime).
+    const clampedSize = Math.min(size, shapeDef.maxSize);
+    super(scene, x, y, ballTextureKey(shape, clampedSize));
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     this.shape = shape;
-    this.shapeDef = BALL_SHAPES[shape];
-    // Hex only has 3 defined tiers (see BALL_SHAPES.hex.maxSize) -- clamp
-    // rather than index past the end of BALL_SIZES.
-    this.size = Math.min(size, this.shapeDef.maxSize);
+    this.shapeDef = shapeDef;
+    this.size = clampedSize;
     const sizeDef = BALL_SIZES[this.size - 1];
     this.radius = sizeDef.radius;
     this.points = sizeDef.points;
@@ -41,8 +39,10 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     // random POWERUP_DROP_CHANCE roll -- see GameScene.popBall.
     this.forcedPowerup = powerup;
 
-    this.setScale(this.radius / BALL_TEXTURE_REF_RADIUS);
-    this.body.setCircle(BALL_TEXTURE_REF_RADIUS);
+    // No setScale() needed -- the texture file is already the ball's true
+    // pixel size (2x its radius), so the sprite and its circle body both
+    // use that native size directly.
+    this.body.setCircle(this.radius);
     this.body.setAllowGravity(this.shapeDef.gravity);
     if (this.shapeDef.gravity) this.body.setGravityY(this.gravity);
     this.body.setCollideWorldBounds(true);

@@ -116,14 +116,22 @@ Useful while tuning levels or ball behavior:
 index.html          Phaser injects its own canvas into #game-container;
                       DOM overlay for menus/HUD/touch controls sits on top
 style.css            All visual styling, responsive/touch layout
+assets/
+  balls/             One .webp file per (shape, size) ball graphic -- see
+                      "Swapping graphics" below
 js/
   vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
   main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
                       requestAnimationFrame loop anywhere in the project
   GameConfig.js      Phaser.Game config (resolution, Arcade Physics,
                       pixel-art scaling, scene list)
-  BootScene.js       Generates every texture procedurally at boot (pixel
-                      grids, Graphics-drawn shapes, glyph icons) and
+  assets.js          Maps each externally-loaded graphic (currently just
+                      balls) to its texture key and file path -- the one
+                      place BootScene (loading) and the entities that use
+                      them (Ball) both read from, so they can't disagree
+  BootScene.js       Loads the ball graphics (see assets.js) and generates
+                      every other texture procedurally at boot (pixel
+                      grids, Graphics-drawn shapes, glyph icons), then
                       registers them with Phaser's texture manager
   GameScene.js       The whole game: state machine, Arcade colliders/
                       overlaps, keyboard input, particle bursts, and the
@@ -178,6 +186,25 @@ core game logic:
   plain `{ type, x, y, w, h }` rectangle (auto-tiled into 8x8 blocks by
   `LevelManager.js`) or `{ type, x, y, cells: [[dx, dy], ...] }` for a
   non-rectangular/stepped shape built block by block.
+
+### Swapping graphics
+
+Ball graphics are real image files, not code, specifically so they can be
+replaced without touching anything else. Each `assets/balls/ball_<shape>_
+<size>.webp` (e.g. `ball_round_1.webp`, `ball_hex_3.webp` -- one file per
+entry in `BALL_SHAPES` x `BALL_SIZES` from `js/config.js`) is loaded at its
+own native resolution and used as-is, with no runtime scaling. To swap one,
+replace the file in place, keeping:
+- the same filename (`js/assets.js` is the single place that name is
+  derived, `ball_<shape>_<size>.webp`), and
+- the same pixel dimensions -- exactly 2x that size's `radius` from
+  `BALL_SIZES` in `js/config.js` (8/16/24/32/48px square for round sizes
+  1-5, 8/16/24px for hex sizes 1-3) -- since that's also the ball's
+  physics collision diameter.
+
+Other graphics (player, obstacles, power-ups, particles) are still drawn
+procedurally in `BootScene.js`/`sprites.js`; the same file-based approach
+can be extended to them the same way later.
 
 `GameScene.js`, `Ball.js`, and `LevelManager.js` all read these registries
 generically, so nothing else needs to change.
