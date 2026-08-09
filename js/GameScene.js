@@ -9,6 +9,7 @@ import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
 import { Debug } from './debug.js';
+import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
 
@@ -57,6 +58,8 @@ export class GameScene extends Phaser.Scene {
     this.stateTimer = 0;
     this.justSubmittedEntry = null;
     this.lastOutcome = null;
+    this.isCustomLevel = false;
+    this.customLevelDef = null;
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
@@ -111,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
     this.debug = new Debug(this);
+    this.editor = new Editor(this);
   }
 
   drawBackground() {
@@ -154,7 +158,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   get currentLevelDef() {
-    return LEVELS[this.levelIndex];
+    return this.isCustomLevel ? this.customLevelDef : LEVELS[this.levelIndex];
   }
 
   get remainingLevelTime() {
@@ -186,9 +190,46 @@ export class GameScene extends Phaser.Scene {
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
     this.justSubmittedEntry = null;
+    this.isCustomLevel = false;
+    this.customLevelDef = null;
     this.effects.reset(this);
     this.loadLevel(this.levelIndex);
     this.startLevelIntro();
+  }
+
+  // Level editor entry point: same setup as startNewGame(), but plays a
+  // single editor-authored level (loadLevel/currentLevelDef/advanceLevel
+  // all branch on isCustomLevel to use it instead of indexing LEVELS).
+  startCustomLevel(def) {
+    this.score = 0;
+    this.lives = PLAYER_CONFIG.startLives;
+    this.levelIndex = 0;
+    this.scoreMultiplier = 1;
+    this.ballsFrozen = false;
+    this.justSubmittedEntry = null;
+    this.isCustomLevel = true;
+    this.customLevelDef = def;
+    this.effects.reset(this);
+    this.loadLevel(def);
+    this.startLevelIntro();
+  }
+
+  enterEditor() {
+    this.audio.stopMusic();
+    this.obstacles.clear(true, true);
+    this.balls.clear(true, true);
+    this.projectiles.clear(true, true);
+    this.powerups.clear(true, true);
+    this.state = GAME_STATES.EDITOR;
+    this.physics.pause();
+    this.editor.enable();
+  }
+
+  exitEditor() {
+    this.editor.disable();
+    this.obstacles.clear(true, true);
+    this.balls.clear(true, true);
+    this.goToMenu();
   }
 
   // Balls and the player must stay frozen for the whole "3, 2, 1, GO!"
@@ -205,25 +246,28 @@ export class GameScene extends Phaser.Scene {
   // on-field power-ups, player position, weapon state, active temporary
   // effects, and the level timer. Score and lives are untouched, so this
   // is safe both when advancing levels and when the current level
-  // restarts after a life is lost.
-  loadLevel(idx) {
-    const def = loadLevelData(this, idx);
+  // restarts after a life is lost. `idxOrDef` is a LEVELS index normally,
+  // or the editor's own level definition object for a custom level.
+  loadLevel(idxOrDef) {
+    const def = loadLevelData(this, idxOrDef);
     this.player.reset();
     this.weaponState = createWeaponState();
     this.effects.reset(this);
     this.levelTimer = 0;
-    const musicGroup = idx < 3 ? 0 : idx < 6 ? 1 : 2;
+    const musicGroup = typeof idxOrDef !== 'number' ? 2 : idxOrDef < 3 ? 0 : idxOrDef < 6 ? 1 : 2;
     this.audio.playMusic(musicGroup);
     return def;
   }
 
   restartLevel() {
-    this.loadLevel(this.levelIndex);
+    this.loadLevel(this.isCustomLevel ? this.customLevelDef : this.levelIndex);
     this.startLevelIntro();
   }
 
   advanceLevel() {
-    if (this.levelIndex + 1 < LEVELS.length) {
+    if (this.isCustomLevel) {
+      this.finishRun('victory');
+    } else if (this.levelIndex + 1 < LEVELS.length) {
       this.levelIndex += 1;
       this.loadLevel(this.levelIndex);
       this.startLevelIntro();
@@ -327,6 +371,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.debug.render(this.debugGraphics);
+    this.editor.render();
     this.ui.render();
   }
 

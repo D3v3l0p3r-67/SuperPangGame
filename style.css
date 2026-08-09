@@ -343,6 +343,39 @@ body {
   font-family: inherit;
 }
 
+/* Level editor panel -- same look/classes as the debug panel (.debug-
+   btn-row, .debug-text), just its own top-left slot and accent color. */
+#editor-panel {
+  position: absolute;
+  top: 0.5vmin;
+  left: 0.5vmin;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--accent, #ffd23f);
+  color: var(--text, #f4f1de);
+  font-size: 10px;
+  padding: 4px 6px;
+  line-height: 1.4;
+  pointer-events: auto;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#editor-panel select,
+#editor-panel button,
+#editor-panel input {
+  font-size: 10px;
+  font-family: inherit;
+}
+
+#editor-panel button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
+}
+
 .debug-section-label {
   color: #ffd23f;
   font-weight: bold;

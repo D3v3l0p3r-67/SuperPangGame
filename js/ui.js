@@ -25,7 +25,7 @@ const ELEMENT_IDS = [
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
   'touch-controls',
-  'btn-start', 'btn-highscores', 'btn-fullscreen', 'btn-fullscreen-pause',
+  'btn-start', 'btn-editor', 'btn-highscores', 'btn-fullscreen', 'btn-fullscreen-pause',
   'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -68,6 +68,11 @@ export class UI {
     this.el['btn-start'].addEventListener('click', startGame);
     this.el['btn-restart'].addEventListener('click', startGame);
     this.el['btn-victory-restart'].addEventListener('click', startGame);
+
+    this.el['btn-editor'].addEventListener('click', () => {
+      this.audio.resumeContext();
+      this.game.enterEditor();
+    });
 
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
     this.el['btn-close-highscores'].addEventListener('click', () => this.game.goToMenu());

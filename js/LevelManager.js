@@ -26,9 +26,11 @@ function obstacleBlocks(o) {
 
 // Loads a level definition (unchanged data from levels.js) into a
 // GameScene's groups. Adding level 11+ is purely a levels.js change --
-// nothing here needs to change.
-export function loadLevel(scene, idx) {
-  const def = LEVELS[idx];
+// nothing here needs to change. `idxOrDef` is normally an index into
+// LEVELS, but the level editor passes a level definition object
+// directly (its own, not part of LEVELS) to preview/play a custom level.
+export function loadLevel(scene, idxOrDef) {
+  const def = typeof idxOrDef === 'number' ? LEVELS[idxOrDef] : idxOrDef;
 
   scene.obstacles.clear(true, true);
   scene.balls.clear(true, true);
