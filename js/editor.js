@@ -41,6 +41,11 @@ function snapObstacleOrigin(x, y) {
   return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
 }
 
+function ballRadius(shape, size) {
+  const shapeDef = BALL_SHAPES[shape];
+  return BALL_SIZES[Math.min(size, shapeDef.maxSize) - 1].radius;
+}
+
 // Initial velocity for a ball placed with a given (dirX, dirY) direction
 // toggle -- mirrors the default-direction logic in Ball.js's constructor,
 // just deterministic instead of random. Round (gravity) balls only move
@@ -242,7 +247,13 @@ export class Editor {
     }
     for (const b of def.balls || []) {
       if (!BALL_SHAPES[b.shape] || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
-      const snapped = snapObstacleOrigin(b.x, b.y);
+      // b.x/b.y are the ball's CENTER (the coordinate real gameplay spawns
+      // it at); the editor's grid cell is anchored to its top-left corner
+      // (center - radius), so recover that corner before snapping rather
+      // than snapping the center itself -- otherwise a ball's radius would
+      // shift which cell it's considered to belong to on reload.
+      const radius = ballRadius(b.shape, b.size);
+      const snapped = snapObstacleOrigin(b.x - radius, b.y - radius);
       const hasVelocity = Number.isFinite(b.vx) && Number.isFinite(b.vy);
       const { vx, vy } = hasVelocity ? { vx: b.vx, vy: b.vy } : computeBallVelocity(b.shape, b.size, 1, -1);
       const powerup = POWERUP_TYPE_KEYS.includes(b.powerup) ? b.powerup : null;
@@ -301,13 +312,19 @@ export class Editor {
   // passes each ball's own saved vx/vy/powerup directly so restoring a
   // level reproduces it exactly, rather than reapplying whatever the
   // editor's CURRENT direction/powerup toggles happen to be set to.
+  // The grid cell marks the ball's top-left bounding-box corner (not its
+  // center) -- the same reference point a wall/crate block uses -- so the
+  // cursor square consistently means "this corner is on the grid" for
+  // every brush, ball included, even though a ball's own texture origin
+  // is its center.
   setBall(snapped, shape, size, vx, vy, powerup) {
     const key = this.keyFor(snapped.x, snapped.y);
     if (this.blocks.has(key)) return; // don't stack a ball on a wall block
     const existing = this.balls.get(key);
     if (existing) existing.sprite.destroy();
-    const cx = snapped.x + OBSTACLE_BLOCK_SIZE / 2;
-    const cy = snapped.y + OBSTACLE_BLOCK_SIZE / 2;
+    const radius = ballRadius(shape, size);
+    const cx = snapped.x + radius;
+    const cy = snapped.y + radius;
     const sprite = new Ball(this.scene, shape, size, cx, cy, 0, 0);
     sprite.body.setAllowGravity(false);
     sprite.body.setVelocity(0, 0);
@@ -352,20 +369,20 @@ export class Editor {
     this.cursorGraphics.clear();
     if (this.scene.state !== GAME_STATES.EDITOR || !this.hoverCell) return;
     this.cursorGraphics.lineStyle(1, 0xffd23f, 0.9);
-    // Every brush -- ball included -- snaps to the same grid cell (the
-    // square below always marks that cell, top-left corner on the grid),
-    // so the highlighted cell is always exactly where the next object
-    // lands. A ball's actual footprint is usually much bigger than one
-    // 8x8 cell though (up to 48px across) -- draw its true radius, centered
-    // on that same cell, so the cursor shows the whole element about to be
-    // placed rather than just the small grid square inside it.
+    // Every brush -- ball included -- snaps to the same grid cell, and that
+    // cell is always the object's top-left bounding-box corner (the square
+    // below marks exactly that corner). A ball's actual footprint is
+    // usually much bigger than one 8x8 cell though (up to 48px across) --
+    // draw its true radius, extending down-right from that same corner, so
+    // the cursor shows the whole element about to be placed rather than
+    // just the small grid square at its corner.
     this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
     if (this.brush.startsWith('ball-')) {
-      const [, , sizeStr] = this.brush.split('-');
-      const size = Math.min(parseInt(sizeStr, 10), BALL_SIZES.length);
-      const radius = BALL_SIZES[size - 1].radius;
-      const cx = this.hoverCell.x + OBSTACLE_BLOCK_SIZE / 2;
-      const cy = this.hoverCell.y + OBSTACLE_BLOCK_SIZE / 2;
+      const [, shape, sizeStr] = this.brush.split('-');
+      const size = parseInt(sizeStr, 10);
+      const radius = ballRadius(shape, size);
+      const cx = this.hoverCell.x + radius;
+      const cy = this.hoverCell.y + radius;
       this.cursorGraphics.strokeCircle(cx, cy, radius);
     }
     if (this.statusEl) {
