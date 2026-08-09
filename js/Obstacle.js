@@ -28,12 +28,23 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
     this.def = def;
     this.hitPoints = def.hitPoints;
 
-    this.edge = scene.add.rectangle(x + w / 2, y, w, 2, hexColor(def.edgeColor));
-    this.edge.setOrigin(0.5, 0);
-    this.edge.setDepth(2);
-
     if (def.destructible) {
+      // Breakable obstacles keep their own flat-color look (deliberately
+      // distinct from the wall) plus a top-edge highlight strip.
+      this.edge = scene.add.rectangle(x + w / 2, y, w, 2, hexColor(def.edgeColor));
+      this.edge.setOrigin(0.5, 0);
+      this.edge.setDepth(2);
       this.setStrokeStyle(1, 0x0b0e2a);
+    } else {
+      // Indestructible obstacles are unbreakable *wall*, same as the
+      // border frame around the playfield -- so they use the exact same
+      // tiled texture instead of their own flat color, tiled across
+      // whatever w x h this block is (matches GameScene.drawBorder's
+      // TileSprite approach). The Rectangle's own fill stays as a solid
+      // fallback color underneath, fully hidden once the tile covers it.
+      this.setFillStyle(hexColor(def.color), 0);
+      this.wallTile = scene.add.tileSprite(x, y, w, h, 'border-tile').setOrigin(0, 0);
+      this.wallTile.setDepth(2);
     }
   }
 
@@ -52,6 +63,10 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
     if (this.edge) {
       this.edge.destroy(fromScene);
       this.edge = null;
+    }
+    if (this.wallTile) {
+      this.wallTile.destroy(fromScene);
+      this.wallTile = null;
     }
     super.destroy(fromScene);
   }

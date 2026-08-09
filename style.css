@@ -75,15 +75,16 @@ body {
 /* HUD -- lives in the dedicated bar below the bordered playfield (see
    constants.js HUD_H/PLAYFIELD_H and GameScene.drawBackground, which
    paints the matching dark strip on the canvas itself). top is shifted
-   20px above the strip's actual (224/264 = 84.848%) start per request,
-   so it's (224-20)/264 = 77.273%; height grows by the same 20px
-   (40+20=60 -> 60/264 = 22.727%) so the content isn't cramped into a
-   shorter box than it's shifted by. Keep in sync with constants.js
-   HUD_H/PLAYFIELD_H/VIRTUAL_H if those ever change. */
+   12px above the strip's actual (224/264 = 84.848%) start -- net of a
+   20px-up then an 8px-down request -- so it's (224-12)/264 = 80.303%;
+   height grows by the same 12px (40+12=52 -> 52/264 = 19.697%) so the
+   content isn't cramped into a shorter box than it's shifted by. Keep
+   in sync with constants.js HUD_H/PLAYFIELD_H/VIRTUAL_H if those ever
+   change. */
 #hud {
   position: absolute;
-  top: 77.273%;
-  height: 22.727%;
+  top: 80.303%;
+  height: 19.697%;
   left: 0;
   right: 0;
   display: flex;
