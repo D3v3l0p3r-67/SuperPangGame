@@ -1,7 +1,10 @@
 // Technical constants: rendering resolution, timing, physics, palette.
 // Gameplay tuning values (speeds, points, durations, level data) live in config.js / levels.js.
 
-export const VIRTUAL_W = 256;
+// 46 blocks (368px) of that width is the movable play area -- the rest is
+// the border frame (OBSTACLE_BLOCK_SIZE on each side, see GameScene.
+// drawBorder / the world bounds inset in GameScene.create).
+export const VIRTUAL_W = 384;
 // PLAYFIELD_H is the bordered play area (gameplay + floor strip), same as
 // the old fixed canvas height. HUD_H is a dedicated bar reserved below it
 // for the HUD (see GameScene.drawBackground/style.css #hud), matching the
