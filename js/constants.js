@@ -46,6 +46,12 @@ export const COLORS = {
   frameHighlight: '#6f95e0',
   frameShadow: '#142449',
   frameRivet: '#ffd23f',
+  // Same beveled-block wall tile as the frame above, but a brown palette --
+  // used for destructible crate obstacles (see Obstacle.js) so they read
+  // as "the same wall, different material" rather than a distinct look.
+  crateBase: '#8b5a2b',
+  crateHighlight: '#c9975a',
+  crateShadow: '#3f2510',
   hudBg: '#05040a',
 };
 

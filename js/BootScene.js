@@ -82,29 +82,36 @@ export class BootScene extends Phaser.Scene {
     g.destroy();
   }
 
-  // One repeating tile for the playfield border frame (see
-  // GameScene.drawBorder) -- a beveled block with a small rivet, tiled via
-  // Phaser TileSprites so the frame is drawn once and reused unchanged on
-  // every level.
+  // Repeating tiles for obstacle walls -- a beveled block with a small
+  // rivet, tiled via Phaser TileSprites so each wall is drawn once and
+  // reused unchanged everywhere. 'border-tile' (blue) is the playfield
+  // frame (see GameScene.drawBorder) and indestructible obstacles;
+  // 'border-tile-crate' (brown) is the same shape/texture for destructible
+  // crates (see Obstacle.js) -- only the palette differs.
   buildBorderTileTexture() {
+    this.buildWallTexture('border-tile', COLORS.frameBase, COLORS.frameHighlight, COLORS.frameShadow, COLORS.frameRivet);
+    this.buildWallTexture('border-tile-crate', COLORS.crateBase, COLORS.crateHighlight, COLORS.crateShadow, COLORS.frameRivet);
+  }
+
+  buildWallTexture(key, base, highlight, shadow, rivet) {
     const size = OBSTACLE_BLOCK_SIZE;
     const g = this.make.graphics({ x: 0, y: 0, add: false });
 
-    g.fillStyle(hexColor(COLORS.frameBase), 1);
+    g.fillStyle(hexColor(base), 1);
     g.fillRect(0, 0, size, size);
 
-    g.fillStyle(hexColor(COLORS.frameHighlight), 1);
+    g.fillStyle(hexColor(highlight), 1);
     g.fillRect(0, 0, size, 1);
     g.fillRect(0, 0, 1, size);
 
-    g.fillStyle(hexColor(COLORS.frameShadow), 1);
+    g.fillStyle(hexColor(shadow), 1);
     g.fillRect(0, size - 1, size, 1);
     g.fillRect(size - 1, 0, 1, size);
 
-    g.fillStyle(hexColor(COLORS.frameRivet), 1);
+    g.fillStyle(hexColor(rivet), 1);
     g.fillRect(size / 2 - 1, size / 2 - 1, 2, 2);
 
-    g.generateTexture('border-tile', size, size);
+    g.generateTexture(key, size, size);
     g.destroy();
   }
 }

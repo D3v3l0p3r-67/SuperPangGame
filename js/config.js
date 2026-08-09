@@ -101,14 +101,14 @@ export const OBSTACLE_TYPES = {
     destructible: false,
     hitPoints: Infinity,
     color: '#4a3f6b',
-    edgeColor: '#6d5fa0',
+    tileTexture: 'border-tile',
   },
   crate: {
     label: 'Crate',
     destructible: true,
     hitPoints: 1,
     color: '#8b5a2b',
-    edgeColor: '#c9975a',
+    tileTexture: 'border-tile-crate',
   },
 };
 

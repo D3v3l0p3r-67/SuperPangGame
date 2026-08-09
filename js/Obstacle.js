@@ -28,24 +28,16 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
     this.def = def;
     this.hitPoints = def.hitPoints;
 
-    if (def.destructible) {
-      // Breakable obstacles keep their own flat-color look (deliberately
-      // distinct from the wall) plus a top-edge highlight strip.
-      this.edge = scene.add.rectangle(x + w / 2, y, w, 2, hexColor(def.edgeColor));
-      this.edge.setOrigin(0.5, 0);
-      this.edge.setDepth(2);
-      this.setStrokeStyle(1, 0x0b0e2a);
-    } else {
-      // Indestructible obstacles are unbreakable *wall*, same as the
-      // border frame around the playfield -- so they use the exact same
-      // tiled texture instead of their own flat color, tiled across
-      // whatever w x h this block is (matches GameScene.drawBorder's
-      // TileSprite approach). The Rectangle's own fill stays as a solid
-      // fallback color underneath, fully hidden once the tile covers it.
-      this.setFillStyle(hexColor(def.color), 0);
-      this.wallTile = scene.add.tileSprite(x, y, w, h, 'border-tile').setOrigin(0, 0);
-      this.wallTile.setDepth(2);
-    }
+    // Every obstacle -- breakable crate or unbreakable wall -- is the same
+    // beveled-block wall texture (see BootScene.buildWallTexture), tiled
+    // across whatever w x h this block is (matches GameScene.drawBorder's
+    // TileSprite approach); only the palette (def.tileTexture) differs, so
+    // a crate reads as "the same wall, brown material" rather than a
+    // distinct look. The Rectangle's own fill stays as a solid fallback
+    // color underneath, fully hidden once the tile covers it.
+    this.setFillStyle(hexColor(def.color), 0);
+    this.wallTile = scene.add.tileSprite(x, y, w, h, def.tileTexture).setOrigin(0, 0);
+    this.wallTile.setDepth(2);
   }
 
   // Returns true if this hit destroyed the obstacle.
@@ -60,10 +52,6 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
   }
 
   destroy(fromScene) {
-    if (this.edge) {
-      this.edge.destroy(fromScene);
-      this.edge = null;
-    }
     if (this.wallTile) {
       this.wallTile.destroy(fromScene);
       this.wallTile = null;

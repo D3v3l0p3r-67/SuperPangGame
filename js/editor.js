@@ -1,5 +1,5 @@
 import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
-import { BALL_SHAPES, BALL_SIZES } from './config.js';
+import { BALL_SHAPES, BALL_SIZES, OBSTACLE_TYPE_KEYS } from './config.js';
 import { Obstacle } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import * as storage from './storage.js';
@@ -24,14 +24,17 @@ function ballBrushes() {
   return brushes;
 }
 
-// Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid, clamped
-// so a placed obstacle block always stays fully inside the playfield
-// (never overlapping the border) -- same rule every hand-authored level
-// in levels.js already follows.
+// Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that
+// actually CONTAINS it (floor, not round-to-nearest -- rounding to the
+// nearest grid line could snap up to half a cell away from the pointer,
+// so the highlighted cell wouldn't be the one the pointer is inside of),
+// clamped so a placed obstacle block always stays fully inside the
+// playfield (never overlapping the border) -- same rule every
+// hand-authored level in levels.js already follows.
 function snapObstacleOrigin(x, y) {
   const bt = OBSTACLE_BLOCK_SIZE;
-  const gx = Math.round((x - bt) / bt) * bt + bt;
-  const gy = Math.round((y - bt) / bt) * bt + bt;
+  const gx = Math.floor((x - bt) / bt) * bt + bt;
+  const gy = Math.floor((y - bt) / bt) * bt + bt;
   const maxX = VIRTUAL_W - bt * 2;
   const maxY = GROUND_Y - bt * 2;
   return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
@@ -98,6 +101,23 @@ export class Editor {
     saveBtn.onclick = () => this.save();
     actionRow.appendChild(saveBtn);
 
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export';
+    exportBtn.onclick = () => this.exportJSON();
+    actionRow.appendChild(exportBtn);
+
+    const importBtn = document.createElement('button');
+    importBtn.textContent = 'Import';
+    importBtn.onclick = () => this.importFileInput.click();
+    actionRow.appendChild(importBtn);
+
+    this.importFileInput = document.createElement('input');
+    this.importFileInput.type = 'file';
+    this.importFileInput.accept = '.json,application/json';
+    this.importFileInput.style.display = 'none';
+    this.importFileInput.onchange = (e) => this.importJSON(e);
+    actionRow.appendChild(this.importFileInput);
+
     const playBtn = document.createElement('button');
     playBtn.textContent = 'Play';
     playBtn.onclick = () => this.play();
@@ -138,16 +158,25 @@ export class Editor {
     this.cursorGraphics.clear();
   }
 
+  // Also the entry point for imported JSON files (see importJSON), which
+  // may be hand-edited or from an older/foreign export -- so every field
+  // is validated rather than trusted, and invalid entries are skipped
+  // individually instead of aborting or crashing the whole import.
   loadDef(def) {
     this.timeInput.value = String(def.timeLimitSec || 60);
     for (const o of def.obstacles || []) {
+      if (!OBSTACLE_TYPE_KEYS.includes(o.type)) continue;
+      if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) continue;
       for (let dy = 0; dy < o.h; dy += OBSTACLE_BLOCK_SIZE) {
         for (let dx = 0; dx < o.w; dx += OBSTACLE_BLOCK_SIZE) {
           this.placeBlock(o.x + dx, o.y + dy, o.type);
         }
       }
     }
-    for (const b of def.balls || []) this.placeBall(b.x, b.y, b.shape, b.size);
+    for (const b of def.balls || []) {
+      if (!BALL_SHAPES[b.shape] || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
+      this.placeBall(b.x, b.y, b.shape, b.size);
+    }
   }
 
   clearAll() {
@@ -213,6 +242,7 @@ export class Editor {
 
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;
+    this.hoverPointer = { x, y };
 
     if (!pointer.isDown) return;
     const isBallBrush = this.brush.startsWith('ball-');
@@ -232,10 +262,34 @@ export class Editor {
     this.cursorGraphics.clear();
     if (this.scene.state !== GAME_STATES.EDITOR || !this.hoverCell) return;
     this.cursorGraphics.lineStyle(1, 0xffd23f, 0.9);
-    this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
-    if (this.statusEl) {
-      this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.length}`;
+    if (this.brush.startsWith('ball-')) {
+      // A ball doesn't snap to the grid -- it spawns at the exact pointer
+      // position (see placeBall) -- so the cursor must track the raw
+      // pointer, not the block-grid cell, or it would visibly disagree
+      // with where the ball actually lands.
+      const [, , sizeStr] = this.brush.split('-');
+      const size = Math.min(parseInt(sizeStr, 10), BALL_SIZES.length);
+      const radius = BALL_SIZES[size - 1].radius;
+      this.cursorGraphics.strokeCircle(this.hoverPointer.x, this.hoverPointer.y, radius);
+    } else {
+      this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
     }
+    if (this.statusEl) {
+      // A transient message (e.g. an import error) takes over the status
+      // line for a few seconds instead of being overwritten on the very
+      // next frame by the brush/count line below.
+      if (this.statusMessage && performance.now() < this.statusMessageUntil) {
+        this.statusEl.textContent = this.statusMessage;
+      } else {
+        this.statusMessage = null;
+        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.length}`;
+      }
+    }
+  }
+
+  showStatusMessage(text, durationMs = 3000) {
+    this.statusMessage = text;
+    this.statusMessageUntil = performance.now() + durationMs;
   }
 
   buildDef() {
@@ -250,6 +304,46 @@ export class Editor {
 
   save() {
     storage.saveCustomLevel(this.buildDef());
+  }
+
+  // Download the current level as a standalone .json file -- a second way
+  // to keep/share a level besides the single localStorage save slot.
+  exportJSON() {
+    const blob = new Blob([JSON.stringify(this.buildDef(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'balloon-buster-level.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Loads a previously exported (or hand-written) level file, replacing
+  // whatever's currently being edited. Bad JSON or a malformed level just
+  // reports a status message rather than throwing -- see loadDef for the
+  // per-entry validation that protects against a partially-bad file.
+  importJSON(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let def;
+      try {
+        def = JSON.parse(reader.result);
+      } catch {
+        this.showStatusMessage('IMPORT FAILED: invalid JSON');
+        return;
+      }
+      if (!def || typeof def !== 'object' || !Array.isArray(def.obstacles) || !Array.isArray(def.balls)) {
+        this.showStatusMessage('IMPORT FAILED: not a level file');
+        return;
+      }
+      this.clearAll();
+      this.loadDef(def);
+      this.showStatusMessage('IMPORT OK');
+    };
+    reader.readAsText(file);
   }
 
   play() {
