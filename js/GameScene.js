@@ -12,6 +12,7 @@ import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
+import { obstacleTextureKey, PARTICLE_TEXTURE_KEY } from './assets.js';
 
 // 1s each for "3", "2", "1", then a shorter "GO!" beat before play starts.
 const LEVEL_INTRO_COUNT_SEC = 3;
@@ -145,11 +146,12 @@ export class GameScene extends Phaser.Scene {
   // of the playfield.
   drawBorder() {
     const t = OBSTACLE_BLOCK_SIZE;
+    const wallTexture = obstacleTextureKey('wall');
     const strips = [
-      this.add.tileSprite(0, 0, VIRTUAL_W, t, 'border-tile'),
-      this.add.tileSprite(0, 0, t, GROUND_Y, 'border-tile'),
-      this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, 'border-tile'),
-      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, 'border-tile'),
+      this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
+      this.add.tileSprite(0, 0, t, GROUND_Y, wallTexture),
+      this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, wallTexture),
+      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, wallTexture),
     ];
     for (const strip of strips) {
       strip.setOrigin(0, 0);
@@ -420,6 +422,7 @@ export class GameScene extends Phaser.Scene {
     const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce);
     this.projectiles.add(proj);
     this.audio.shoot();
+    this.player.playShotAnim();
   }
 
   popBall(ball) {
@@ -450,7 +453,7 @@ export class GameScene extends Phaser.Scene {
     // visibly drifts away from the hit point before it fades, which reads
     // as "the effect isn't where the ball was" even though it started
     // exactly there.
-    const emitter = this.add.particles(x, y, 'particle', {
+    const emitter = this.add.particles(x, y, PARTICLE_TEXTURE_KEY, {
       lifespan: small ? 220 : 280,
       speed: small ? { min: 10, max: 25 } : { min: 15, max: 45 },
       scale: { start: small ? 1.5 : 2, end: 0 },
@@ -533,6 +536,7 @@ export class GameScene extends Phaser.Scene {
     if (lostLife) {
       this.audio.hit();
       this.lives -= 1;
+      this.player.playDeadAnim();
       this.startHitFreeze(this.lives <= 0);
     }
   }

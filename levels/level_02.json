@@ -1,0 +1,44 @@
+{
+  "id": 2,
+  "name": "Back Alley",
+  "timeLimitSec": 90,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 8,
+      "y": 136,
+      "w": 64,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 312,
+      "y": 136,
+      "w": 64,
+      "h": 8
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 60,
+      "y": 30,
+      "vx": 45
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 192,
+      "y": 25,
+      "vx": -35
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 324,
+      "y": 30,
+      "vx": 40
+    }
+  ]
+}

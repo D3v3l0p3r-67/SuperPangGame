@@ -1,14 +1,18 @@
 import { PLAYER_CONFIG } from './config.js';
 import { VIRTUAL_W, GROUND_Y } from './constants.js';
+import { playerTextureKey } from './assets.js';
 
-// Arcade sprite. Movement/animation stay explicit (velocity assigned every
-// frame from input, not left to generic physics forces) -- Phaser owns the
+// Arcade sprite. Movement stays explicit (velocity assigned every frame
+// from input, not left to generic physics forces) -- Phaser owns the
 // integration, collision, and world-bounds clamping, we own the numbers.
+// Facing is never a separate left/right asset -- setFlipX mirrors
+// whichever frame is currently showing, so every animation only needs to
+// be authored facing right (see assets.js/BootScene's player animations).
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene) {
     const x = VIRTUAL_W / 2;
     const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
-    super(scene, x, y, 'player-idle');
+    super(scene, x, y, playerTextureKey('idle', 1));
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -26,12 +30,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.body.setCollideWorldBounds(true);
 
     this.facing = 1;
-    this.walkFrame = 0;
-    this.walkTimer = 0;
     this.isMoving = false;
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
+    // While set ('shot' or 'dead'), update() leaves the current one-shot
+    // animation alone instead of overriding it with idle/move every
+    // frame; cleared automatically when that animation finishes.
+    this.oneShotAnim = null;
+    this.on('animationcomplete-player-shot', () => { this.oneShotAnim = null; });
+    this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
 
     this.shieldOutline = scene.add.rectangle(x, y, PLAYER_CONFIG.shieldSize, PLAYER_CONFIG.shieldSize);
     this.shieldOutline.setStrokeStyle(1, 0xffd23f);
@@ -39,6 +47,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.shieldOutline.setVisible(false);
     this.shieldOutline.setDepth(5);
     this.setDepth(4);
+
+    this.play('player-idle');
   }
 
   get isInvulnerable() {
@@ -54,6 +64,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setAlpha(1);
     this.facing = 1;
     this.setFlipX(false);
+    this.oneShotAnim = null;
+    this.play('player-idle');
+  }
+
+  // Plays once, holding update() off the idle/move animation until it
+  // finishes (see the 'animationcomplete-player-shot' listener above).
+  playShotAnim() {
+    this.oneShotAnim = 'shot';
+    this.play('player-shot', true);
+  }
+
+  // Plays once, same as playShotAnim -- see GameScene.onPlayerHitBall.
+  playDeadAnim() {
+    this.oneShotAnim = 'dead';
+    this.play('player-dead', true);
   }
 
   update(dt, inputState) {
@@ -72,17 +97,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setAlpha(1);
     }
 
-    if (this.isMoving) {
-      this.walkTimer += dt;
-      if (this.walkTimer > 0.12) {
-        this.walkTimer = 0;
-        this.walkFrame = (this.walkFrame + 1) % 2;
-      }
-      this.setTexture(this.walkFrame === 0 ? 'player-idle' : 'player-walk');
-    } else {
-      this.walkFrame = 0;
-      this.walkTimer = 0;
-      this.setTexture('player-idle');
+    if (!this.oneShotAnim) {
+      this.play(this.isMoving ? 'player-move' : 'player-idle', true);
     }
     this.setFlipX(this.facing < 0);
 

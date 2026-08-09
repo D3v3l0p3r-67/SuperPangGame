@@ -105,14 +105,17 @@ export const OBSTACLE_TYPES = {
     destructible: false,
     hitPoints: Infinity,
     color: '#4a3f6b',
-    tileTexture: 'border-tile',
+    // Name of the tile file under assets/obstacles/ (see assets.js's
+    // obstacleTextureKey/obstacleTexturePath) -- 'wall' is also what
+    // GameScene.drawBorder uses for the playfield frame.
+    tileTexture: 'wall',
   },
   crate: {
     label: 'Crate',
     destructible: true,
     hitPoints: 1,
     color: '#8b5a2b',
-    tileTexture: 'border-tile-crate',
+    tileTexture: 'crate',
   },
 };
 

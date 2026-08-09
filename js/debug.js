@@ -2,7 +2,7 @@ import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE } from './constants.js';
 import { BALL_SHAPE_KEYS, BALL_SHAPES, BALL_SIZES, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
-import { LEVELS } from './levels.js';
+import { LEVELS } from './LevelManager.js';
 
 // Purely observational + a couple of manual test hooks -- reads scene
 // state and draws over it, never mutates gameplay logic. Can be deleted

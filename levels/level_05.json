@@ -1,0 +1,58 @@
+{
+  "id": 5,
+  "name": "Clocktower",
+  "timeLimitSec": 85,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 16,
+      "y": 152,
+      "w": 64,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 304,
+      "y": 152,
+      "w": 64,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 104,
+      "w": 64,
+      "h": 8
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 45,
+      "y": 25,
+      "vx": 45
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 339,
+      "y": 25,
+      "vx": 40
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 120,
+      "y": 60,
+      "vx": -45
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 264,
+      "y": 60,
+      "vx": 45
+    }
+  ]
+}

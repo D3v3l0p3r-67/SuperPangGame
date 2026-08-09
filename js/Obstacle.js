@@ -1,4 +1,5 @@
 import { OBSTACLE_TYPES } from './config.js';
+import { obstacleTextureKey } from './assets.js';
 
 function hexColor(cssHex) {
   return Phaser.Display.Color.HexStringToColor(cssHex).color;
@@ -41,7 +42,7 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
     // distinct look. The Rectangle's own fill stays as a solid fallback
     // color underneath, fully hidden once the tile covers it.
     this.setFillStyle(hexColor(def.color), 0);
-    this.wallTile = scene.add.tileSprite(x, y, w, h, def.tileTexture).setOrigin(0, 0);
+    this.wallTile = scene.add.tileSprite(x, y, w, h, obstacleTextureKey(def.tileTexture)).setOrigin(0, 0);
     this.wallTile.setDepth(2);
   }
 
