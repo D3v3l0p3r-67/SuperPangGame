@@ -1,0 +1,10 @@
+{
+  "id": "obstacle-crate",
+  "category": "obstacle",
+  "type": "crate",
+  "label": "Crate",
+  "destructible": true,
+  "hitPoints": 1,
+  "color": "#8b5a2b",
+  "tileTexture": "crate"
+}

@@ -1,5 +1,6 @@
 import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
-import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
+import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
+import { POWERUP_TYPE_KEYS } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
@@ -428,7 +429,7 @@ export class GameScene extends Phaser.Scene {
   popBall(ball) {
     this.score += Math.round(ball.points * this.scoreMultiplier);
     this.audio.pop(5 - ball.size);
-    this.spawnBurst(ball.x, ball.y, ball.shapeDef.color, 10);
+    this.spawnBurst(ball.x, ball.y, ball.color, 10);
 
     const children = ball.getSplitChildren();
     const forcedPowerup = ball.forcedPowerup;

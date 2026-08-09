@@ -1,0 +1,15 @@
+{
+  "id": "round-ball-3",
+  "category": "ball",
+  "shape": "round",
+  "size": 3,
+  "label": "Round 3",
+  "hasGravity": true,
+  "gravityAccel": 260,
+  "radius": 12,
+  "speed": 70,
+  "bounceVelocity": 267,
+  "points": 200,
+  "color": "#ff6b6b",
+  "highlight": "#ffb3b3"
+}

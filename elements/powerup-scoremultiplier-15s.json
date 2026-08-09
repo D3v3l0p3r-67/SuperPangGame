@@ -1,0 +1,11 @@
+{
+  "id": "powerup-scoremultiplier-15s",
+  "category": "powerup",
+  "type": "score_multiplier",
+  "label": "2x Score",
+  "color": "#feca57",
+  "durationMs": 15000,
+  "instant": false,
+  "kind": "score_multiplier",
+  "params": { "multiplier": 2 }
+}

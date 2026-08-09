@@ -1,0 +1,11 @@
+{
+  "id": "powerup-speedboost-10s",
+  "category": "powerup",
+  "type": "speed_boost",
+  "label": "Speed Boost",
+  "color": "#1dd1a1",
+  "durationMs": 10000,
+  "instant": false,
+  "kind": "player_speed_multiplier",
+  "params": { "multiplier": 1.5 }
+}

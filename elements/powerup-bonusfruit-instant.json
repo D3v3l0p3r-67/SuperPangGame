@@ -1,0 +1,11 @@
+{
+  "id": "powerup-bonusfruit-instant",
+  "category": "powerup",
+  "type": "bonus_fruit",
+  "label": "Bonus Fruit",
+  "color": "#ff9ff3",
+  "durationMs": 0,
+  "instant": true,
+  "kind": "instant_score",
+  "params": { "amount": 500 }
+}

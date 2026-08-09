@@ -1,5 +1,5 @@
 import { GAME_STATES } from './constants.js';
-import { POWERUP_TYPES } from './config.js';
+import { POWERUP_TYPES } from './elements.js';
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',

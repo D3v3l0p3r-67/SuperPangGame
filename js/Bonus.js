@@ -1,4 +1,5 @@
-import { POWERUP_TYPES, POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { POWERUP_TYPES } from './elements.js';
 import { GROUND_Y } from './constants.js';
 import { powerupTextureKey } from './assets.js';
 

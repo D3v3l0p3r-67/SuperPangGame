@@ -6,10 +6,10 @@
 // file keeps the same name and pixel dimensions (each section's own
 // sizing note explains what that is).
 
-// Balls: one file per (shape, size) pair, sized exactly to that ball's
-// diameter (2x its BALL_SIZES radius in config.js -- 8/16/24/32/48px for
-// round sizes 1-5, 8/16/24px for hex sizes 1-3) so it's used at native
-// resolution with no runtime scaling.
+// Balls: one file per (shape, size) pair, sized exactly to that element's
+// radius (see elements/round-ball-*.json, hex-ball-*.json -- currently
+// 8/16/24/32/48px for round sizes 1-5, 8/16/24px for hex sizes 1-3) so
+// it's used at native resolution with no runtime scaling.
 export const BALL_TEXTURE_DIR = 'assets/balls/';
 
 export function ballTextureKey(shape, size) {
@@ -42,10 +42,11 @@ export function playerTexturePath(state, frame) {
   return `${PLAYER_TEXTURE_DIR}${playerTextureKey(state, frame)}.webp`;
 }
 
-// Obstacles: one beveled-block wall tile per OBSTACLE_TYPES entry (see
-// config.js's tileTexture field), each exactly OBSTACLE_BLOCK_SIZE square
-// (8x8) -- tiled via TileSprite across whatever area a block/the border
-// frame covers, so the file itself is just the one repeating cell.
+// Obstacles: one beveled-block wall tile per distinct tileTexture named by
+// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each
+// exactly OBSTACLE_BLOCK_SIZE square (8x8) -- tiled via TileSprite across
+// whatever area a block/the border frame covers, so the file itself is
+// just the one repeating cell.
 export const OBSTACLE_TEXTURE_DIR = 'assets/obstacles/';
 
 export function obstacleTextureKey(name) {
@@ -68,7 +69,8 @@ export const PROJECTILE_TEXTURE_PATH = 'assets/projectile.webp';
 export const PARTICLE_TEXTURE_KEY = 'particle';
 export const PARTICLE_TEXTURE_PATH = 'assets/particle.webp';
 
-// Power-ups: one glyph-on-disc icon per POWERUP_TYPES entry, 9x9px.
+// Power-ups: one glyph-on-disc icon per elements/powerup-*.json's `type`
+// (see elements.js's POWERUP_TYPES), 9x9px.
 export const POWERUP_TEXTURE_DIR = 'assets/powerups/';
 
 export function powerupTextureKey(type) {
@@ -84,11 +86,11 @@ export function powerupTexturePath(type) {
 // {id, name, timeLimitSec, obstacles, balls} -- so a new level is just a
 // file dropped in this folder, no code change. Static hosting has no
 // directory listing, so LevelManager can't just "read the folder" --
-// instead BootScene probes level_01.json..level_<MAX_LEVEL_FILES>.json
-// and keeps whichever ones actually loaded (see BootScene.populateLevels),
-// which is also how "as many levels as there are files" is satisfied
-// without a separate manifest to keep in sync. Raise MAX_LEVEL_FILES if
-// there are ever more levels than that.
+// instead ElementsScene probes level_01.json..level_<MAX_LEVEL_FILES>
+// .json and keeps whichever ones actually loaded, which is also how "as
+// many levels as there are files" is satisfied without a separate
+// manifest to keep in sync. Raise MAX_LEVEL_FILES if there are ever more
+// levels than that.
 export const LEVELS_DIR = 'levels/';
 export const MAX_LEVEL_FILES = 20;
 
@@ -98,4 +100,26 @@ export function levelFileKey(n) {
 
 export function levelFilePath(n) {
   return `${LEVELS_DIR}${levelFileKey(n)}.json`;
+}
+
+// Elements: one JSON file per ball size/shape, obstacle type, or power-up
+// -- category, id, and the fields that category needs (see elements.js's
+// registerElement) -- under elements/, freely named (round-ball-1.json,
+// powerup-stoptime-5s.json, ...). Unlike levels (which follow a fixed
+// level_NN naming ElementsScene can just probe), element filenames are
+// meant to be descriptive and unordered, so there's no naming convention
+// to probe -- ElementsScene instead reads elements/index.json, a plain
+// array of filenames (no extension), and loads exactly those. Adding a
+// new element is: drop the file in elements/, add its name to
+// elements/index.json.
+export const ELEMENTS_DIR = 'elements/';
+export const ELEMENTS_INDEX_PATH = 'elements/index.json';
+export const ELEMENTS_INDEX_KEY = 'elements-index';
+
+export function elementFileKey(id) {
+  return `element-${id}`;
+}
+
+export function elementFilePath(id) {
+  return `${ELEMENTS_DIR}${id}.json`;
 }

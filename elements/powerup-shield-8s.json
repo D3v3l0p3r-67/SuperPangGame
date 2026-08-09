@@ -1,0 +1,11 @@
+{
+  "id": "powerup-shield-8s",
+  "category": "powerup",
+  "type": "shield",
+  "label": "Shield",
+  "color": "#c8d6e5",
+  "durationMs": 8000,
+  "instant": false,
+  "kind": "player_shield",
+  "params": {}
+}

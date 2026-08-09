@@ -1,0 +1,11 @@
+{
+  "id": "powerup-extralife-instant",
+  "category": "powerup",
+  "type": "extra_life",
+  "label": "Extra Life",
+  "color": "#ff6b81",
+  "durationMs": 0,
+  "instant": true,
+  "kind": "extra_life",
+  "params": {}
+}

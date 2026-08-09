@@ -1,0 +1,10 @@
+{
+  "id": "obstacle-platform",
+  "category": "obstacle",
+  "type": "platform",
+  "label": "Platform",
+  "destructible": false,
+  "hitPoints": null,
+  "color": "#4a3f6b",
+  "tileTexture": "wall"
+}

@@ -1,0 +1,20 @@
+[
+  "round-ball-1",
+  "round-ball-2",
+  "round-ball-3",
+  "round-ball-4",
+  "round-ball-5",
+  "hex-ball-1",
+  "hex-ball-2",
+  "hex-ball-3",
+  "obstacle-platform",
+  "obstacle-crate",
+  "powerup-bonusfruit-instant",
+  "powerup-rapidshot-12s",
+  "powerup-wideharpoon-10s",
+  "powerup-speedboost-10s",
+  "powerup-extralife-instant",
+  "powerup-scoremultiplier-15s",
+  "powerup-stoptime-6s",
+  "powerup-shield-8s"
+]

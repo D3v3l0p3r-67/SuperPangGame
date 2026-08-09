@@ -1,4 +1,4 @@
-import { OBSTACLE_TYPES } from './config.js';
+import { OBSTACLE_TYPES } from './elements.js';
 import { obstacleTextureKey } from './assets.js';
 
 function hexColor(cssHex) {
