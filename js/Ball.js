@@ -1,9 +1,11 @@
 import { BALL_SHAPES, BALL_SIZES, MIN_BALL_SIZE } from './config.js';
 
 // Reference radius the round/hex textures are drawn at (see BootScene) --
-// every Ball scales its sprite (and, via Arcade's scale-aware circle body,
-// its collision radius) down from this to its actual size's radius.
-export const BALL_TEXTURE_REF_RADIUS = 20;
+// matches the largest ball (size 5, radius 24) so it renders at native
+// resolution; every other Ball scales its sprite (and, via Arcade's
+// scale-aware circle body, its collision radius) down from this to its
+// actual size's radius.
+export const BALL_TEXTURE_REF_RADIUS = 24;
 
 // A ball is a (shape, size) pair. Shape (round/hex) decides whether gravity
 // applies; size (1-5) decides every physical parameter -- radius, speed,
@@ -24,9 +26,11 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.shape = shape;
-    this.size = size;
     this.shapeDef = BALL_SHAPES[shape];
-    const sizeDef = BALL_SIZES[size - 1];
+    // Hex only has 3 defined tiers (see BALL_SHAPES.hex.maxSize) -- clamp
+    // rather than index past the end of BALL_SIZES.
+    this.size = Math.min(size, this.shapeDef.maxSize);
+    const sizeDef = BALL_SIZES[this.size - 1];
     this.radius = sizeDef.radius;
     this.points = sizeDef.points;
     this.speed = sizeDef.speed;

@@ -4,12 +4,17 @@ function hexColor(cssHex) {
   return Phaser.Display.Color.HexStringToColor(cssHex).color;
 }
 
-// A rectangular obstacle balls collide with from any side, via a static
-// Arcade body. Its type (from OBSTACLE_TYPES in config.js) decides whether
-// it can be destroyed and how many shots it takes -- adding a new obstacle
-// type is purely a config change, nothing here needs to change. Uses
-// Phaser's plain Rectangle shape (not a texture) so it can be sized to
-// whatever width/height a level asks for with no stretching artifacts.
+// A single rectangular block balls collide with from any side, via a
+// static Arcade body. LevelManager decomposes each level-authored
+// obstacle into one or more of these (normally one per 8x8 cell, see
+// OBSTACLE_BLOCK_SIZE) so a multi-cell breakable obstacle can lose
+// individual blocks to gunfire while the rest of its shape stays solid,
+// and non-rectangular ("stepped") shapes are just a different set of
+// block positions -- this class itself doesn't need to know any of that,
+// it only ever renders/collides as one rectangle. Its type (from
+// OBSTACLE_TYPES in config.js) decides whether it can be destroyed and
+// how many shots it takes. Uses Phaser's plain Rectangle shape (not a
+// texture) so each block can be sized exactly with no stretching.
 export class Obstacle extends Phaser.GameObjects.Rectangle {
   constructor(scene, type, x, y, w, h) {
     const def = OBSTACLE_TYPES[type];

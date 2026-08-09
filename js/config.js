@@ -25,17 +25,23 @@ export const WEAPON_TYPES = {
 
 // Two ball shapes: round balls fall under gravity and bounce; hex balls
 // ignore gravity and drift at a constant diagonal speed, reflecting off
-// walls/floor/ceiling/platforms.
+// walls/floor/ceiling/platforms. `maxSize` caps which BALL_SIZES tiers a
+// shape can use (hex only has 3 defined tiers -- 8x8/16x16/24x24 -- vs.
+// round's full 5); Ball.js clamps to this on construction and the debug
+// spawn panel's size dropdown filters to it, so it's the one place this
+// limit needs to change.
 export const BALL_SHAPES = {
   round: {
     label: 'Round',
     gravity: true,
+    maxSize: 5,
     color: '#ff6b6b',
     highlight: '#ffb3b3',
   },
   hex: {
     label: 'Hex',
     gravity: false,
+    maxSize: 3,
     color: '#4ecdc4',
     highlight: '#a8f0ea',
   },
@@ -57,27 +63,29 @@ export const BALL_SHAPE_KEYS = Object.keys(BALL_SHAPES);
 //   gravity         round-only: downward acceleration, px/s^2
 //   radius          collision + render radius, px
 //   points          score awarded when this size is popped
-// One smooth progression across all 5 sizes: each size bounces a little
-// higher (apex ~115px -> ~157px, i.e. ~54% -> ~73% of the playfield's
-// 214px height) and moves a little faster (speed +15px/s) than the size
-// below it, so size 1 is the slowest/lowest and size 5 the fastest/
-// highest -- consistent with size 1 also being the most common (via
-// splitting) and highest-value ball, without needing to be an outlier.
+// Diameters 8/16/24/32/48px (radius 4/8/12/16/24) -- size 4 -> 5 is the one
+// non-uniform step (32 -> 48), matching the spec exactly. Size 1's
+// bounceVelocity is tuned so its apex (ground-center to peak-center) is
+// exactly 96px: resting center at GROUND_Y - 4 = 196, peak center at
+// ~100. Sizes 2-5 keep climbing a little higher and a little faster than
+// the size below them, same progression as before.
 export const BALL_SIZES = [
-  { size: 1, radius: 4, speed: 40, bounceVelocity: 245, gravity: 260, points: 800 },
+  { size: 1, radius: 4, speed: 40, bounceVelocity: 221, gravity: 260, points: 800 },
   { size: 2, radius: 8, speed: 55, bounceVelocity: 257, gravity: 260, points: 400 },
   { size: 3, radius: 12, speed: 70, bounceVelocity: 267, gravity: 260, points: 200 },
   { size: 4, radius: 16, speed: 85, bounceVelocity: 277, gravity: 260, points: 100 },
-  { size: 5, radius: 20, speed: 100, bounceVelocity: 286, gravity: 260, points: 50 },
+  { size: 5, radius: 24, speed: 100, bounceVelocity: 286, gravity: 260, points: 50 },
 ];
 
 export const MIN_BALL_SIZE = 1;
 export const MAX_BALL_SIZE = BALL_SIZES.length;
 
-// Obstacles are solid rectangles balls bounce off from any side. 'platform'
-// is a plain indestructible ledge; 'crate' can be shot down by the player.
-// Adding a new obstacle type (e.g. one with more hit points) is just a new
-// entry here.
+// Obstacles are built from OBSTACLE_BLOCK_SIZE (8x8) blocks balls bounce
+// off from any side (see LevelManager.js); 'platform' is a plain
+// indestructible ledge, 'crate' blocks are shot down one at a time so a
+// multi-block crate loses only the block that's actually hit. Adding a
+// new obstacle type (e.g. one with more hit points) is just a new entry
+// here.
 export const OBSTACLE_TYPES = {
   platform: {
     label: 'Platform',

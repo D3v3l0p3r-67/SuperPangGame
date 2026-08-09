@@ -4,8 +4,16 @@
 export const VIRTUAL_W = 256;
 export const VIRTUAL_H = 224;
 
-export const GROUND_MARGIN = 10;
+// Everything here is a multiple of 8 (matching OBSTACLE_BLOCK_SIZE) so the
+// playfield, ground line, and any obstacle grid all line up cleanly.
+export const GROUND_MARGIN = 24;
 export const GROUND_Y = VIRTUAL_H - GROUND_MARGIN;
+
+// Base cell size obstacles are composed of -- a breakable obstacle is a
+// group of independent OBSTACLE_BLOCK_SIZE x OBSTACLE_BLOCK_SIZE blocks
+// (see LevelManager.js), so one can be shot away without affecting the
+// rest of the shape.
+export const OBSTACLE_BLOCK_SIZE = 8;
 
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;

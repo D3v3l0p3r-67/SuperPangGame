@@ -1,6 +1,28 @@
+import { OBSTACLE_BLOCK_SIZE } from './constants.js';
 import { LEVELS } from './levels.js';
 import { Ball } from './Ball.js';
 import { Obstacle } from './Obstacle.js';
+
+// Every level obstacle becomes one or more independent Obstacle blocks,
+// each its own Arcade body -- that's what lets a breakable obstacle lose
+// individual blocks to gunfire while the rest of its shape stays solid.
+// A plain { x, y, w, h } auto-tiles into an OBSTACLE_BLOCK_SIZE grid
+// (horizontal/vertical/rectangular shapes, per spec); a level can instead
+// supply `cells`, a list of [dx, dy] pixel offsets from (x, y), to build
+// non-rectangular ("stepped"/staircase) shapes block by block.
+function obstacleBlocks(o) {
+  if (o.cells) return o.cells.map(([dx, dy]) => [dx, dy, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE]);
+
+  const blocks = [];
+  for (let dy = 0; dy < o.h; dy += OBSTACLE_BLOCK_SIZE) {
+    const bh = Math.min(OBSTACLE_BLOCK_SIZE, o.h - dy);
+    for (let dx = 0; dx < o.w; dx += OBSTACLE_BLOCK_SIZE) {
+      const bw = Math.min(OBSTACLE_BLOCK_SIZE, o.w - dx);
+      blocks.push([dx, dy, bw, bh]);
+    }
+  }
+  return blocks;
+}
 
 // Loads a level definition (unchanged data from levels.js) into a
 // GameScene's groups. Adding level 11+ is purely a levels.js change --
@@ -14,8 +36,10 @@ export function loadLevel(scene, idx) {
   scene.powerups.clear(true, true);
 
   for (const o of def.obstacles) {
-    const obstacle = new Obstacle(scene, o.type, o.x, o.y, o.w, o.h);
-    scene.obstacles.add(obstacle);
+    for (const [dx, dy, bw, bh] of obstacleBlocks(o)) {
+      const block = new Obstacle(scene, o.type, o.x + dx, o.y + dy, bw, bh);
+      scene.obstacles.add(block);
+    }
   }
 
   for (const b of def.balls) {

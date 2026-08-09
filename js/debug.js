@@ -1,5 +1,5 @@
 import { VIRTUAL_W } from './constants.js';
-import { BALL_SHAPE_KEYS, BALL_SIZES, MAX_BALL_SIZE, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
+import { BALL_SHAPE_KEYS, BALL_SHAPES, BALL_SIZES, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
 import { LEVELS } from './levels.js';
@@ -60,13 +60,22 @@ export class Debug {
       shapeSelect.appendChild(opt);
     }
     const sizeSelect = document.createElement('select');
-    for (const { size } of BALL_SIZES) {
-      const opt = document.createElement('option');
-      opt.value = String(size);
-      opt.textContent = `size ${size}`;
-      sizeSelect.appendChild(opt);
-    }
-    sizeSelect.value = String(MAX_BALL_SIZE);
+    // Rebuilt whenever the shape changes -- hex only goes up to its
+    // maxSize (3), not the full 5 round tiers.
+    const populateSizes = () => {
+      const maxSize = BALL_SHAPES[shapeSelect.value].maxSize;
+      sizeSelect.innerHTML = '';
+      for (const { size } of BALL_SIZES) {
+        if (size > maxSize) continue;
+        const opt = document.createElement('option');
+        opt.value = String(size);
+        opt.textContent = `size ${size}`;
+        sizeSelect.appendChild(opt);
+      }
+      sizeSelect.value = String(maxSize);
+    };
+    shapeSelect.onchange = populateSizes;
+    populateSizes();
     const spawnBallBtn = document.createElement('button');
     spawnBallBtn.textContent = 'Spawn';
     spawnBallBtn.onclick = () => {

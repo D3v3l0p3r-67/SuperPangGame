@@ -3,20 +3,22 @@
 A retro pixel-art arcade game inspired by the classic *Pang* / *Buster Bros.*
 gameplay: walk left and right along the ground, fire a harpoon straight up,
 and pop balls before they pop you. There are two ball shapes -- round balls
-that fall under gravity and bounce, and hex balls that ignore gravity and
-drift at a constant diagonal speed -- each in sizes 1 (smallest) to 5
-(largest). Hitting a ball of size 2-5 splits it into two balls one size
+(8x8px up to 48x48px, sizes 1-5) that fall under gravity and bounce, and hex
+balls (8x8px up to 24x24px, sizes 1-3 only) that ignore gravity and drift at
+a constant diagonal speed. Hitting a ball splits it into two balls one size
 smaller, one sent left and one right; size-1 balls are destroyed outright.
 
 Every ball's motion is fully deterministic: each size has fixed speed,
 bounce height, and gravity, so two balls of the same size always move and
 bounce identically no matter how they got there -- a landing always resets
 vertical speed to that size's standard bounce velocity rather than
-reflecting whatever speed it fell in at. Levels can also contain solid
-obstacles that balls bounce off from any side (top/bottom/left/right,
-correctly, with no clipping or tunneling even at high speed); some
-obstacle types can be shot down by the player, after which balls pass
-freely through the space they occupied.
+reflecting whatever speed it fell in at (size 1's bounce, for example,
+always takes it from a resting center 4px off the ground up to a peak
+96px higher). Levels can also contain obstacles built from 8x8 blocks
+(horizontal, vertical, rectangular, or stepped/staircase shapes) that
+balls bounce off from any side, correctly, with no clipping or tunneling
+even at high speed; breakable obstacles lose only the individual block
+that's actually shot, leaving the rest of the shape intact.
 
 All graphics are original, hand-authored pixel art (drawn from plain JS
 pixel-grid data, not image files), and all sound effects and music are
@@ -73,10 +75,13 @@ Touch controls appear automatically on devices with a coarse pointer
   obstacles at all -- 8 smallest-size balls (4 heading left, 4 right, each
   bouncing off a wall before its path can ever reach the player) for a
   gentle but active first look at movement, shooting, and ball physics.
-- 2 ball shapes (round, hex) x 5 sizes, each with fixed, deterministic
-  physics; splitting one size smaller (one left, one right) per hit.
-- Obstacles: indestructible platforms and shootable crates, both blocking
-  ball movement from every side with proper anti-tunneling collision.
+- 2 ball shapes: round (sizes 1-5) and hex (sizes 1-3 only), each with
+  fixed, deterministic physics; splitting one size smaller (one left, one
+  right) per hit.
+- Obstacles: indestructible platforms and shootable crates, built from
+  8x8 blocks (rectangular or stepped shapes), blocking ball movement from
+  every side with proper anti-tunneling collision; a multi-block crate
+  loses only the block that's actually shot.
 - 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
   life, score multiplier, time freeze, shield.
 - A shield absorbs one hit with no life lost and no interruption; without
@@ -130,15 +135,19 @@ js/
                       1-5, deterministic landOnTop()/bounce methods,
                       split-children descriptors
   Projectile.js      Phaser.Physics.Arcade.Sprite for the harpoon shot
-  Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body;
-                      destructible via takeHit()
+  Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body,
+                      representing one obstacle block; destructible via
+                      takeHit()
   Bonus.js           Phaser.Physics.Arcade.Sprite for power-up pickups
-  LevelManager.js    Loads a levels.js definition into a GameScene's groups
+  LevelManager.js    Loads a levels.js definition into a GameScene's
+                      groups; decomposes each obstacle into independent
+                      8x8 Obstacle blocks (see OBSTACLE_BLOCK_SIZE)
   config.js          Gameplay tuning values + extensibility registries
                       (ball shapes/sizes, weapon, power-ups, obstacles) --
                       engine-agnostic, untouched by the Phaser migration
-  constants.js        Technical constants (resolution, ground line, palette)
-  levels.js          The 10 level definitions (untouched by the migration)
+  constants.js        Technical constants (resolution, ground line,
+                      obstacle block size, palette)
+  levels.js          The 10 level definitions
   weapons.js         Weapon state + power-up effect timers
   audio.js           Synthesized SFX + procedural music (Web Audio API --
                       there are no audio files, so Phaser's file-based
@@ -166,7 +175,10 @@ core game logic:
   `POWERUP_TYPES` in `js/config.js` -- it also shows up automatically as a
   quick-spawn button in debug mode.
 - **New level**: append a new object to `LEVELS` in `js/levels.js`, with
-  its own `obstacles` and `balls` arrays.
+  its own `obstacles` and `balls` arrays. An obstacle entry is either a
+  plain `{ type, x, y, w, h }` rectangle (auto-tiled into 8x8 blocks by
+  `LevelManager.js`) or `{ type, x, y, cells: [[dx, dy], ...] }` for a
+  non-rectangular/stepped shape built block by block.
 
 `GameScene.js`, `Ball.js`, and `LevelManager.js` all read these registries
 generically, so nothing else needs to change.
