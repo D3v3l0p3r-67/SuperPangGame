@@ -405,6 +405,11 @@ export class GameScene extends Phaser.Scene {
       tint: hexColor(colorHex),
       quantity: count,
       emitting: false,
+      // A burst near the ground can otherwise drift (via gravityY + its
+      // own outward speed) below GROUND_Y and render in the HUD strip,
+      // which nothing else in the game is ever allowed to do -- kill any
+      // particle the instant it leaves the playfield rectangle.
+      deathZone: { type: 'onLeave', source: new Phaser.Geom.Rectangle(0, 0, VIRTUAL_W, GROUND_Y) },
     });
     emitter.setDepth(7);
     emitter.explode(count, x, y);
