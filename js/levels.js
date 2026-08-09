@@ -14,10 +14,20 @@ function o(type, x, y, w, h) {
 // = destroyed by one shot). Obstacle y positions are written as
 // `GROUND_Y - N` (not hardcoded absolute numbers) so every level's layout
 // keeps the same gap to the ground line regardless of where GROUND_Y is
-// set in constants.js. All x positions (and the N in `VIRTUAL_W - N` /
-// `VIRTUAL_W / 2 - N`) are scaled 1.5x from their original values, matching
-// VIRTUAL_W's own 256->384 (46-block playfield) resize, so every layout
-// keeps the same proportions and symmetry it always had.
+// set in constants.js.
+//
+// Every level is horizontally symmetric around VIRTUAL_W / 2, and every
+// obstacle's x/y sits exactly on the OBSTACLE_BLOCK_SIZE (8px) grid --
+// both left/right edges, not just its origin. For a mirrored pair, the
+// left one's x and width are each grid-aligned (multiples of 8), so its
+// right edge is too, and the mirror `VIRTUAL_W - (x + w)` is automatically
+// grid-aligned as well. For a single centered obstacle, its width is
+// rounded to a multiple of 16 (not just 8) specifically so that an exact
+// center position (`VIRTUAL_W / 2 - w / 2`) also lands on the 8px grid --
+// a width that's only a multiple of 8 would leave a 4px remainder on one
+// side, which is exactly the misalignment this fixes. Ball x positions
+// are mirrored directly (`VIRTUAL_W - x`); balls aren't grid-locked like
+// obstacles are.
 export const LEVELS = [
   {
     id: 1,
@@ -49,7 +59,7 @@ export const LEVELS = [
     timeLimitSec: 90,
     obstacles: [
       o('platform', 8, GROUND_Y - 64, 64, 8),
-      o('platform', VIRTUAL_W - 96, GROUND_Y - 64, 64, 8),
+      o('platform', VIRTUAL_W - 72, GROUND_Y - 64, 64, 8),
     ],
     balls: [b('round', 3, 60, 30, 45), b('round', 3, 192, 25, -35), b('round', 3, 324, 30, 40)],
   },
@@ -59,8 +69,8 @@ export const LEVELS = [
     timeLimitSec: 90,
     obstacles: [
       o('platform', 8, GROUND_Y - 64, 56, 8),
-      o('platform', VIRTUAL_W - 84, GROUND_Y - 64, 56, 8),
-      o('platform', VIRTUAL_W / 2 - 36, GROUND_Y - 104, 48, 8),
+      o('platform', VIRTUAL_W - 64, GROUND_Y - 64, 56, 8),
+      o('platform', VIRTUAL_W / 2 - 24, GROUND_Y - 104, 48, 8),
     ],
     balls: [b('round', 3, 45, 25, 45), b('round', 3, 339, 25, 40), b('hex', 2, 192, 60, -50)],
   },
@@ -70,8 +80,8 @@ export const LEVELS = [
     timeLimitSec: 85,
     obstacles: [
       o('platform', 8, GROUND_Y - 64, 56, 8),
-      o('platform', VIRTUAL_W - 84, GROUND_Y - 64, 56, 8),
-      o('crate', VIRTUAL_W / 2 - 18, GROUND_Y - 44, 24, 16),
+      o('platform', VIRTUAL_W - 64, GROUND_Y - 64, 56, 8),
+      o('crate', VIRTUAL_W / 2 - 16, GROUND_Y - 48, 32, 16),
     ],
     balls: [b('round', 4, 192, 25, -35), b('hex', 2, 60, 60, 50), b('hex', 2, 324, 60, -50)],
   },
@@ -80,9 +90,9 @@ export const LEVELS = [
     name: 'Clocktower',
     timeLimitSec: 85,
     obstacles: [
-      o('platform', 15, GROUND_Y - 44, 60, 8),
-      o('platform', VIRTUAL_W - 105, GROUND_Y - 44, 60, 8),
-      o('platform', VIRTUAL_W / 2 - 45, GROUND_Y - 94, 60, 8),
+      o('platform', 16, GROUND_Y - 48, 64, 8),
+      o('platform', VIRTUAL_W - 80, GROUND_Y - 48, 64, 8),
+      o('platform', VIRTUAL_W / 2 - 32, GROUND_Y - 96, 64, 8),
     ],
     balls: [b('round', 3, 45, 25, 45), b('round', 3, 339, 25, 40), b('hex', 3, 120, 60, -45), b('hex', 3, 264, 60, 45)],
   },
@@ -91,12 +101,12 @@ export const LEVELS = [
     name: 'Iron Foundry',
     timeLimitSec: 80,
     obstacles: [
-      o('platform', 15, GROUND_Y - 44, 60, 8),
-      o('platform', VIRTUAL_W - 105, GROUND_Y - 44, 60, 8),
-      o('platform', VIRTUAL_W / 2 - 45, GROUND_Y - 94, 60, 8),
-      o('platform', 30, GROUND_Y - 134, 50, 8),
-      o('platform', VIRTUAL_W - 105, GROUND_Y - 134, 50, 8),
-      o('crate', VIRTUAL_W / 2 - 18, GROUND_Y - 44, 24, 16),
+      o('platform', 16, GROUND_Y - 48, 64, 8),
+      o('platform', VIRTUAL_W - 80, GROUND_Y - 48, 64, 8),
+      o('platform', VIRTUAL_W / 2 - 32, GROUND_Y - 96, 64, 8),
+      o('platform', 32, GROUND_Y - 136, 48, 8),
+      o('platform', VIRTUAL_W - 80, GROUND_Y - 136, 48, 8),
+      o('crate', VIRTUAL_W / 2 - 16, GROUND_Y - 48, 32, 16),
     ],
     balls: [b('round', 4, 60, 25, 35), b('round', 4, 324, 25, -40), b('hex', 3, 192, 55, 40)],
   },
@@ -105,26 +115,26 @@ export const LEVELS = [
     name: 'Sky Bridge',
     timeLimitSec: 80,
     obstacles: [
-      o('platform', 15, GROUND_Y - 44, 60, 8),
-      o('platform', VIRTUAL_W - 105, GROUND_Y - 44, 60, 8),
-      o('platform', VIRTUAL_W / 2 - 45, GROUND_Y - 94, 60, 8),
-      o('platform', 30, GROUND_Y - 134, 50, 8),
-      o('platform', VIRTUAL_W - 105, GROUND_Y - 134, 50, 8),
+      o('platform', 16, GROUND_Y - 48, 64, 8),
+      o('platform', VIRTUAL_W - 80, GROUND_Y - 48, 64, 8),
+      o('platform', VIRTUAL_W / 2 - 32, GROUND_Y - 96, 64, 8),
+      o('platform', 32, GROUND_Y - 136, 48, 8),
+      o('platform', VIRTUAL_W - 80, GROUND_Y - 136, 48, 8),
     ],
-    balls: [b('round', 4, 192, 20, -30), b('hex', 3, 105, 55, 45), b('round', 3, 324, 25, 40)],
+    balls: [b('round', 4, 192, 20, -30), b('hex', 3, 105, 55, 45), b('round', 3, 279, 25, 40)],
   },
   {
     id: 8,
     name: 'Storm Deck',
     timeLimitSec: 75,
     obstacles: [
-      o('platform', 15, GROUND_Y - 44, 56, 8),
-      o('platform', VIRTUAL_W - 99, GROUND_Y - 44, 56, 8),
-      o('platform', VIRTUAL_W / 2 - 42, GROUND_Y - 89, 56, 8),
-      o('platform', 24, GROUND_Y - 134, 46, 8),
-      o('platform', VIRTUAL_W - 93, GROUND_Y - 134, 46, 8),
-      o('crate', 45, GROUND_Y - 44, 20, 16),
-      o('crate', VIRTUAL_W - 75, GROUND_Y - 44, 20, 16),
+      o('platform', 16, GROUND_Y - 48, 56, 8),
+      o('platform', VIRTUAL_W - 72, GROUND_Y - 48, 56, 8),
+      o('platform', VIRTUAL_W / 2 - 32, GROUND_Y - 88, 64, 8),
+      o('platform', 24, GROUND_Y - 136, 48, 8),
+      o('platform', VIRTUAL_W - 72, GROUND_Y - 136, 48, 8),
+      o('crate', 48, GROUND_Y - 48, 24, 16),
+      o('crate', VIRTUAL_W - 72, GROUND_Y - 48, 24, 16),
     ],
     balls: [b('round', 5, 192, 20, 30), b('hex', 3, 60, 55, 45), b('hex', 3, 324, 55, -40)],
   },
@@ -133,12 +143,12 @@ export const LEVELS = [
     name: 'Lightning Spire',
     timeLimitSec: 75,
     obstacles: [
-      o('platform', 15, GROUND_Y - 44, 56, 8),
-      o('platform', VIRTUAL_W - 99, GROUND_Y - 44, 56, 8),
-      o('platform', VIRTUAL_W / 2 - 42, GROUND_Y - 89, 56, 8),
-      o('platform', 24, GROUND_Y - 134, 46, 8),
-      o('platform', VIRTUAL_W - 93, GROUND_Y - 134, 46, 8),
-      o('crate', VIRTUAL_W / 2 - 18, GROUND_Y - 44, 24, 16),
+      o('platform', 16, GROUND_Y - 48, 56, 8),
+      o('platform', VIRTUAL_W - 72, GROUND_Y - 48, 56, 8),
+      o('platform', VIRTUAL_W / 2 - 32, GROUND_Y - 88, 64, 8),
+      o('platform', 24, GROUND_Y - 136, 48, 8),
+      o('platform', VIRTUAL_W - 72, GROUND_Y - 136, 48, 8),
+      o('crate', VIRTUAL_W / 2 - 16, GROUND_Y - 48, 32, 16),
     ],
     balls: [b('round', 4, 60, 25, 40), b('hex', 3, 324, 25, -40), b('round', 3, 192, 55, -35)],
   },
@@ -147,14 +157,14 @@ export const LEVELS = [
     name: 'Final Ascent',
     timeLimitSec: 70,
     obstacles: [
-      o('platform', 15, GROUND_Y - 44, 50, 8),
-      o('platform', VIRTUAL_W - 90, GROUND_Y - 44, 50, 8),
-      o('platform', VIRTUAL_W / 2 - 38, GROUND_Y - 84, 50, 8),
-      o('platform', 24, GROUND_Y - 124, 44, 8),
-      o('platform', VIRTUAL_W - 90, GROUND_Y - 124, 44, 8),
-      o('platform', VIRTUAL_W / 2 - 33, GROUND_Y - 164, 44, 8),
-      o('crate', 8, GROUND_Y - 44, 18, 16),
-      o('crate', VIRTUAL_W - 33, GROUND_Y - 44, 18, 16),
+      o('platform', 16, GROUND_Y - 48, 48, 8),
+      o('platform', VIRTUAL_W - 64, GROUND_Y - 48, 48, 8),
+      o('platform', VIRTUAL_W / 2 - 24, GROUND_Y - 88, 48, 8),
+      o('platform', 24, GROUND_Y - 128, 48, 8),
+      o('platform', VIRTUAL_W - 72, GROUND_Y - 128, 48, 8),
+      o('platform', VIRTUAL_W / 2 - 24, GROUND_Y - 168, 48, 8),
+      o('crate', 8, GROUND_Y - 48, 16, 16),
+      o('crate', VIRTUAL_W - 24, GROUND_Y - 48, 16, 16),
     ],
     balls: [b('round', 5, 45, 20, 40), b('hex', 3, 339, 20, -45), b('round', 3, 135, 55, -35), b('hex', 3, 249, 55, 40)],
   },
