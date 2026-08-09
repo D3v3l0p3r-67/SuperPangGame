@@ -1,4 +1,4 @@
-import { VIRTUAL_W, GROUND_Y, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
@@ -60,6 +60,7 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
+    this.drawBorder();
 
     this.physics.world.setBounds(0, 0, VIRTUAL_W, GROUND_Y);
     this.physics.world.on('worldbounds', this.onWorldBounds, this);
@@ -113,6 +114,28 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(hexColor(COLORS.groundEdge), 1);
     g.fillRect(0, GROUND_Y, VIRTUAL_W, 2);
     g.setDepth(0);
+  }
+
+  // The tiled frame the ball/player can never cross -- identical on every
+  // level (drawn once here, not level data) and sized to the exact
+  // playfield rectangle physics.world.setBounds uses. Top/left/right hug
+  // the inside of the world bounds (there's no room outside them --
+  // canvas edge and world bound are the same line there); the bottom
+  // strip instead sits just past GROUND_Y, in the decorative floor strip
+  // below the world bounds, so it doesn't need its own space carved out
+  // of the playfield.
+  drawBorder() {
+    const t = OBSTACLE_BLOCK_SIZE;
+    const strips = [
+      this.add.tileSprite(0, 0, VIRTUAL_W, t, 'border-tile'),
+      this.add.tileSprite(0, 0, t, GROUND_Y, 'border-tile'),
+      this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, 'border-tile'),
+      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, 'border-tile'),
+    ];
+    for (const strip of strips) {
+      strip.setOrigin(0, 0);
+      strip.setDepth(0.5);
+    }
   }
 
   get currentLevelDef() {
@@ -310,7 +333,15 @@ export class GameScene extends Phaser.Scene {
 
     if (inputState.shoot) this.tryFire();
 
-    for (const ball of this.balls.getChildren()) ball.body.moves = !this.ballsFrozen;
+    // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
+    // frozen balls as a warning the freeze is about to end; reset alpha
+    // once it actually does.
+    const freezeExpiresAt = this.effects.active.get('time_freeze');
+    const freezeWarning = this.ballsFrozen && freezeExpiresAt !== undefined && freezeExpiresAt - this.elapsedMs <= 3000;
+    for (const ball of this.balls.getChildren()) {
+      ball.body.moves = !this.ballsFrozen;
+      ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
+    }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
 
     if (this.state === GAME_STATES.PLAYING && this.balls.countActive(true) === 0) {
@@ -402,6 +433,7 @@ export class GameScene extends Phaser.Scene {
 
   onPlayerHitBall(playerGO, ballGO) {
     if (this.state !== GAME_STATES.PLAYING || !ballGO.active) return;
+    if (this.ballsFrozen) return; // time_freeze: frozen balls can't hurt the player
 
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();

@@ -29,6 +29,13 @@ export const COLORS = {
   danger: '#e94560',
   accent: '#ffd23f',
   outline: '#0b0e2a',
+  // The playfield border frame (see GameScene.drawBorder) -- identical on
+  // every level, an OBSTACLE_BLOCK_SIZE-thick tiled wall the ball/player
+  // can never cross, reusing the HUD's gold accent for its rivet detail.
+  frameBase: '#2d4a8a',
+  frameHighlight: '#6f95e0',
+  frameShadow: '#142449',
+  frameRivet: '#ffd23f',
 };
 
 export const GAME_STATES = Object.freeze({
