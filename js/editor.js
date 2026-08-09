@@ -352,9 +352,22 @@ export class Editor {
     this.cursorGraphics.clear();
     if (this.scene.state !== GAME_STATES.EDITOR || !this.hoverCell) return;
     this.cursorGraphics.lineStyle(1, 0xffd23f, 0.9);
-    // Every brush -- ball included -- snaps to the same grid cell, so the
-    // highlighted cell is always exactly where the next object lands.
+    // Every brush -- ball included -- snaps to the same grid cell (the
+    // square below always marks that cell, top-left corner on the grid),
+    // so the highlighted cell is always exactly where the next object
+    // lands. A ball's actual footprint is usually much bigger than one
+    // 8x8 cell though (up to 48px across) -- draw its true radius, centered
+    // on that same cell, so the cursor shows the whole element about to be
+    // placed rather than just the small grid square inside it.
     this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
+    if (this.brush.startsWith('ball-')) {
+      const [, , sizeStr] = this.brush.split('-');
+      const size = Math.min(parseInt(sizeStr, 10), BALL_SIZES.length);
+      const radius = BALL_SIZES[size - 1].radius;
+      const cx = this.hoverCell.x + OBSTACLE_BLOCK_SIZE / 2;
+      const cy = this.hoverCell.y + OBSTACLE_BLOCK_SIZE / 2;
+      this.cursorGraphics.strokeCircle(cx, cy, radius);
+    }
     if (this.statusEl) {
       // A transient message (e.g. an import error) takes over the status
       // line for a few seconds instead of being overwritten on the very
