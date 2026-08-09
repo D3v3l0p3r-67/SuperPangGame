@@ -3,6 +3,7 @@ import { STORAGE_PREFIX, SCHEMA_VERSION } from './constants.js';
 const KEYS = {
   highscores: STORAGE_PREFIX + 'highscores',
   settings: STORAGE_PREFIX + 'settings',
+  customLevel: STORAGE_PREFIX + 'customLevel',
 };
 
 const MAX_HIGH_SCORES = 10;
@@ -64,6 +65,18 @@ export function saveSettings(partial) {
   const next = { ...loadSettings(), ...partial, schemaVersion: SCHEMA_VERSION };
   writeRaw(KEYS.settings, JSON.stringify(next));
   return next;
+}
+
+// The level editor's single custom-level slot. Stored as the raw level
+// definition (same shape as an entry in LEVELS) wrapped with a schema
+// version, same pattern as every other stored payload here.
+export function saveCustomLevel(def) {
+  writeRaw(KEYS.customLevel, JSON.stringify({ schemaVersion: SCHEMA_VERSION, def }));
+}
+
+export function loadCustomLevel() {
+  const parsed = safeParse(readRaw(KEYS.customLevel));
+  return parsed && parsed.def ? parsed.def : null;
 }
 
 export function loadHighScores() {

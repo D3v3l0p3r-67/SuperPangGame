@@ -72,16 +72,26 @@ body {
   display: none !important;
 }
 
-/* HUD */
+/* HUD -- lives in the dedicated bar below the bordered playfield (see
+   constants.js HUD_H/PLAYFIELD_H and GameScene.drawBackground, which
+   paints the matching dark strip on the canvas itself). top is shifted
+   12px above the strip's actual (224/264 = 84.848%) start -- net of a
+   20px-up then an 8px-down request -- so it's (224-12)/264 = 80.303%;
+   height grows by the same 12px (40+12=52 -> 52/264 = 19.697%) so the
+   content isn't cramped into a shorter box than it's shifted by. Keep
+   in sync with constants.js HUD_H/PLAYFIELD_H/VIRTUAL_H if those ever
+   change. */
 #hud {
   position: absolute;
-  top: 0.5vmin;
+  top: 80.303%;
+  height: 19.697%;
   left: 0;
   right: 0;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   gap: 2px;
-  padding: 0 1.5vmin;
+  padding: 0.6vmin 1.5vmin 0;
   text-shadow: 2px 2px 0 #000;
   pointer-events: none;
   letter-spacing: 1px;
@@ -251,10 +261,12 @@ body {
   color: var(--accent);
 }
 
-/* Touch controls */
+/* Touch controls -- anchored just above the HUD bar (see #hud) rather
+   than the bottom of the whole canvas, since that bottom strip is now
+   the HUD. */
 #touch-controls {
   position: absolute;
-  bottom: 2vmin;
+  bottom: calc(15.152% + 1.5vmin);
   left: 0;
   right: 0;
   display: flex;
@@ -329,6 +341,46 @@ body {
 #debug-spawn-panel input {
   font-size: 10px;
   font-family: inherit;
+}
+
+/* Level editor panel -- same look/classes as the debug panel (.debug-
+   btn-row, .debug-text), just its own top-left slot and accent color.
+   Like #debug-panel, the panel itself is pointer-events: none and only
+   its interactive controls opt back in -- otherwise its own background
+   (and any gaps/padding/status text between buttons) would swallow
+   clicks meant for the canvas underneath it, which grows a real dead
+   zone over the playfield as the panel picks up more rows/buttons. */
+#editor-panel {
+  position: absolute;
+  top: 0.5vmin;
+  left: 0.5vmin;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--accent, #ffd23f);
+  color: var(--text, #f4f1de);
+  font-size: 10px;
+  padding: 4px 6px;
+  line-height: 1.4;
+  pointer-events: none;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#editor-panel select,
+#editor-panel button,
+#editor-panel input,
+#editor-panel label {
+  pointer-events: auto;
+  font-size: 10px;
+  font-family: inherit;
+}
+
+#editor-panel button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  cursor: pointer;
 }
 
 .debug-section-label {

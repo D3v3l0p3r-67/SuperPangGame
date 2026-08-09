@@ -1,9 +1,11 @@
 import { BALL_SHAPES, BALL_SIZES, MIN_BALL_SIZE } from './config.js';
 
 // Reference radius the round/hex textures are drawn at (see BootScene) --
-// every Ball scales its sprite (and, via Arcade's scale-aware circle body,
-// its collision radius) down from this to its actual size's radius.
-export const BALL_TEXTURE_REF_RADIUS = 20;
+// matches the largest ball (size 5, radius 24) so it renders at native
+// resolution; every other Ball scales its sprite (and, via Arcade's
+// scale-aware circle body, its collision radius) down from this to its
+// actual size's radius.
+export const BALL_TEXTURE_REF_RADIUS = 24;
 
 // A ball is a (shape, size) pair. Shape (round/hex) decides whether gravity
 // applies; size (1-5) decides every physical parameter -- radius, speed,
@@ -16,7 +18,7 @@ export const BALL_TEXTURE_REF_RADIUS = 20;
 // only place that calls landOnTop()/wall-flips, on top of Phaser's own
 // collision detection.
 export class Ball extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, shape, size, x, y, vx, vy) {
+  constructor(scene, shape, size, x, y, vx, vy, powerup = null) {
     const textureKey = shape === 'hex' ? 'ball-hex' : 'ball-round';
     super(scene, x, y, textureKey);
 
@@ -24,14 +26,20 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.shape = shape;
-    this.size = size;
     this.shapeDef = BALL_SHAPES[shape];
-    const sizeDef = BALL_SIZES[size - 1];
+    // Hex only has 3 defined tiers (see BALL_SHAPES.hex.maxSize) -- clamp
+    // rather than index past the end of BALL_SIZES.
+    this.size = Math.min(size, this.shapeDef.maxSize);
+    const sizeDef = BALL_SIZES[this.size - 1];
     this.radius = sizeDef.radius;
     this.points = sizeDef.points;
-    this.speed = sizeDef.speed;
+    this.speed = sizeDef.speed * (this.shapeDef.speedMultiplier || 1);
     this.bounceVelocity = sizeDef.bounceVelocity;
     this.gravity = sizeDef.gravity;
+    // Set by the level editor (or level data) to guarantee a specific
+    // power-up drops when this exact ball is popped, bypassing the usual
+    // random POWERUP_DROP_CHANCE roll -- see GameScene.popBall.
+    this.forcedPowerup = powerup;
 
     this.setScale(this.radius / BALL_TEXTURE_REF_RADIUS);
     this.body.setCircle(BALL_TEXTURE_REF_RADIUS);
@@ -98,6 +106,16 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     this.body.setVelocityX(-this.hSpeed);
   }
 
+  // Hex balls spin around their own axis as they fly, like a rolling
+  // wheel: angular speed derived from actual horizontal velocity / radius
+  // so bigger/slower balls turn slower and it visibly reverses on a
+  // horizontal bounce. Round balls don't spin (they fall/land, they don't
+  // roll). Never called while frozen -- see GameScene.updatePlaying.
+  spin(dt) {
+    if (this.shapeDef.gravity) return;
+    this.rotation += (this.body.velocity.x / this.radius) * dt;
+  }
+
   // Descriptors for exactly two children one size smaller (one sent left,
   // one right), or none if already size 1. Children get a small one-time
   // upward pop (round) so they visibly separate from the hit point; the
@@ -108,14 +126,15 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
 
     const childSize = this.size - 1;
     const childSizeDef = BALL_SIZES[childSize - 1];
+    const childSpeed = childSizeDef.speed * (this.shapeDef.speedMultiplier || 1);
     const children = [];
 
     if (this.shapeDef.gravity) {
       const spawnKick = -childSizeDef.bounceVelocity * 0.35;
-      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: -childSizeDef.speed, vy: spawnKick });
-      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: childSizeDef.speed, vy: spawnKick });
+      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: -childSpeed, vy: spawnKick });
+      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: childSpeed, vy: spawnKick });
     } else {
-      const component = childSizeDef.speed * Math.SQRT1_2;
+      const component = childSpeed * Math.SQRT1_2;
       children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: -component, vy: -component });
       children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: component, vy: component });
     }

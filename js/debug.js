@@ -1,5 +1,5 @@
-import { VIRTUAL_W } from './constants.js';
-import { BALL_SHAPE_KEYS, BALL_SIZES, MAX_BALL_SIZE, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
+import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE } from './constants.js';
+import { BALL_SHAPE_KEYS, BALL_SHAPES, BALL_SIZES, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
 import { LEVELS } from './levels.js';
@@ -12,14 +12,17 @@ export class Debug {
   constructor(scene) {
     this.scene = scene;
     this.enabled = new URLSearchParams(location.search).get('debug') === '1';
+    this.showGrid = false;
     this.panelEl = document.getElementById('debug-panel');
     this.textEl = null;
     this.spawnPanelBuilt = false;
 
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'F1' || e.code === 'Backquote') {
+      if (e.code === 'KeyD' && e.shiftKey) {
         this.enabled = !this.enabled;
         this.sync();
+      } else if (e.code === 'KeyG' && this.enabled) {
+        this.showGrid = !this.showGrid;
       }
     });
 
@@ -60,13 +63,22 @@ export class Debug {
       shapeSelect.appendChild(opt);
     }
     const sizeSelect = document.createElement('select');
-    for (const { size } of BALL_SIZES) {
-      const opt = document.createElement('option');
-      opt.value = String(size);
-      opt.textContent = `size ${size}`;
-      sizeSelect.appendChild(opt);
-    }
-    sizeSelect.value = String(MAX_BALL_SIZE);
+    // Rebuilt whenever the shape changes -- hex only goes up to its
+    // maxSize (3), not the full 5 round tiers.
+    const populateSizes = () => {
+      const maxSize = BALL_SHAPES[shapeSelect.value].maxSize;
+      sizeSelect.innerHTML = '';
+      for (const { size } of BALL_SIZES) {
+        if (size > maxSize) continue;
+        const opt = document.createElement('option');
+        opt.value = String(size);
+        opt.textContent = `size ${size}`;
+        sizeSelect.appendChild(opt);
+      }
+      sizeSelect.value = String(maxSize);
+    };
+    shapeSelect.onchange = populateSizes;
+    populateSizes();
     const spawnBallBtn = document.createElement('button');
     spawnBallBtn.textContent = 'Spawn';
     spawnBallBtn.onclick = () => {
@@ -122,14 +134,40 @@ export class Debug {
     levelRow.append(levelInput, jumpBtn);
     wrap.appendChild(levelRow);
 
+    // -- 8x8 alignment grid (also toggled with the G key)
+    this.addSectionLabel(wrap, 'Grid');
+    const gridRow = document.createElement('div');
+    gridRow.className = 'debug-btn-row';
+    const gridBtn = document.createElement('button');
+    gridBtn.textContent = 'Toggle 8x8 grid';
+    gridBtn.onclick = () => {
+      this.showGrid = !this.showGrid;
+    };
+    gridRow.appendChild(gridBtn);
+    wrap.appendChild(gridRow);
+
     this.panelEl.appendChild(wrap);
   }
 
   render(graphics) {
     graphics.clear();
     if (!this.enabled) return;
+    if (this.showGrid) this.drawGrid(graphics);
     this.drawCollisionBounds(graphics);
     this.updateText();
+  }
+
+  // Every OBSTACLE_BLOCK_SIZE (8px) across the whole canvas, so obstacle/
+  // border alignment can be checked directly against it -- toggle with
+  // the G key or the panel button, independent of the collision overlay.
+  drawGrid(graphics) {
+    graphics.lineStyle(1, 0x00ff00, 0.25);
+    for (let x = 0; x <= VIRTUAL_W; x += OBSTACLE_BLOCK_SIZE) {
+      graphics.lineBetween(x, 0, x, VIRTUAL_H);
+    }
+    for (let y = 0; y <= VIRTUAL_H; y += OBSTACLE_BLOCK_SIZE) {
+      graphics.lineBetween(0, y, VIRTUAL_W, y);
+    }
   }
 
   updateText() {
@@ -149,8 +187,11 @@ export class Debug {
   drawCollisionBounds(graphics) {
     const g = this.scene;
 
+    // body.x/y are the body's actual top-left world position, already
+    // accounting for its offset within the sprite (see Player.js) -- not
+    // simply centered on the sprite's x/y anymore.
     graphics.lineStyle(1, 0x00ff00, 1);
-    graphics.strokeRect(g.player.x - g.player.body.width / 2, g.player.y - g.player.body.height / 2, g.player.body.width, g.player.body.height);
+    graphics.strokeRect(g.player.body.x, g.player.body.y, g.player.body.width, g.player.body.height);
 
     graphics.lineStyle(1, 0xff00ff, 1);
     for (const ball of g.balls.getChildren()) {

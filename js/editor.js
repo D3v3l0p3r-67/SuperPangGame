@@ -1,0 +1,473 @@
+import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
+import { BALL_SHAPES, BALL_SIZES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES } from './config.js';
+import { Obstacle } from './Obstacle.js';
+import { Ball } from './Ball.js';
+import * as storage from './storage.js';
+
+const BRUSHES = [
+  { id: 'platform', label: 'Wall' },
+  { id: 'crate', label: 'Crate' },
+  { id: 'erase', label: 'Erase' },
+];
+
+// Builds the brush list for balls from the same registries the debug
+// spawn panel uses, so adding a new ball size/shape shows up here too.
+function ballBrushes() {
+  const brushes = [];
+  for (const shape of Object.keys(BALL_SHAPES)) {
+    const maxSize = BALL_SHAPES[shape].maxSize;
+    for (const { size } of BALL_SIZES) {
+      if (size > maxSize) continue;
+      brushes.push({ id: `ball-${shape}-${size}`, label: `${shape[0].toUpperCase()}${size}` });
+    }
+  }
+  return brushes;
+}
+
+// Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that
+// actually CONTAINS it (floor, not round-to-nearest -- rounding to the
+// nearest grid line could snap up to half a cell away from the pointer,
+// so the highlighted cell wouldn't be the one the pointer is inside of),
+// clamped so a placed obstacle/ball always stays fully inside the
+// playfield (never overlapping the border) -- same rule every
+// hand-authored level in levels.js already follows. Every editor object
+// (walls, crates, balls) is placed on this exact grid, no free placement.
+function snapObstacleOrigin(x, y) {
+  const bt = OBSTACLE_BLOCK_SIZE;
+  const gx = Math.floor((x - bt) / bt) * bt + bt;
+  const gy = Math.floor((y - bt) / bt) * bt + bt;
+  const maxX = VIRTUAL_W - bt * 2;
+  const maxY = GROUND_Y - bt * 2;
+  return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
+}
+
+function ballRadius(shape, size) {
+  const shapeDef = BALL_SHAPES[shape];
+  return BALL_SIZES[Math.min(size, shapeDef.maxSize) - 1].radius;
+}
+
+// Initial velocity for a ball placed with a given (dirX, dirY) direction
+// toggle -- mirrors the default-direction logic in Ball.js's constructor,
+// just deterministic instead of random. Round (gravity) balls only move
+// horizontally at first (dirY is meaningless for them); hex balls split
+// their speed diagonally across both axes.
+function computeBallVelocity(shape, size, dirX, dirY) {
+  const shapeDef = BALL_SHAPES[shape];
+  const sizeDef = BALL_SIZES[Math.min(size, shapeDef.maxSize) - 1];
+  const speed = sizeDef.speed * (shapeDef.speedMultiplier || 1);
+  if (shapeDef.gravity) return { vx: speed * dirX, vy: 0 };
+  const component = speed * Math.SQRT1_2;
+  return { vx: component * dirX, vy: component * dirY };
+}
+
+// In-scene level editor: paint obstacle blocks and ball spawn points onto
+// a live GameScene (reusing its real Obstacle/Ball classes and groups, so
+// what you see while editing is exactly what plays), then save and/or
+// play the result. Entirely a GameScene.EDITOR-state add-on -- doesn't
+// touch PLAYING logic, and every handler here no-ops outside that state.
+export class Editor {
+  constructor(scene) {
+    this.scene = scene;
+    this.brush = 'platform';
+    this.blocks = new Map(); // "gx,gy" -> Obstacle instance
+    this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
+    this.dirX = 1; // next-placed ball's horizontal direction: 1 = right, -1 = left
+    this.dirY = -1; // next-placed ball's vertical direction (hex only): -1 = up, 1 = down
+    this.selectedPowerup = null; // next-placed crate/ball's guaranteed powerup drop, if any
+    this.panelBuilt = false;
+    this.cursorGraphics = scene.add.graphics();
+    this.cursorGraphics.setDepth(50);
+
+    scene.input.on('pointerdown', (p) => this.onPointer(p, true));
+    scene.input.on('pointermove', (p) => this.onPointer(p, false));
+  }
+
+  buildPanel() {
+    this.panelBuilt = true;
+    this.panelEl = document.getElementById('editor-panel');
+    this.panelEl.innerHTML = '';
+
+    const brushRow = document.createElement('div');
+    brushRow.className = 'debug-btn-row';
+    this.brushButtons = {};
+    for (const brush of [...BRUSHES.slice(0, 2), ...ballBrushes(), BRUSHES[2]]) {
+      const btn = document.createElement('button');
+      btn.textContent = brush.label;
+      btn.title = brush.id;
+      btn.onclick = () => this.setBrush(brush.id);
+      brushRow.appendChild(btn);
+      this.brushButtons[brush.id] = btn;
+    }
+    this.panelEl.appendChild(brushRow);
+
+    // Options that apply to the NEXT placed ball/crate: initial direction
+    // (round balls only use the X one; hex balls use both) and a
+    // guaranteed powerup drop on pop/destroy. Chosen before placing, then
+    // baked into that specific instance -- see placeBall/placeBlock.
+    const optionsRow = document.createElement('div');
+    optionsRow.className = 'debug-btn-row';
+
+    this.dirXBtn = document.createElement('button');
+    this.dirXBtn.title = 'Ball direction (horizontal)';
+    this.dirXBtn.onclick = () => {
+      this.dirX *= -1;
+      this.updateOptionLabels();
+    };
+    optionsRow.appendChild(this.dirXBtn);
+
+    this.dirYBtn = document.createElement('button');
+    this.dirYBtn.title = 'Ball direction (vertical) -- hex balls only, round balls always start falling';
+    this.dirYBtn.onclick = () => {
+      this.dirY *= -1;
+      this.updateOptionLabels();
+    };
+    optionsRow.appendChild(this.dirYBtn);
+
+    const powerupLabel = document.createElement('label');
+    powerupLabel.textContent = 'On break/pop: ';
+    this.powerupSelect = document.createElement('select');
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = 'No powerup';
+    this.powerupSelect.appendChild(noneOpt);
+    for (const key of POWERUP_TYPE_KEYS) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = POWERUP_TYPES[key].label;
+      this.powerupSelect.appendChild(opt);
+    }
+    this.powerupSelect.onchange = () => { this.selectedPowerup = this.powerupSelect.value || null; };
+    powerupLabel.appendChild(this.powerupSelect);
+    optionsRow.appendChild(powerupLabel);
+
+    this.panelEl.appendChild(optionsRow);
+    this.updateOptionLabels();
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'debug-btn-row';
+
+    const timeLabel = document.createElement('label');
+    timeLabel.textContent = 'Time ';
+    this.timeInput = document.createElement('input');
+    this.timeInput.type = 'number';
+    this.timeInput.min = '10';
+    this.timeInput.max = '300';
+    this.timeInput.value = '60';
+    this.timeInput.style.width = '48px';
+    timeLabel.appendChild(this.timeInput);
+    actionRow.appendChild(timeLabel);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear all';
+    clearBtn.onclick = () => this.clearAll();
+    actionRow.appendChild(clearBtn);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.onclick = () => this.save();
+    actionRow.appendChild(saveBtn);
+
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export';
+    exportBtn.onclick = () => this.exportJSON();
+    actionRow.appendChild(exportBtn);
+
+    const importBtn = document.createElement('button');
+    importBtn.textContent = 'Import';
+    importBtn.onclick = () => this.importFileInput.click();
+    actionRow.appendChild(importBtn);
+
+    this.importFileInput = document.createElement('input');
+    this.importFileInput.type = 'file';
+    this.importFileInput.accept = '.json,application/json';
+    this.importFileInput.style.display = 'none';
+    this.importFileInput.onchange = (e) => this.importJSON(e);
+    actionRow.appendChild(this.importFileInput);
+
+    const playBtn = document.createElement('button');
+    playBtn.textContent = 'Play';
+    playBtn.onclick = () => this.play();
+    actionRow.appendChild(playBtn);
+
+    const backBtn = document.createElement('button');
+    backBtn.textContent = 'Menu';
+    backBtn.onclick = () => this.scene.exitEditor();
+    actionRow.appendChild(backBtn);
+
+    this.panelEl.appendChild(actionRow);
+
+    this.statusEl = document.createElement('div');
+    this.statusEl.className = 'debug-text';
+    this.panelEl.appendChild(this.statusEl);
+
+    this.setBrush(this.brush);
+  }
+
+  updateOptionLabels() {
+    if (this.dirXBtn) this.dirXBtn.textContent = `Dir X: ${this.dirX > 0 ? '→' : '←'}`;
+    if (this.dirYBtn) this.dirYBtn.textContent = `Dir Y: ${this.dirY < 0 ? '↑' : '↓'}`;
+  }
+
+  setBrush(id) {
+    this.brush = id;
+    if (!this.brushButtons) return;
+    for (const [brushId, btn] of Object.entries(this.brushButtons)) {
+      btn.style.outline = brushId === id ? '2px solid #ffd23f' : 'none';
+    }
+  }
+
+  enable() {
+    if (!this.panelBuilt) this.buildPanel();
+    this.panelEl.classList.remove('hidden');
+    const existing = storage.loadCustomLevel();
+    this.clearAll();
+    if (existing) this.loadDef(existing);
+  }
+
+  disable() {
+    if (this.panelEl) this.panelEl.classList.add('hidden');
+    this.cursorGraphics.clear();
+  }
+
+  // Also the entry point for imported JSON files (see importJSON), which
+  // may be hand-edited or from an older/foreign export -- so every field
+  // is validated rather than trusted, and invalid entries are skipped
+  // individually instead of aborting or crashing the whole import.
+  loadDef(def) {
+    this.timeInput.value = String(def.timeLimitSec || 60);
+    for (const o of def.obstacles || []) {
+      if (!OBSTACLE_TYPE_KEYS.includes(o.type)) continue;
+      if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) continue;
+      const powerup = POWERUP_TYPE_KEYS.includes(o.powerup) ? o.powerup : null;
+      for (let dy = 0; dy < o.h; dy += OBSTACLE_BLOCK_SIZE) {
+        for (let dx = 0; dx < o.w; dx += OBSTACLE_BLOCK_SIZE) {
+          this.setBlock(o.x + dx, o.y + dy, o.type, powerup);
+        }
+      }
+    }
+    for (const b of def.balls || []) {
+      if (!BALL_SHAPES[b.shape] || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
+      // b.x/b.y are the ball's CENTER (the coordinate real gameplay spawns
+      // it at); the editor's grid cell is anchored to its top-left corner
+      // (center - radius), so recover that corner before snapping rather
+      // than snapping the center itself -- otherwise a ball's radius would
+      // shift which cell it's considered to belong to on reload.
+      const radius = ballRadius(b.shape, b.size);
+      const snapped = snapObstacleOrigin(b.x - radius, b.y - radius);
+      const hasVelocity = Number.isFinite(b.vx) && Number.isFinite(b.vy);
+      const { vx, vy } = hasVelocity ? { vx: b.vx, vy: b.vy } : computeBallVelocity(b.shape, b.size, 1, -1);
+      const powerup = POWERUP_TYPE_KEYS.includes(b.powerup) ? b.powerup : null;
+      this.setBall(snapped, b.shape, b.size, vx, vy, powerup);
+    }
+  }
+
+  clearAll() {
+    for (const block of this.blocks.values()) block.destroy();
+    this.blocks.clear();
+    for (const ball of this.balls.values()) ball.sprite.destroy();
+    this.balls.clear();
+  }
+
+  keyFor(x, y) {
+    return `${x},${y}`;
+  }
+
+  // Low-level placement (grid cell already known) shared by the live
+  // pointer brush and loadDef() -- a wall/crate block always fully
+  // occupies its cell, so placing one evicts any ball sitting there.
+  setBlock(x, y, type, powerup) {
+    const key = this.keyFor(x, y);
+    const existingBlock = this.blocks.get(key);
+    if (existingBlock) existingBlock.destroy();
+    const existingBall = this.balls.get(key);
+    if (existingBall) {
+      existingBall.sprite.destroy();
+      this.balls.delete(key);
+    }
+    const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
+    this.scene.obstacles.add(block);
+    this.blocks.set(key, block);
+  }
+
+  placeBlock(x, y, type) {
+    this.setBlock(x, y, type, this.selectedPowerup);
+  }
+
+  eraseAt(x, y) {
+    const key = this.keyFor(x, y);
+    const block = this.blocks.get(key);
+    if (block) {
+      block.destroy();
+      this.blocks.delete(key);
+    }
+    const ball = this.balls.get(key);
+    if (ball) {
+      ball.sprite.destroy();
+      this.balls.delete(key);
+    }
+  }
+
+  // Low-level placement (grid cell + exact velocity/powerup already
+  // known) shared by the live pointer brush and loadDef() -- loadDef
+  // passes each ball's own saved vx/vy/powerup directly so restoring a
+  // level reproduces it exactly, rather than reapplying whatever the
+  // editor's CURRENT direction/powerup toggles happen to be set to.
+  // The grid cell marks the ball's top-left bounding-box corner (not its
+  // center) -- the same reference point a wall/crate block uses -- so the
+  // cursor square consistently means "this corner is on the grid" for
+  // every brush, ball included, even though a ball's own texture origin
+  // is its center.
+  setBall(snapped, shape, size, vx, vy, powerup) {
+    const key = this.keyFor(snapped.x, snapped.y);
+    if (this.blocks.has(key)) return; // don't stack a ball on a wall block
+    const existing = this.balls.get(key);
+    if (existing) existing.sprite.destroy();
+    const radius = ballRadius(shape, size);
+    const cx = snapped.x + radius;
+    const cy = snapped.y + radius;
+    const sprite = new Ball(this.scene, shape, size, cx, cy, 0, 0);
+    sprite.body.setAllowGravity(false);
+    sprite.body.setVelocity(0, 0);
+    this.scene.balls.add(sprite);
+    this.balls.set(key, { shape, size, x: cx, y: cy, vx, vy, powerup, sprite });
+  }
+
+  placeBall(x, y, shape, size) {
+    const snapped = snapObstacleOrigin(x, y);
+    const { vx, vy } = computeBallVelocity(shape, size, this.dirX, this.dirY);
+    this.setBall(snapped, shape, size, vx, vy, this.selectedPowerup);
+  }
+
+  // isDown is true only for the initial 'pointerdown' call, false for
+  // 'pointermove' -- walls/crates/erase paint continuously while dragging,
+  // but a ball brush only places one ball per discrete click (a drag would
+  // otherwise spam dozens of balls along the drag path).
+  onPointer(pointer, isDown) {
+    if (this.scene.state !== GAME_STATES.EDITOR) return;
+    const x = pointer.worldX;
+    const y = pointer.worldY;
+    if (x < OBSTACLE_BLOCK_SIZE || x > VIRTUAL_W - OBSTACLE_BLOCK_SIZE || y < OBSTACLE_BLOCK_SIZE || y > GROUND_Y - OBSTACLE_BLOCK_SIZE) return;
+
+    const snapped = snapObstacleOrigin(x, y);
+    this.hoverCell = snapped;
+
+    if (!pointer.isDown) return;
+    const isBallBrush = this.brush.startsWith('ball-');
+    if (isBallBrush && !isDown) return;
+
+    if (this.brush === 'erase') {
+      this.eraseAt(snapped.x, snapped.y);
+    } else if (isBallBrush) {
+      const [, shape, sizeStr] = this.brush.split('-');
+      this.placeBall(x, y, shape, parseInt(sizeStr, 10));
+    } else {
+      this.placeBlock(snapped.x, snapped.y, this.brush);
+    }
+  }
+
+  render() {
+    this.cursorGraphics.clear();
+    if (this.scene.state !== GAME_STATES.EDITOR || !this.hoverCell) return;
+    this.cursorGraphics.lineStyle(1, 0xffd23f, 0.9);
+    // Every brush -- ball included -- snaps to the same grid cell, and that
+    // cell is always the object's top-left bounding-box corner (the square
+    // below marks exactly that corner). A ball's actual footprint is
+    // usually much bigger than one 8x8 cell though (up to 48px across) --
+    // draw its true radius, extending down-right from that same corner, so
+    // the cursor shows the whole element about to be placed rather than
+    // just the small grid square at its corner.
+    this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
+    if (this.brush.startsWith('ball-')) {
+      const [, shape, sizeStr] = this.brush.split('-');
+      const size = parseInt(sizeStr, 10);
+      const radius = ballRadius(shape, size);
+      const cx = this.hoverCell.x + radius;
+      const cy = this.hoverCell.y + radius;
+      this.cursorGraphics.strokeCircle(cx, cy, radius);
+    }
+    if (this.statusEl) {
+      // A transient message (e.g. an import error) takes over the status
+      // line for a few seconds instead of being overwritten on the very
+      // next frame by the brush/count line below.
+      if (this.statusMessage && performance.now() < this.statusMessageUntil) {
+        this.statusEl.textContent = this.statusMessage;
+      } else {
+        this.statusMessage = null;
+        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.size}`;
+      }
+    }
+  }
+
+  showStatusMessage(text, durationMs = 3000) {
+    this.statusMessage = text;
+    this.statusMessageUntil = performance.now() + durationMs;
+  }
+
+  buildDef() {
+    const obstacles = [...this.blocks.entries()].map(([key, block]) => {
+      const [x, y] = key.split(',').map(Number);
+      const entry = { type: block.type, x, y, w: OBSTACLE_BLOCK_SIZE, h: OBSTACLE_BLOCK_SIZE };
+      if (block.forcedPowerup) entry.powerup = block.forcedPowerup;
+      return entry;
+    });
+    const balls = [...this.balls.values()].map((b) => {
+      const entry = { shape: b.shape, size: b.size, x: b.x, y: b.y, vx: b.vx, vy: b.vy };
+      if (b.powerup) entry.powerup = b.powerup;
+      return entry;
+    });
+    const timeLimitSec = Math.max(10, Math.min(300, parseInt(this.timeInput.value, 10) || 60));
+    return { id: 'custom', name: 'Custom Level', timeLimitSec, obstacles, balls };
+  }
+
+  save() {
+    storage.saveCustomLevel(this.buildDef());
+  }
+
+  // Download the current level as a standalone .json file -- a second way
+  // to keep/share a level besides the single localStorage save slot.
+  exportJSON() {
+    const blob = new Blob([JSON.stringify(this.buildDef(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'balloon-buster-level.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Loads a previously exported (or hand-written) level file, replacing
+  // whatever's currently being edited. Bad JSON or a malformed level just
+  // reports a status message rather than throwing -- see loadDef for the
+  // per-entry validation that protects against a partially-bad file.
+  importJSON(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let def;
+      try {
+        def = JSON.parse(reader.result);
+      } catch {
+        this.showStatusMessage('IMPORT FAILED: invalid JSON');
+        return;
+      }
+      if (!def || typeof def !== 'object' || !Array.isArray(def.obstacles) || !Array.isArray(def.balls)) {
+        this.showStatusMessage('IMPORT FAILED: not a level file');
+        return;
+      }
+      this.clearAll();
+      this.loadDef(def);
+      this.showStatusMessage('IMPORT OK');
+    };
+    reader.readAsText(file);
+  }
+
+  play() {
+    if (this.balls.size === 0) return; // nothing to pop, refuse to start
+    this.save();
+    const def = this.buildDef();
+    this.disable();
+    this.scene.startCustomLevel(def);
+  }
+}

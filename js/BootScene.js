@@ -1,6 +1,7 @@
 import { PLAYER_PALETTE, PLAYER_IDLE, PLAYER_WALK, buildPixelCanvas, buildPowerupCanvas } from './sprites.js';
 import { BALL_SHAPES, POWERUP_TYPES } from './config.js';
 import { BALL_TEXTURE_REF_RADIUS } from './Ball.js';
+import { OBSTACLE_BLOCK_SIZE, COLORS } from './constants.js';
 
 function hexColor(cssHex) {
   return Phaser.Display.Color.HexStringToColor(cssHex).color;
@@ -26,6 +27,7 @@ export class BootScene extends Phaser.Scene {
 
     this.buildProjectileTexture();
     this.buildParticleTexture();
+    this.buildBorderTileTexture();
 
     for (const [type, def] of Object.entries(POWERUP_TYPES)) {
       this.textures.addCanvas(`powerup-${type}`, buildPowerupCanvas(def.icon, def.color));
@@ -77,6 +79,39 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 1);
     g.fillRect(0, 0, 2, 2);
     g.generateTexture('particle', 2, 2);
+    g.destroy();
+  }
+
+  // Repeating tiles for obstacle walls -- a beveled block with a small
+  // rivet, tiled via Phaser TileSprites so each wall is drawn once and
+  // reused unchanged everywhere. 'border-tile' (blue) is the playfield
+  // frame (see GameScene.drawBorder) and indestructible obstacles;
+  // 'border-tile-crate' (brown) is the same shape/texture for destructible
+  // crates (see Obstacle.js) -- only the palette differs.
+  buildBorderTileTexture() {
+    this.buildWallTexture('border-tile', COLORS.frameBase, COLORS.frameHighlight, COLORS.frameShadow, COLORS.frameRivet);
+    this.buildWallTexture('border-tile-crate', COLORS.crateBase, COLORS.crateHighlight, COLORS.crateShadow, COLORS.frameRivet);
+  }
+
+  buildWallTexture(key, base, highlight, shadow, rivet) {
+    const size = OBSTACLE_BLOCK_SIZE;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    g.fillStyle(hexColor(base), 1);
+    g.fillRect(0, 0, size, size);
+
+    g.fillStyle(hexColor(highlight), 1);
+    g.fillRect(0, 0, size, 1);
+    g.fillRect(0, 0, 1, size);
+
+    g.fillStyle(hexColor(shadow), 1);
+    g.fillRect(0, size - 1, size, 1);
+    g.fillRect(size - 1, 0, 1, size);
+
+    g.fillStyle(hexColor(rivet), 1);
+    g.fillRect(size / 2 - 1, size / 2 - 1, 2, 2);
+
+    g.generateTexture(key, size, size);
     g.destroy();
   }
 }

@@ -1,4 +1,4 @@
-import { VIRTUAL_W, GROUND_Y, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
@@ -9,6 +9,7 @@ import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioEngine } from './audio.js';
 import { UI } from './ui.js';
 import { Debug } from './debug.js';
+import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
 
@@ -57,11 +58,22 @@ export class GameScene extends Phaser.Scene {
     this.stateTimer = 0;
     this.justSubmittedEntry = null;
     this.lastOutcome = null;
+    this.isCustomLevel = false;
+    this.customLevelDef = null;
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
+    this.drawBorder();
 
-    this.physics.world.setBounds(0, 0, VIRTUAL_W, GROUND_Y);
+    // Inset by the border's thickness (OBSTACLE_BLOCK_SIZE) on top/left/
+    // right so a ball/player actually bounces off the border's visible
+    // inner face instead of the (invisible) canvas edge underneath it --
+    // without this the ball would visually travel OBSTACLE_BLOCK_SIZE px
+    // into the border tiles before bouncing. The bottom is unaffected:
+    // the bottom border sits just past GROUND_Y already (see drawBorder),
+    // so GROUND_Y is already exactly the border's inner face there.
+    const bt = OBSTACLE_BLOCK_SIZE;
+    this.physics.world.setBounds(bt, bt, VIRTUAL_W - bt * 2, GROUND_Y - bt);
     this.physics.world.on('worldbounds', this.onWorldBounds, this);
 
     this.obstacles = this.physics.add.staticGroup();
@@ -102,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
     this.debug = new Debug(this);
+    this.editor = new Editor(this);
   }
 
   drawBackground() {
@@ -109,14 +122,43 @@ export class GameScene extends Phaser.Scene {
     g.fillGradientStyle(hexColor(COLORS.bgTop), hexColor(COLORS.bgTop), hexColor(COLORS.bgBottom), hexColor(COLORS.bgBottom), 1);
     g.fillRect(0, 0, VIRTUAL_W, GROUND_Y);
     g.fillStyle(hexColor(COLORS.ground), 1);
-    g.fillRect(0, GROUND_Y, VIRTUAL_W, this.game.config.height - GROUND_Y);
+    g.fillRect(0, GROUND_Y, VIRTUAL_W, PLAYFIELD_H - GROUND_Y);
     g.fillStyle(hexColor(COLORS.groundEdge), 1);
     g.fillRect(0, GROUND_Y, VIRTUAL_W, 2);
+    // Dedicated HUD bar below the bordered playfield (see constants.js
+    // HUD_H) -- the DOM #hud overlay is positioned to exactly cover this
+    // same strip, see style.css.
+    g.fillStyle(hexColor(COLORS.hudBg), 1);
+    g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, this.game.config.height - PLAYFIELD_H);
+    g.fillStyle(hexColor(COLORS.accent), 1);
+    g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, 2);
     g.setDepth(0);
   }
 
+  // The tiled frame the ball/player can never cross -- identical on every
+  // level (drawn once here, not level data) and sized to the exact
+  // playfield rectangle physics.world.setBounds uses. Top/left/right hug
+  // the inside of the world bounds (there's no room outside them --
+  // canvas edge and world bound are the same line there); the bottom
+  // strip instead sits just past GROUND_Y, in the decorative floor strip
+  // below the world bounds, so it doesn't need its own space carved out
+  // of the playfield.
+  drawBorder() {
+    const t = OBSTACLE_BLOCK_SIZE;
+    const strips = [
+      this.add.tileSprite(0, 0, VIRTUAL_W, t, 'border-tile'),
+      this.add.tileSprite(0, 0, t, GROUND_Y, 'border-tile'),
+      this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, 'border-tile'),
+      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, 'border-tile'),
+    ];
+    for (const strip of strips) {
+      strip.setOrigin(0, 0);
+      strip.setDepth(0.5);
+    }
+  }
+
   get currentLevelDef() {
-    return LEVELS[this.levelIndex];
+    return this.isCustomLevel ? this.customLevelDef : LEVELS[this.levelIndex];
   }
 
   get remainingLevelTime() {
@@ -148,9 +190,46 @@ export class GameScene extends Phaser.Scene {
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
     this.justSubmittedEntry = null;
+    this.isCustomLevel = false;
+    this.customLevelDef = null;
     this.effects.reset(this);
     this.loadLevel(this.levelIndex);
     this.startLevelIntro();
+  }
+
+  // Level editor entry point: same setup as startNewGame(), but plays a
+  // single editor-authored level (loadLevel/currentLevelDef/advanceLevel
+  // all branch on isCustomLevel to use it instead of indexing LEVELS).
+  startCustomLevel(def) {
+    this.score = 0;
+    this.lives = PLAYER_CONFIG.startLives;
+    this.levelIndex = 0;
+    this.scoreMultiplier = 1;
+    this.ballsFrozen = false;
+    this.justSubmittedEntry = null;
+    this.isCustomLevel = true;
+    this.customLevelDef = def;
+    this.effects.reset(this);
+    this.loadLevel(def);
+    this.startLevelIntro();
+  }
+
+  enterEditor() {
+    this.audio.stopMusic();
+    this.obstacles.clear(true, true);
+    this.balls.clear(true, true);
+    this.projectiles.clear(true, true);
+    this.powerups.clear(true, true);
+    this.state = GAME_STATES.EDITOR;
+    this.physics.pause();
+    this.editor.enable();
+  }
+
+  exitEditor() {
+    this.editor.disable();
+    this.obstacles.clear(true, true);
+    this.balls.clear(true, true);
+    this.goToMenu();
   }
 
   // Balls and the player must stay frozen for the whole "3, 2, 1, GO!"
@@ -167,25 +246,28 @@ export class GameScene extends Phaser.Scene {
   // on-field power-ups, player position, weapon state, active temporary
   // effects, and the level timer. Score and lives are untouched, so this
   // is safe both when advancing levels and when the current level
-  // restarts after a life is lost.
-  loadLevel(idx) {
-    const def = loadLevelData(this, idx);
+  // restarts after a life is lost. `idxOrDef` is a LEVELS index normally,
+  // or the editor's own level definition object for a custom level.
+  loadLevel(idxOrDef) {
+    const def = loadLevelData(this, idxOrDef);
     this.player.reset();
     this.weaponState = createWeaponState();
     this.effects.reset(this);
     this.levelTimer = 0;
-    const musicGroup = idx < 3 ? 0 : idx < 6 ? 1 : 2;
+    const musicGroup = typeof idxOrDef !== 'number' ? 2 : idxOrDef < 3 ? 0 : idxOrDef < 6 ? 1 : 2;
     this.audio.playMusic(musicGroup);
     return def;
   }
 
   restartLevel() {
-    this.loadLevel(this.levelIndex);
+    this.loadLevel(this.isCustomLevel ? this.customLevelDef : this.levelIndex);
     this.startLevelIntro();
   }
 
   advanceLevel() {
-    if (this.levelIndex + 1 < LEVELS.length) {
+    if (this.isCustomLevel) {
+      this.finishRun('victory');
+    } else if (this.levelIndex + 1 < LEVELS.length) {
       this.levelIndex += 1;
       this.loadLevel(this.levelIndex);
       this.startLevelIntro();
@@ -289,6 +371,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.debug.render(this.debugGraphics);
+    this.editor.render();
     this.ui.render();
   }
 
@@ -310,7 +393,16 @@ export class GameScene extends Phaser.Scene {
 
     if (inputState.shoot) this.tryFire();
 
-    for (const ball of this.balls.getChildren()) ball.body.moves = !this.ballsFrozen;
+    // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
+    // frozen balls as a warning the freeze is about to end; reset alpha
+    // once it actually does.
+    const freezeExpiresAt = this.effects.active.get('time_freeze');
+    const freezeWarning = this.ballsFrozen && freezeExpiresAt !== undefined && freezeExpiresAt - this.elapsedMs <= 3000;
+    for (const ball of this.balls.getChildren()) {
+      ball.body.moves = !this.ballsFrozen;
+      ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
+      if (!this.ballsFrozen) ball.spin(dt);
+    }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
 
     if (this.state === GAME_STATES.PLAYING && this.balls.countActive(true) === 0) {
@@ -324,7 +416,7 @@ export class GameScene extends Phaser.Scene {
     const base = WEAPON_TYPES.harpoon;
     const width = base.width * this.weaponState.widthMultiplier;
     const tipX = this.player.x;
-    const tipY = this.player.y - PLAYER_CONFIG.height / 2;
+    const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
     const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce);
     this.projectiles.add(proj);
     this.audio.shoot();
@@ -336,29 +428,42 @@ export class GameScene extends Phaser.Scene {
     this.spawnBurst(ball.x, ball.y, ball.shapeDef.color, 10);
 
     const children = ball.getSplitChildren();
+    const forcedPowerup = ball.forcedPowerup;
     ball.destroy();
     for (const spec of children) {
       const child = new Ball(this, spec.shape, spec.size, spec.x, spec.y, spec.vx, spec.vy);
       this.balls.add(child);
     }
 
-    if (Math.random() < POWERUP_DROP_CHANCE) {
-      const type = POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)];
-      const bonus = new Bonus(this, type, ball.x, ball.y);
+    // A ball the level editor tagged with a powerup guarantees that drop
+    // (bypassing the random roll below) -- see Ball.js's forcedPowerup.
+    const dropType = forcedPowerup
+      || (Math.random() < POWERUP_DROP_CHANCE ? POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)] : null);
+    if (dropType) {
+      const bonus = new Bonus(this, dropType, ball.x, ball.y);
       this.powerups.add(bonus);
     }
   }
 
   spawnBurst(x, y, colorHex, count, small = false) {
+    // Kept tight and short-lived on purpose: a wide/fast/long-lived burst
+    // visibly drifts away from the hit point before it fades, which reads
+    // as "the effect isn't where the ball was" even though it started
+    // exactly there.
     const emitter = this.add.particles(x, y, 'particle', {
-      lifespan: small ? 300 : 400,
-      speed: small ? { min: 15, max: 40 } : { min: 30, max: 90 },
+      lifespan: small ? 220 : 280,
+      speed: small ? { min: 10, max: 25 } : { min: 15, max: 45 },
       scale: { start: small ? 1.5 : 2, end: 0 },
       alpha: { start: 1, end: 0 },
-      gravityY: 140,
+      gravityY: 60,
       tint: hexColor(colorHex),
       quantity: count,
       emitting: false,
+      // A burst near the ground can otherwise drift (via gravityY + its
+      // own outward speed) below GROUND_Y and render in the HUD strip,
+      // which nothing else in the game is ever allowed to do -- kill any
+      // particle the instant it leaves the playfield rectangle.
+      deathZone: { type: 'onLeave', source: new Phaser.Geom.Rectangle(0, 0, VIRTUAL_W, GROUND_Y) },
     });
     emitter.setDepth(7);
     emitter.explode(count, x, y);
@@ -380,18 +485,35 @@ export class GameScene extends Phaser.Scene {
   }
 
   onBallHitObstacle(ballGO, obstacleGO) {
+    // Vertical and horizontal contact are independent, not else-if-chained
+    // together: a corner hit can have both touching.down (or up) AND
+    // touching.left (or right) true at once. Chaining all four as one
+    // else-if only fired the vertical bounce and silently skipped the
+    // horizontal one -- since Arcade Physics (bounce 0, see Ball.js)
+    // already zeroed vx as part of resolving that same collision, the
+    // ball was left drifting with zero horizontal speed, bouncing
+    // straight up and down like it was stuck on a rail.
     const body = ballGO.body;
     if (body.touching.down) ballGO.landOnTop();
     else if (body.touching.up) ballGO.bounceOffBottom();
-    else if (body.touching.left) ballGO.bounceOffLeft();
+    if (body.touching.left) ballGO.bounceOffLeft();
     else if (body.touching.right) ballGO.bounceOffRight();
   }
 
   onProjectileHitObstacle(projGO, obstacleGO) {
     if (!projGO.active) return;
     projGO.destroy();
+    const forcedPowerup = obstacleGO.forcedPowerup;
     const destroyed = obstacleGO.takeHit();
-    if (destroyed) this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+    if (destroyed) {
+      this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+      // A crate the level editor tagged with a powerup drops it the
+      // moment it's shot down -- see Obstacle.js's forcedPowerup.
+      if (forcedPowerup) {
+        const bonus = new Bonus(this, forcedPowerup, obstacleGO.x, obstacleGO.y);
+        this.powerups.add(bonus);
+      }
+    }
   }
 
   onProjectileHitBall(projGO, ballGO) {
@@ -402,6 +524,7 @@ export class GameScene extends Phaser.Scene {
 
   onPlayerHitBall(playerGO, ballGO) {
     if (this.state !== GAME_STATES.PLAYING || !ballGO.active) return;
+    if (this.ballsFrozen) return; // time_freeze: frozen balls can't hurt the player
 
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();

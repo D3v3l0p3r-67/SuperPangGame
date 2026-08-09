@@ -20,12 +20,12 @@ const HUD_VISIBLE_STATES = new Set([
 ]);
 
 const ELEMENT_IDS = [
-  'hud', 'hud-score', 'hud-level', 'hud-lives', 'hud-time', 'hud-weapon', 'powerup-indicators',
+  'hud', 'hud-score', 'hud-highscore', 'hud-level', 'hud-lives', 'hud-time', 'hud-weapon', 'powerup-indicators',
   'screen-menu', 'screen-level-intro', 'level-intro-title', 'level-intro-name', 'level-intro-countdown',
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
   'touch-controls',
-  'btn-start', 'btn-highscores', 'btn-fullscreen', 'btn-fullscreen-pause',
+  'btn-start', 'btn-editor', 'btn-highscores', 'btn-fullscreen', 'btn-fullscreen-pause',
   'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -52,6 +52,11 @@ export class UI {
 
     this.bindEvents();
     this.applySettingsToControls();
+    this.topHighScore = this.getTopHighScore();
+  }
+
+  getTopHighScore() {
+    return this.storage.loadHighScores()[0]?.score ?? 0;
   }
 
   bindEvents() {
@@ -63,6 +68,11 @@ export class UI {
     this.el['btn-start'].addEventListener('click', startGame);
     this.el['btn-restart'].addEventListener('click', startGame);
     this.el['btn-victory-restart'].addEventListener('click', startGame);
+
+    this.el['btn-editor'].addEventListener('click', () => {
+      this.audio.resumeContext();
+      this.game.enterEditor();
+    });
 
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
     this.el['btn-close-highscores'].addEventListener('click', () => this.game.goToMenu());
@@ -117,6 +127,7 @@ export class UI {
     if (g.state !== this.lastState) {
       this.setScreen(g.state);
       this.lastState = g.state;
+      this.topHighScore = this.getTopHighScore(); // cheap re-read on state changes only
     }
 
     if (g.state === GAME_STATES.LEVEL_INTRO) {
@@ -126,6 +137,7 @@ export class UI {
     if (HUD_VISIBLE_STATES.has(g.state)) {
       this.el.hud.classList.remove('hidden');
       this.el['hud-score'].textContent = `SCORE ${g.score}`;
+      this.el['hud-highscore'].textContent = `HI ${Math.max(this.topHighScore, g.score)}`;
       this.el['hud-level'].textContent = `LEVEL ${g.levelIndex + 1}`;
       this.el['hud-lives'].textContent = `LIVES ${g.lives}`;
       this.el['hud-time'].textContent = `TIME ${g.remainingLevelTime}`;

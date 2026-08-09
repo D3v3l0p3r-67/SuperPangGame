@@ -1,11 +1,29 @@
 // Technical constants: rendering resolution, timing, physics, palette.
 // Gameplay tuning values (speeds, points, durations, level data) live in config.js / levels.js.
 
-export const VIRTUAL_W = 256;
-export const VIRTUAL_H = 224;
+// 46 blocks (368px) of that width is the movable play area -- the rest is
+// the border frame (OBSTACLE_BLOCK_SIZE on each side, see GameScene.
+// drawBorder / the world bounds inset in GameScene.create).
+export const VIRTUAL_W = 384;
+// PLAYFIELD_H is the bordered play area (gameplay + floor strip), same as
+// the old fixed canvas height. HUD_H is a dedicated bar reserved below it
+// for the HUD (see GameScene.drawBackground/style.css #hud), matching the
+// reference layout instead of overlaying the HUD on top of gameplay.
+// VIRTUAL_H is the *total* canvas height passed to Phaser.
+export const PLAYFIELD_H = 224;
+export const HUD_H = 40;
+export const VIRTUAL_H = PLAYFIELD_H + HUD_H;
 
-export const GROUND_MARGIN = 10;
-export const GROUND_Y = VIRTUAL_H - GROUND_MARGIN;
+// Everything here is a multiple of 8 (matching OBSTACLE_BLOCK_SIZE) so the
+// playfield, ground line, and any obstacle grid all line up cleanly.
+export const GROUND_MARGIN = 24;
+export const GROUND_Y = PLAYFIELD_H - GROUND_MARGIN;
+
+// Base cell size obstacles are composed of -- a breakable obstacle is a
+// group of independent OBSTACLE_BLOCK_SIZE x OBSTACLE_BLOCK_SIZE blocks
+// (see LevelManager.js), so one can be shot away without affecting the
+// rest of the shape.
+export const OBSTACLE_BLOCK_SIZE = 8;
 
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;
@@ -21,11 +39,26 @@ export const COLORS = {
   danger: '#e94560',
   accent: '#ffd23f',
   outline: '#0b0e2a',
+  // The playfield border frame (see GameScene.drawBorder) -- identical on
+  // every level, an OBSTACLE_BLOCK_SIZE-thick tiled wall the ball/player
+  // can never cross, reusing the HUD's gold accent for its rivet detail.
+  frameBase: '#2d4a8a',
+  frameHighlight: '#6f95e0',
+  frameShadow: '#142449',
+  frameRivet: '#ffd23f',
+  // Same beveled-block wall tile as the frame above, but a brown palette --
+  // used for destructible crate obstacles (see Obstacle.js) so they read
+  // as "the same wall, different material" rather than a distinct look.
+  crateBase: '#8b5a2b',
+  crateHighlight: '#c9975a',
+  crateShadow: '#3f2510',
+  hudBg: '#05040a',
 };
 
 export const GAME_STATES = Object.freeze({
   BOOT: 'BOOT',
   MENU: 'MENU',
+  EDITOR: 'EDITOR',
   LEVEL_INTRO: 'LEVEL_INTRO',
   PLAYING: 'PLAYING',
   HIT_FREEZE: 'HIT_FREEZE',
