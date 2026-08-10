@@ -174,6 +174,10 @@ elements/            One JSON file per ball size/shape, obstacle type, or
                       see "Adding elements" below
 levels/              One level_NN.json per level, in level-editor Export
                       format -- see "Adding levels" below
+admin/               A separate, standalone site for editing graphics/
+                      sounds/elements/levels without touching code -- see
+                      "Admin tool" below. Not linked from the game itself;
+                      open admin/index.html directly.
 js/
   vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
   main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
@@ -577,3 +581,79 @@ same order) with new art -- no code change needed. "READY" blinks for
 `LEVEL_INTRO_READY_SEC` (2s) then "GO!" holds solid for
 `LEVEL_INTRO_GO_SEC` (1s) -- both live in `constants.js`, shared with
 `GameScene.js`'s own countdown timer so the two never drift out of sync.
+
+## Admin tool
+
+`admin/index.html` is a second, completely standalone site (its own
+login screen, its own CSS, not linked from the game) for editing the
+game's content -- graphics, sounds, elements, levels -- without writing
+any code. Like the rest of the project there's no backend or database:
+it's a static page that edits the very same files described above, and
+reuses `js/assets.js`/`js/config.js` directly (both plain data modules,
+no Phaser dependency) so its file paths/naming can never drift out of
+sync with what the game actually loads.
+
+```
+admin/
+  index.html         Login screen + app shell (header, four tab buttons,
+                      four empty tab panels filled in by js/main.js)
+  style.css           A plain, readable admin-tool look (not the game's
+                      pixel font -- this page is dense with JSON text and
+                      forms, where a proportional font reads better)
+  js/
+    auth.js           Hardcoded username/password check + sessionStorage
+                       flag -- a casual-visitor gate only, NOT real
+                       security, since a static site has no server to
+                       verify credentials against (see below)
+    fsSave.js          The save abstraction every tab writes through:
+                       File System Access API when a project folder is
+                       connected (writes the file directly to disk), or
+                       else a browser download of the same file/content
+                       as a fallback -- same pattern as js/editor.js's own
+                       Export button
+    util.js            Small shared helpers (fetch-relative-to-project-
+                       root JSON loading, DOM element builders)
+    graphicsTab.js      Lists every image the game loads (built from
+                       elements/*.json + js/assets.js, so it can't go
+                       stale) with a live preview and a file-replace +
+                       Save button per image
+    soundsTab.js        Lists every sound from assets/audio/audio.json --
+                       edit category/mode/volume/overlap/max-duration per
+                       sound (kept in memory, written back as one
+                       audio.json via a page-level Save button), or
+                       replace a sound's .ogg file directly
+    elementsTab.js       Raw-JSON editor, one card per elements/*.json file
+                       (see "Adding elements" above for the field
+                       reference), plus an "Add new element" form
+                       (per-category starting template) -- saving a new id
+                       also rewrites elements/index.json to match
+    levelsTab.js          Raw-JSON editor, one card per levels/level_NN.json
+                       (see "Adding levels" above), an "Add blank level"
+                       button, an "Import" file input for a level-editor
+                       Export straight from the game's own Level Editor,
+                       and a link to open that Level Editor
+    main.js             Login form handling, the "Choose project folder"
+                       button (File System Access API permission prompt),
+                       and lazy per-tab loading (each tab only fetches its
+                       data the first time it's opened)
+```
+
+**Login**: username `bos`, password `newpass`, hardcoded in `auth.js`.
+This is a visible, on-page-documented limitation, not an oversight --
+without a server there's nothing to check credentials against, so this
+only deters a casual visitor from poking at the tool, not a determined
+one. Don't rely on it to keep the underlying files private; that's what
+the hosting repo's own access controls are for.
+
+**Saving without a database**: elements/levels are edited as raw JSON in
+a `<textarea>` (same "hand-editable file" shape the main README already
+describes for both), graphics/sounds are replaced via a file input. On
+"Save", the tool asks for permission to your project folder once per
+session (**Choose project folder…**, top right) via the File System
+Access API and writes the file straight back into `elements/`,
+`levels/`, `assets/...`, etc. -- no upload, no server, the browser writes
+to your own disk. In browsers without that API (e.g. Firefox, Safari at
+the time of writing), or if you skip picking a folder, Save instead
+downloads the file, which you then drop into place yourself. Either way
+the project's own files remain the only storage -- nothing is written to
+`localStorage` or any database.
