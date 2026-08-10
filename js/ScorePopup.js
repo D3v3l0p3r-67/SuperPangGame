@@ -1,10 +1,10 @@
 import { HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_FRAME } from './assets.js';
 
-const LIFESPAN_MS = 1000;
-const START_Y_OFFSET = 8; // appears this many px above the pop point
+const LIFESPAN_MS = 300;
+const START_Y_OFFSET = 16; // appears this many px above the pop point -- clear of the pop effect (see assets.js's POP_FRAME_SCALE), which is centered right on the pop point
 const RISE_PX = 10; // additional upward drift over LIFESPAN_MS, on top of START_Y_OFFSET
-const START_SCALE = 1;
-const END_SCALE = 1.5;
+const START_SCALE = 0.5; // half the HUD digit strip's native size
+const END_SCALE = 0.75;
 
 function hexColor(cssHex) {
   return Phaser.Display.Color.HexStringToColor(cssHex).color;

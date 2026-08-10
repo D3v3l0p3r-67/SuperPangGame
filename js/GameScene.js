@@ -66,6 +66,9 @@ export class GameScene extends Phaser.Scene {
     this.customLevelDef = null;
     this.weaponType = 'harpoon';
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
+    // Tracks last frame's shoot input so a held key only fires once per
+    // press (see updatePlaying) unless rapid_shot is active.
+    this.wasShooting = false;
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
@@ -281,6 +284,9 @@ export class GameScene extends Phaser.Scene {
     this.levelTimer = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
+    // A key still held from before this level started (e.g. mashed
+    // through the level-clear screen) shouldn't read as a fresh press.
+    this.wasShooting = true;
     // Editor/custom levels and the first half of LEVELS play music01, the
     // rest play music02 -- stored, not started yet: music only actually
     // starts once the balls do (LEVEL_INTRO -> PLAYING, see update()),
@@ -462,7 +468,13 @@ export class GameScene extends Phaser.Scene {
     const inputState = this.readInput();
     this.player.update(dt, inputState);
 
-    if (inputState.shoot) this.tryFire();
+    // Holding the shoot input only fires once per press -- it has to be
+    // released and pressed again for another shot -- unless rapid_shot is
+    // active, which auto-fires the whole time it's held (still throttled
+    // by weaponState.maxActiveShots either way, see tryFire).
+    const rapidShotActive = this.effects.active.has('rapid_shot');
+    if (inputState.shoot && (rapidShotActive || !this.wasShooting)) this.tryFire();
+    this.wasShooting = inputState.shoot;
 
     // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
     // frozen balls as a warning the freeze is about to end; reset alpha

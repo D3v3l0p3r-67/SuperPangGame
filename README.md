@@ -78,6 +78,12 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
 
+Holding Shoot fires once per press -- release and press again for another
+shot -- unless the `rapid_shot` power-up is active, which auto-fires the
+whole time it's held (see `GameScene.updatePlaying`'s `wasShooting`
+tracking). Either way, an actual shot still only leaves if under the
+active weapon's `maxActiveShots` (see `tryFire`).
+
 ## Features
 
 - 10 hand-tuned levels with increasing difficulty (more/larger balls, more
@@ -440,7 +446,12 @@ dimensions:
 - **Score popup**: not a separate asset -- the floating "+N" points
   readout a pop leaves behind (see `js/ScorePopup.js`) reuses the HUD's
   own large score-digit spritesheet (`assets/hud/digits_large.webp`, see
-  "Swapping HUD graphics" below), tinted to the popped ball's `color`.
+  "Swapping HUD graphics" below), tinted to the popped ball's `color`,
+  drawn at half that spritesheet's native size (so it doesn't dominate
+  over a small ball's pop effect). Appears 16px above the pop point --
+  clear of the pop effect above, which is centered right on the pop point
+  -- then over 300ms drifts up another 10px, grows slightly, and fades
+  out, all tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
   file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
