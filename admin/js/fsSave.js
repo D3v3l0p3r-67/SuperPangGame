@@ -1,12 +1,16 @@
-// Every "Save" action in this admin tool goes through here. There is no
-// backend or database (this whole game is a static site, see the root
-// README.md) -- the project's own files ARE the storage. If the browser
-// supports the File System Access API (Chromium-based browsers) and the
-// admin has picked the project's root folder (see main.js's "Choose
-// project folder" button), saves write straight to disk. Otherwise every
-// save downloads the file instead, same pattern the game's own level
-// editor already uses for its Export button (js/editor.js) -- the admin
-// then drops it into place by hand.
+// Every "Save" action in this admin tool goes through here. The primary
+// path now is the PHP backend (save.php): a real authenticated, CSRF-
+// checked server endpoint that writes straight into the project's own
+// files (see save.php's path/extension whitelist for what it'll accept
+// and admin/includes/auth.php for the login it requires). If that fails
+// for any reason (server save.php unreachable, web server user lacking
+// write permission, ...), this falls back to the File System Access API
+// (Chromium browsers, if the admin has picked a local project folder via
+// main.js's "Choose project folder" button) and finally to a plain
+// download, same pattern the game's own level editor uses for its Export
+// button (js/editor.js) -- the admin then drops it into place by hand.
+
+const CSRF_TOKEN = document.querySelector('meta[name="admin-csrf"]')?.content ?? '';
 
 let rootHandle = null;
 
@@ -41,23 +45,21 @@ async function getFileHandle(rootRelativePath) {
   return dir.getFileHandle(fileName, { create: true });
 }
 
-// `content` is either a string (JSON/text files) or a Blob/File (images,
-// audio). Returns { savedTo: 'disk' | 'download' } so callers can show
-// the right follow-up message.
-export async function saveFile(rootRelativePath, content) {
-  if (isConnected()) {
-    try {
-      const handle = await getFileHandle(rootRelativePath);
-      const writable = await handle.createWritable();
-      await writable.write(content);
-      await writable.close();
-      return { savedTo: 'disk' };
-    } catch (err) {
-      console.error(`Direct save of ${rootRelativePath} failed, falling back to download:`, err);
-    }
+async function saveToServer(rootRelativePath, content) {
+  const formData = new FormData();
+  formData.append('path', rootRelativePath);
+  formData.append('csrf', CSRF_TOKEN);
+  const blob = content instanceof Blob ? content : new Blob([content], { type: 'application/octet-stream' });
+  formData.append('file', blob, rootRelativePath.split('/').pop());
+
+  const res = await fetch('save.php', { method: 'POST', body: formData, credentials: 'same-origin' });
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Server save failed: HTTP ${res.status}`);
   }
-  downloadFallback(rootRelativePath, content);
-  return { savedTo: 'download' };
+  if (!res.ok || !data.ok) throw new Error(data.error || `Server save failed: HTTP ${res.status}`);
 }
 
 function downloadFallback(rootRelativePath, content) {
@@ -71,4 +73,32 @@ function downloadFallback(rootRelativePath, content) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// `content` is either a string (JSON/text files) or a Blob/File (images,
+// audio). Returns { savedTo: 'server' | 'disk' | 'download' } so callers
+// can show the right follow-up message -- only 'download' needs the
+// admin to manually move the file into place.
+export async function saveFile(rootRelativePath, content) {
+  try {
+    await saveToServer(rootRelativePath, content);
+    return { savedTo: 'server' };
+  } catch (err) {
+    console.error(`Server save of ${rootRelativePath} failed, trying next option:`, err);
+  }
+
+  if (isConnected()) {
+    try {
+      const handle = await getFileHandle(rootRelativePath);
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      return { savedTo: 'disk' };
+    } catch (err) {
+      console.error(`Direct save of ${rootRelativePath} failed, falling back to download:`, err);
+    }
+  }
+
+  downloadFallback(rootRelativePath, content);
+  return { savedTo: 'download' };
 }

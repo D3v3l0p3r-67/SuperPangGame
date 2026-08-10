@@ -1,35 +1,29 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/includes/auth.php';
+requireLogin();
+$csrf = csrfToken();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Balloon Buster -- Admin</title>
-<meta name="description" content="Edit Balloon Buster's graphics, sounds, elements, and levels -- no database, just the game's own files.">
+<meta name="description" content="Edit Balloon Buster's graphics, sounds, elements, and levels.">
+<meta name="admin-csrf" content="<?= htmlspecialchars($csrf, ENT_QUOTES) ?>">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div id="login-screen">
-  <div class="login-box">
-    <h1>BALLOON BUSTER<br>ADMIN</h1>
-    <form id="login-form">
-      <label>Username <input id="login-user" autocomplete="username" autocapitalize="off"></label>
-      <label>Password <input id="login-pass" type="password" autocomplete="current-password"></label>
-      <button type="submit">Log in</button>
-      <p id="login-error" class="error hidden"></p>
-    </form>
-    <p class="note">Client-side gate only -- there is no server or database behind this page, so this does not protect the admin tool from anyone who can read its source. Don't expose this folder on a public server expecting real security.</p>
-  </div>
-</div>
-
-<div id="app" class="hidden">
+<div id="app">
   <header>
     <h1>Balloon Buster -- Admin</h1>
     <div id="fs-status">
       <span id="fs-status-text"></span>
       <button id="btn-pick-folder">Choose project folder…</button>
     </div>
-    <button id="btn-logout">Log out</button>
+    <a id="btn-logout" href="logout.php">Log out</a>
   </header>
 
   <nav id="tabs">

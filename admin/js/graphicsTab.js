@@ -146,7 +146,7 @@ function buildGraphicCard({ label, path }, fs) {
     status.textContent = 'Saving…';
     try {
       const result = await fs.saveFile(path, pendingFile);
-      status.textContent = result.savedTo === 'disk' ? 'Saved.' : `Downloaded -- copy it into ${path}.`;
+      status.textContent = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into ${path}.`;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;
     }

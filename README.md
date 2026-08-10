@@ -47,7 +47,10 @@ restitution.
 
 A live build is deployed automatically to GitHub Pages on every push to
 `main`. Check the repository's **Settings → Pages** for the published URL
-(or the deployment step's output in the Actions tab).
+(or the deployment step's output in the Actions tab). The deploy
+workflow deliberately excludes `admin/` (see "Admin tool" below) --
+GitHub Pages can't execute PHP, so publishing it there would just serve
+its source as plain static text instead of running it.
 
 ## Run it locally
 
@@ -663,33 +666,51 @@ same order) with new art -- no code change needed. "READY" blinks for
 
 ## Admin tool
 
-`admin/index.html` is a second, completely standalone site (its own
-login screen, its own CSS, not linked from the game) for editing the
-game's content -- graphics, sounds, elements, levels -- without writing
-any code. Like the rest of the project there's no backend or database:
-it's a static page that edits the very same files described above, and
-reuses `js/assets.js`/`js/config.js` directly (both plain data modules,
-no Phaser dependency) so its file paths/naming can never drift out of
-sync with what the game actually loads.
+`admin/` is a second, completely standalone site (its own login, its own
+CSS, not linked from the game) for editing the game's content --
+graphics, sounds, elements, levels -- without writing any code. It edits
+the very same files described above and reuses `js/assets.js`/
+`js/config.js` directly (both plain data modules, no Phaser dependency)
+so its file paths/naming can never drift out of sync with what the game
+actually loads. There's still no database -- but unlike the rest of this
+project, **the admin tool itself needs a PHP-capable host to run at
+all**, since real login and real server-side saves (see below) both need
+a server. The game proper is untouched by this and still needs nothing
+but static file hosting (GitHub Pages, any plain web server, or even
+`file://`).
 
 ```
 admin/
-  index.html         Login screen + app shell (header, four tab buttons,
-                      four empty tab panels filled in by js/main.js)
-  style.css           A plain, readable admin-tool look (not the game's
-                      pixel font -- this page is dense with JSON text and
-                      forms, where a proportional font reads better)
+  index.php           Requires login (includes/auth.php), then renders
+                       the app shell (header, four tab buttons, four
+                       empty tab panels filled in by js/main.js) with a
+                       CSRF token embedded for js/fsSave.js to use
+  login.php            Login form (GET) + handler (POST) -- see "Login"
+                       below
+  logout.php            Destroys the session, redirects to login.php
+  save.php               The only thing any tab's Save button ultimately
+                       calls (via js/fsSave.js) -- see "Saving" below
+  includes/
+    config.php          PROJECT_ROOT + the save whitelist (allowed top-
+                       level dirs/extensions) save.php checks against
+    auth.php             Session bootstrap, login check/attempt, CSRF
+                       token issue/verify -- every one of the *.php pages
+                       above starts with `require_once` on this
+    .htaccess            Blocks direct requests into this folder on
+                       Apache hosts (defense in depth -- these files
+                       produce no output if requested directly anyway,
+                       see "Login" below)
+  style.css            A plain, readable admin-tool look (not the game's
+                       pixel font -- this page is dense with JSON text and
+                       forms, where a proportional font reads better)
   js/
-    auth.js           Hardcoded username/password check + sessionStorage
-                       flag -- a casual-visitor gate only, NOT real
-                       security, since a static site has no server to
-                       verify credentials against (see below)
-    fsSave.js          The save abstraction every tab writes through:
-                       File System Access API when a project folder is
-                       connected (writes the file directly to disk), or
-                       else a browser download of the same file/content
-                       as a fallback -- same pattern as js/editor.js's own
-                       Export button
+    fsSave.js          The save abstraction every tab calls: POSTs to
+                       save.php first (see "Saving" below); if that fails
+                       for any reason, falls back to the File System
+                       Access API (if a local project folder is
+                       connected, see main.js), then to a browser
+                       download as a last resort -- same download pattern
+                       as js/editor.js's own Export button
     util.js            Small shared helpers (fetch-relative-to-project-
                        root JSON loading, DOM element builders)
     graphicsTab.js      Lists every image the game loads (built from
@@ -711,28 +732,58 @@ admin/
                        button, an "Import" file input for a level-editor
                        Export straight from the game's own Level Editor,
                        and a link to open that Level Editor
-    main.js             Login form handling, the "Choose project folder"
-                       button (File System Access API permission prompt),
-                       and lazy per-tab loading (each tab only fetches its
-                       data the first time it's opened)
+    main.js             The "Choose project folder" button (File System
+                       Access API permission prompt, the fsSave.js
+                       fallback -- see above), and lazy per-tab loading
+                       (each tab only fetches its data the first time
+                       it's opened)
 ```
 
-**Login**: username `bos`, password `newpass`, hardcoded in `auth.js`.
-This is a visible, on-page-documented limitation, not an oversight --
-without a server there's nothing to check credentials against, so this
-only deters a casual visitor from poking at the tool, not a determined
-one. Don't rely on it to keep the underlying files private; that's what
-the hosting repo's own access controls are for.
+### Running it locally
 
-**Saving without a database**: elements/levels are edited as raw JSON in
-a `<textarea>` (same "hand-editable file" shape the main README already
-describes for both), graphics/sounds are replaced via a file input. On
-"Save", the tool asks for permission to your project folder once per
-session (**Choose project folder…**, top right) via the File System
-Access API and writes the file straight back into `elements/`,
-`levels/`, `assets/...`, etc. -- no upload, no server, the browser writes
-to your own disk. In browsers without that API (e.g. Firefox, Safari at
-the time of writing), or if you skip picking a folder, Save instead
-downloads the file, which you then drop into place yourself. Either way
-the project's own files remain the only storage -- nothing is written to
-`localStorage` or any database.
+```
+php -S localhost:8000
+```
+from the project root, then open `http://localhost:8000/admin/`. Any
+real PHP host (Apache + mod_php, Nginx + PHP-FPM, ...) works the same
+way, pointed at the project root -- just make sure the web server's user
+can write to `elements/`, `levels/`, and `assets/` (that's what
+`save.php` actually needs; nothing needs write access to `admin/`
+itself).
+
+### Login
+
+Username `bos`, password stored as a bcrypt hash in `includes/auth.php`
+(`ADMIN_PASSWORD_HASH`, currently `newpass`) -- change the credential by
+generating a new hash (`php -r "echo password_hash('newpass',
+PASSWORD_DEFAULT);"`) and pasting the result in. `login.php` sets a real
+PHP session on success (`session_regenerate_id()`, `httponly` +
+`SameSite=Strict` cookie); `index.php` and `save.php` both call
+`requireLogin()`/check the session before doing anything. This is still
+a minimal, single-shared-account setup meant for one or two trusted
+admins -- there's no per-user accounts, no rate limiting/lockout, no
+password reset. Don't expose it beyond a small trusted group without
+adding something sturdier in front of it.
+
+### Saving
+
+Every Save button ultimately POSTs to `save.php` as
+`multipart/form-data`: a `path` field (project-root-relative, e.g.
+`elements/round-ball-1.json`), a `csrf` field (read from `index.php`'s
+embedded token), and the new content as a `file` upload (works
+identically for text -- elements/levels JSON, audio.json -- and binary --
+images -- content, both just become a Blob client-side). `save.php`
+rejects anything that isn't logged in, doesn't carry a valid CSRF token,
+or targets a path outside `elements/`, `levels/`, or `assets/`, or with
+an extension outside `.json`/`.webp`/`.png`/`.ogg` (see
+`includes/config.php`'s `ALLOWED_SAVE_DIRS`/`ALLOWED_SAVE_EXTENSIONS`) --
+that whitelist is also what stops the endpoint from ever being used to
+write a `.php` file somewhere the server would execute it, deliberately
+including `admin/` itself being outside the writable set. Path
+validation is one regex covering traversal (`..`), the directory
+whitelist, and the extension whitelist all at once, plus a second
+`realpath()`-based check that the resolved directory is still actually
+inside the project root before anything is written. If `save.php` is
+ever unreachable (wrong host, no PHP, misconfigured), `js/fsSave.js`
+falls back to the File System Access API / a download exactly like the
+tool's very first version did -- see `fsSave.js`'s own comments.

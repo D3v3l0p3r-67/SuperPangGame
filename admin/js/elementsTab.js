@@ -94,11 +94,11 @@ function buildElementCard(id, data, fs, currentIds, { isNew = false } = {}) {
     status.textContent = 'Saving…';
     try {
       const result = await fs.saveFile(assets.elementFilePath(id), `${JSON.stringify(parsed, null, 2)}\n`);
-      let msg = result.savedTo === 'disk' ? 'Saved.' : `Downloaded -- copy it into elements/${id}.json.`;
+      let msg = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into elements/${id}.json.`;
       if (!currentIds.includes(id)) {
         currentIds.push(id);
         const idxResult = await fs.saveFile(assets.ELEMENTS_INDEX_PATH, `${JSON.stringify(currentIds, null, 2)}\n`);
-        msg += idxResult.savedTo === 'disk' ? ' index.json updated too.' : ' Downloaded the updated index.json too -- copy it into elements/.';
+        msg += idxResult.savedTo !== 'download' ? ' index.json updated too.' : ' Downloaded the updated index.json too -- copy it into elements/.';
         title.textContent = id;
       }
       status.textContent = msg;

@@ -1,59 +1,33 @@
-import { checkLogin, isLoggedIn, setLoggedIn } from './auth.js';
 import * as fs from './fsSave.js';
 import { initGraphicsTab } from './graphicsTab.js';
 import { initSoundsTab } from './soundsTab.js';
 import { initElementsTab } from './elementsTab.js';
 import { initLevelsTab } from './levelsTab.js';
 
-const loginScreen = document.getElementById('login-screen');
-const app = document.getElementById('app');
-const loginForm = document.getElementById('login-form');
-const loginError = document.getElementById('login-error');
-
-function showApp() {
-  loginScreen.classList.add('hidden');
-  app.classList.remove('hidden');
-}
-
-function showLogin() {
-  app.classList.add('hidden');
-  loginScreen.classList.remove('hidden');
-  document.getElementById('login-pass').value = '';
-}
-
-loginForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const user = document.getElementById('login-user').value.trim();
-  const pass = document.getElementById('login-pass').value;
-  if (checkLogin(user, pass)) {
-    setLoggedIn(true);
-    loginError.classList.add('hidden');
-    showApp();
-    openTab('graphics');
-  } else {
-    loginError.textContent = 'Invalid username or password.';
-    loginError.classList.remove('hidden');
-  }
-});
-
-document.getElementById('btn-logout').addEventListener('click', () => {
-  setLoggedIn(false);
-  showLogin();
-});
+// Login is a real server-side gate now (see includes/auth.php) -- this
+// page only ever renders once index.php has already confirmed a valid
+// session, so there's no client-side login screen to wire up here
+// anymore. "Log out" is a plain link to logout.php.
 
 // -- Project folder connection (see fsSave.js) --------------------------
+//
+// Saves go straight to the server via save.php now (see fsSave.js) --
+// picking a local project folder here is only a fallback, for whenever
+// the server save fails (e.g. the web server user can't write to the
+// project folder) or the admin would rather save to a local checkout
+// instead.
 
 const fsStatusText = document.getElementById('fs-status-text');
 const pickFolderBtn = document.getElementById('btn-pick-folder');
 
 function refreshFsStatus() {
   if (!fs.hasFsAccess()) {
-    fsStatusText.textContent = "This browser can't save files directly (needs Chrome/Edge) -- every Save will download instead.";
+    fsStatusText.textContent = 'Saves go to the server. (This browser also can\'t use a local folder as a fallback -- needs Chrome/Edge for that.)';
     pickFolderBtn.classList.add('hidden');
   } else if (fs.isConnected()) {
-    fsStatusText.textContent = `Connected to "${fs.connectedName()}" -- saves write straight to disk.`;
+    fsStatusText.textContent = `Saves go to the server, falling back to "${fs.connectedName()}" if that fails.`;
   } else {
-    fsStatusText.textContent = 'No project folder selected -- saves will download instead.';
+    fsStatusText.textContent = 'Saves go to the server.';
   }
 }
 refreshFsStatus();
@@ -100,7 +74,4 @@ for (const btn of tabButtons) {
   btn.addEventListener('click', () => openTab(btn.dataset.tab));
 }
 
-if (isLoggedIn()) {
-  showApp();
-  openTab('graphics');
-}
+openTab('graphics');

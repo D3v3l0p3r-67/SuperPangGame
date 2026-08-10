@@ -40,7 +40,7 @@ export async function initSoundsTab(panel, fs) {
     configStatus.textContent = 'Saving…';
     try {
       const result = await fs.saveFile(assets.AUDIO_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`);
-      configStatus.textContent = result.savedTo === 'disk' ? 'Saved.' : 'Downloaded audio.json -- copy it into assets/audio/.';
+      configStatus.textContent = result.savedTo !== 'download' ? 'Saved.' : 'Downloaded audio.json -- copy it into assets/audio/.';
     } catch (err) {
       configStatus.textContent = `Save failed: ${err.message}`;
     }
@@ -114,7 +114,7 @@ function buildSoundCard(name, cfg, fs) {
     try {
       const path = assets.audioPath(cfg.file);
       const result = await fs.saveFile(path, pendingFile);
-      status.textContent = result.savedTo === 'disk' ? 'Saved.' : `Downloaded -- copy it into ${path}.`;
+      status.textContent = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into ${path}.`;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;
     }
