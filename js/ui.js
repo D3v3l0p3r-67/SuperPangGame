@@ -1,6 +1,7 @@
-import { GAME_STATES } from './constants.js';
+import { GAME_STATES, COLORS } from './constants.js';
 import { POWERUP_TYPES } from './elements.js';
 import { LEVELS } from './LevelManager.js';
+import { setPixelText } from './PixelText.js';
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
@@ -26,15 +27,56 @@ const HUD_VISIBLE_STATES = new Set([
 
 const ELEMENT_IDS = [
   'powerup-indicators',
-  'screen-menu',
-  'screen-options', 'screen-level-select', 'level-select-list',
-  'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
-  'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
+  'screen-menu', 'game-title-line1', 'game-title-line2',
+  'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'screen-level-select', 'level-select-title', 'level-select-list',
+  'screen-pause', 'pause-title',
+  'screen-game-over', 'gameover-title', 'final-score',
+  'screen-victory', 'victory-title', 'victory-score',
+  'screen-high-score-entry', 'entry-title', 'entry-score', 'entry-name',
+  'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls',
   'btn-start', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
   'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
+];
+
+// Every static label in the UI, rendered once at startup (see setupPixelLabels())
+// through the same bitmap font the HUD/level-intro screen use (see
+// PixelText.js) -- kept as one table instead of scattered setPixelText()
+// calls so every screen's wording lives in one place, same spirit as
+// SCREEN_IDS above.
+const STATIC_LABELS = [
+  ['game-title-line1', 'BALLOON', 'h1', COLORS.accent],
+  ['game-title-line2', 'BUSTER', 'h1', COLORS.accent],
+  ['options-title', 'OPTIONS', 'h2', COLORS.accent],
+  ['chk-mute-label', 'MUTE', 'body', COLORS.text],
+  ['rng-sfx-label', 'SFX', 'body', COLORS.text],
+  ['rng-music-label', 'MUSIC', 'body', COLORS.text],
+  ['level-select-title', 'START LEVEL', 'h2', COLORS.accent],
+  ['pause-title', 'PAUSED', 'h2', COLORS.accent],
+  ['gameover-title', 'GAME OVER', 'h2', COLORS.accent],
+  ['victory-title', 'YOU WIN!', 'h2', COLORS.accent],
+  ['entry-title', 'NEW HIGH SCORE!', 'h2', COLORS.accent],
+  ['highscores-title', 'HIGH SCORES', 'h2', COLORS.accent],
+  ['btn-start', 'START CAMPAIGN', 'button', COLORS.text],
+  ['btn-start-level', 'START LEVEL', 'button', COLORS.text],
+  ['btn-editor', 'LEVEL EDITOR', 'button', COLORS.text],
+  ['btn-highscores', 'HIGH SCORES', 'button', COLORS.text],
+  ['btn-options', 'OPTIONS', 'button', COLORS.text],
+  ['btn-options-fullscreen', 'FULLSCREEN', 'button', COLORS.text],
+  ['btn-close-options', 'BACK', 'button', COLORS.text],
+  ['btn-close-level-select', 'BACK', 'button', COLORS.text],
+  ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
+  ['btn-resume', 'RESUME', 'button', COLORS.text],
+  ['btn-quit', 'QUIT TO MENU', 'button', COLORS.text],
+  ['btn-restart', 'PLAY AGAIN', 'button', COLORS.text],
+  ['btn-menu', 'MAIN MENU', 'button', COLORS.text],
+  ['btn-victory-restart', 'PLAY AGAIN', 'button', COLORS.text],
+  ['btn-victory-menu', 'MAIN MENU', 'button', COLORS.text],
+  ['btn-submit-score', 'SUBMIT', 'button', COLORS.text],
+  ['btn-close-highscores', 'BACK', 'button', COLORS.text],
 ];
 
 export function toggleFullscreen() {
@@ -59,6 +101,18 @@ export class UI {
 
     this.bindEvents();
     this.applySettingsToControls();
+    this.setupPixelLabels();
+  }
+
+  // Every static heading/button/settings-row label goes through the same
+  // bitmap font the HUD/level-intro screen use (see PixelText.js), so
+  // this menu chrome actually looks like it belongs to the same game --
+  // only genuinely dynamic per-frame text (the powerup-timer chips) and
+  // the live-editable initials input stay plain CSS text.
+  setupPixelLabels() {
+    for (const [id, text, tier, color] of STATIC_LABELS) {
+      setPixelText(this.el[id], text, tier, color);
+    }
   }
 
   bindEvents() {
@@ -166,11 +220,11 @@ export class UI {
     this.el[id].classList.remove('hidden');
 
     if (state === GAME_STATES.GAME_OVER) {
-      this.el['final-score'].textContent = `FINAL SCORE: ${this.game.score}`;
+      setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {
-      this.el['victory-score'].textContent = `SCORE: ${this.game.score}`;
+      setPixelText(this.el['victory-score'], `SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.HIGH_SCORE_ENTRY) {
-      this.el['entry-score'].textContent = `SCORE: ${this.game.score}`;
+      setPixelText(this.el['entry-score'], `SCORE: ${this.game.score}`, 'body', COLORS.text);
       this.el['entry-name'].value = '';
       setTimeout(() => this.el['entry-name'].focus(), 50);
     } else if (state === GAME_STATES.HIGH_SCORE_TABLE) {
@@ -190,7 +244,10 @@ export class UI {
       const unlocked = i < progress.unlockedLevels;
       const btn = document.createElement('button');
       btn.className = 'level-select-btn' + (unlocked ? '' : ' locked');
-      btn.textContent = unlocked ? `${i + 1}. ${def.name}` : `${i + 1}. ???`;
+      const label = unlocked ? `${i + 1}. ${def.name}` : `${i + 1}. ???`;
+      // Dimming for a locked level comes from the .locked CSS class on
+      // the button itself (opacity), not a different fill color here.
+      setPixelText(btn, label, 'body', COLORS.text);
       btn.disabled = !unlocked;
       if (unlocked) {
         btn.addEventListener('click', () => {
@@ -208,16 +265,22 @@ export class UI {
     list.innerHTML = '';
     if (scores.length === 0) {
       const li = document.createElement('li');
-      li.textContent = 'NO SCORES YET';
+      setPixelText(li, 'NO SCORES YET', 'body', COLORS.text);
       list.appendChild(li);
       return;
     }
     scores.forEach((entry, i) => {
       const li = document.createElement('li');
-      li.textContent = `${i + 1}. ${entry.name}  ${entry.score}`;
-      if (this.game.justSubmittedEntry && entry.id === this.game.justSubmittedEntry.id) {
-        li.classList.add('new-entry');
-      }
+      const isNew = this.game.justSubmittedEntry && entry.id === this.game.justSubmittedEntry.id;
+      const color = isNew ? COLORS.accent : COLORS.text;
+      // Two separate canvases (rank+name, score) rather than one string,
+      // so the li's flex justify-content:space-between still pushes the
+      // score to the right edge like the old single-line text did.
+      const rankName = document.createElement('span');
+      setPixelText(rankName, `${i + 1}. ${entry.name}`, 'body', color);
+      const score = document.createElement('span');
+      setPixelText(score, String(entry.score), 'body', color);
+      li.append(rankName, score);
       list.appendChild(li);
     });
   }

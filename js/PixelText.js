@@ -1,0 +1,184 @@
+import { COLORS, VIRTUAL_W } from './constants.js';
+import { INTRO_FONT_PATH, INTRO_FONT_FRAME, INTRO_FONT_CHARS } from './assets.js';
+
+// The DOM equivalent of LevelIntro.js's Phaser text -- every menu screen
+// (main menu, options, level select, pause, game over, victory, high
+// scores) renders its headings/buttons/labels through this instead of
+// plain CSS text, so the whole game reads as one look: the same blocky
+// bitmap font (assets/intro/font_alpha.webp) the HUD and level-intro
+// screen already use, not a smooth vector font. Native controls that
+// genuinely need to stay native (the high-score initials <input>, the
+// mute checkbox, the volume sliders) are the deliberate exception -- see
+// style.css instead.
+
+const CELL_W = INTRO_FONT_FRAME.frameWidth;
+const CELL_H = INTRO_FONT_FRAME.frameHeight;
+const GAP = 1; // 1 font-pixel between characters, pre-scale
+
+let fontImage = null;
+let loadPromise = null;
+
+function ensureLoaded() {
+  if (loadPromise) return loadPromise;
+  loadPromise = new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      fontImage = img;
+      resolve();
+    };
+    img.src = INTRO_FONT_PATH;
+  });
+  return loadPromise;
+}
+ensureLoaded();
+
+function drawInto(canvas, text) {
+  const upper = String(text).toUpperCase();
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!fontImage) return;
+  let x = 0;
+  for (const ch of upper) {
+    const idx = INTRO_FONT_CHARS.indexOf(ch);
+    if (idx !== -1) ctx.drawImage(fontImage, idx * CELL_W, 0, CELL_W, CELL_H, x, 0, CELL_W, CELL_H);
+    x += CELL_W + GAP;
+  }
+}
+
+function widthFor(text) {
+  const len = String(text).length;
+  return len === 0 ? 0 : (len - 1) * (CELL_W + GAP) + CELL_W;
+}
+
+// Registry of every live pixel-text canvas, so a window resize can
+// re-render them all at the new responsive scale (see rescaleAll()).
+const registry = [];
+
+// Named size tiers -- plain Phaser-style scale multipliers on top of the
+// game canvas's own current CSS size (see gameCanvasScale()), matching
+// the actual scale choices Hud.js/LevelIntro.js use for equivalent text
+// (2 for small HUD digits/labels, 3 for the score/READY/GO!/LEVEL text)
+// so the DOM overlay's text sits at the same visual size as its Phaser
+// counterparts, and grows/shrinks in lockstep with the game canvas on
+// resize/fullscreen rather than following an independent viewport
+// heuristic.
+const TIERS = { h1: 5, h2: 3, button: 2, body: 2 };
+
+// The game canvas is scaled to fit the viewport by Phaser's own
+// scale.mode: FIT (see GameConfig.js) -- read its actual rendered CSS
+// size back out rather than re-deriving a competing guess from
+// window.innerWidth/Height, so this always matches exactly. Direct-child
+// selector on purpose: Phaser injects its canvas straight into
+// #game-container (GameConfig.js's `parent`), while every pixel-text
+// canvas this module creates lives several levels deeper inside
+// #ui-layer -- a plain "canvas" selector would match one of those
+// instead, at whatever tiny size it happens to already be.
+function gameCanvasScale() {
+  const canvas = document.querySelector('#game-container > canvas');
+  if (!canvas) return 2;
+  const rect = canvas.getBoundingClientRect();
+  return rect.width > 0 ? rect.width / VIRTUAL_W : 2;
+}
+
+function responsiveScale(tier) {
+  return Math.max(0.5, (TIERS[tier] ?? 2) * gameCanvasScale());
+}
+
+// Renders `text` as a <canvas class="pixel-text">, sized (via width/
+// height + a CSS pixel size) for immediate insertion into the DOM. Safe
+// to call before the font image has finished loading -- draws blank and
+// fills in once ensureLoaded() resolves. `tier` picks a responsive scale
+// (see TIERS); pass a plain number instead to force a fixed scale.
+export function renderPixelText(text, tier = 'body', color = COLORS.text) {
+  ensureCanvasObserver();
+  const scale = typeof tier === 'number' ? tier : responsiveScale(tier);
+  const canvas = document.createElement('canvas');
+  canvas.className = 'pixel-text';
+  canvas.width = Math.max(1, widthFor(text));
+  canvas.height = CELL_H;
+  canvas.style.width = `${canvas.width * scale}px`;
+  canvas.style.height = `${canvas.height * scale}px`;
+
+  const entry = { canvas, text, tier, color };
+  registry.push(entry);
+  paint(entry);
+  if (!fontImage) ensureLoaded().then(() => paint(entry));
+  return canvas;
+}
+
+function paint(entry) {
+  drawInto(entry.canvas, entry.text);
+  if (entry.color) tint(entry.canvas, entry.color);
+}
+
+// Font glyphs are plain white -- recolor via source-in, the canvas
+// equivalent of Phaser's setTint(), so one asset serves every color this
+// UI needs (accent gold headings, plain text, danger red, ...).
+function tint(canvas, color) {
+  const ctx = canvas.getContext('2d');
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// Replaces `el`'s entire content with a rendered pixel-text canvas --
+// also sets aria-label to the original string, since a canvas has no
+// text for assistive tech to read. Returns the canvas.
+export function setPixelText(el, text, tier = 'body', color = COLORS.text) {
+  el.innerHTML = '';
+  el.setAttribute('aria-label', String(text));
+  const canvas = renderPixelText(text, tier, color);
+  el.appendChild(canvas);
+  return canvas;
+}
+
+function rescaleAll() {
+  // Prune entries dropped from the DOM (e.g. a rebuilt list) while we're
+  // already iterating, so the registry doesn't grow forever.
+  for (let i = registry.length - 1; i >= 0; i--) {
+    const entry = registry[i];
+    if (!entry.canvas.isConnected) {
+      registry.splice(i, 1);
+      continue;
+    }
+    const scale = typeof entry.tier === 'number' ? entry.tier : responsiveScale(entry.tier);
+    entry.canvas.style.width = `${entry.canvas.width * scale}px`;
+    entry.canvas.style.height = `${entry.canvas.height * scale}px`;
+  }
+}
+
+let rescaleQueued = false;
+function scheduleRescale() {
+  if (rescaleQueued) return;
+  rescaleQueued = true;
+  requestAnimationFrame(() => {
+    rescaleQueued = false;
+    rescaleAll();
+  });
+}
+
+// The primary trigger: watches the actual game canvas element (not the
+// browser window) for size changes, so this reacts correctly to
+// everything that can change gameCanvasScale() -- a window resize,
+// fullscreen toggle, orientation change, AND Phaser's own Scale Manager
+// finishing its first FIT-mode layout pass after boot (which can land
+// *after* ui.js's very first setPixelText() calls during GameScene.
+// create(), since that runs synchronously well before Phaser necessarily
+// settles the canvas's final CSS size -- without this, that first paint
+// could be stuck at whatever transient size the canvas had at that
+// instant, forever, on a session where the window is never manually
+// resized). Falls back to a plain window resize listener if
+// ResizeObserver isn't available at all.
+let canvasObserverStarted = false;
+function ensureCanvasObserver() {
+  if (canvasObserverStarted) return;
+  const canvas = document.querySelector('#game-container > canvas');
+  if (!canvas) return; // not created yet -- retried on the next render call
+  canvasObserverStarted = true;
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(scheduleRescale).observe(canvas);
+  } else {
+    window.addEventListener('resize', scheduleRescale);
+  }
+}

@@ -114,7 +114,10 @@ Touch controls appear automatically on devices with a coarse pointer
 - Full menu flow: main menu, options (mute/volume/fullscreen, split out
   onto its own screen), level select, a graphic level-intro screen (see
   "Swapping intro graphics"), pause, game over, victory, high score
-  entry/table, restart.
+  entry/table, restart. Every screen's headings/buttons/labels are drawn
+  with the same bitmap font the HUD uses (`js/PixelText.js`, see "Swapping
+  intro graphics") rather than a separate vector CSS font, so the DOM
+  overlay and the in-canvas HUD read as one consistent look.
 - A graphic level-intro screen -- "LEVEL n", the level's name, then a
   blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
   from loaded images (`js/LevelIntro.js`), same as the HUD.
@@ -163,8 +166,9 @@ assets/              Every graphic and sound in the game, as real files --
   hud/               Fixed labels, two digit spritesheets, the life icon,
                       weapon socket frame, and weapon icon(s) -- see
                       "Swapping HUD graphics" below
-  intro/             font_alpha.webp, the level-intro screen's A-Z font
-                      spritesheet -- see "Swapping intro graphics" below
+  intro/             font_alpha.webp, the A-Z+digits font spritesheet
+                      the level-intro screen AND every DOM menu's text
+                      are drawn from -- see "Swapping intro graphics" below
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
@@ -238,7 +242,13 @@ js/
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
                       from a loaded A-Z font, then blinking READY/GO!
-  ui.js              DOM menus/screens/powerup-timer chips
+  PixelText.js       The DOM equivalent of LevelIntro.js's text -- renders
+                      any string to a <canvas> from the same font_alpha
+                      .webp spritesheet, sized off the game canvas's own
+                      current scale (see "Swapping intro graphics")
+  ui.js              DOM menus/screens/powerup-timer chips -- every
+                      heading/button/score/list label goes through
+                      PixelText.js, not plain CSS text
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
@@ -511,7 +521,7 @@ All 9 files currently under `assets/hud/` are placeholder pixel art
 than final art -- replace any of them with real graphics at the same
 filename/dimensions, no code change needed either way.
 
-### Swapping intro graphics
+### Swapping intro graphics (and every DOM menu's text)
 
 The level-intro screen ("LEVEL n", the level's name, then "READY"/"GO!")
 is composed entirely by `js/LevelIntro.js` from
@@ -519,23 +529,51 @@ is composed entirely by `js/LevelIntro.js` from
 the level number) -- nothing there is drawn text either. Level names are
 arbitrary per-level text (see `levels/*.json`'s `name` field), unlike
 every other HUD-style label in this game, so instead of one baked image
-per fixed word, this is a real (if uppercase-only) font: a 28-frame
-monospaced spritesheet covering space, `A`-`Z`, and `!`, each frame a
-fixed 5x6px cell (see `assets.js`'s `INTRO_FONT_CHARS` for the exact frame
-order). `LevelIntro.js`'s `buildTextRow()` looks up each character's
-frame and lays the
+per fixed word, this is a real (if uppercase-only) font: a 40-frame
+monospaced spritesheet covering space, `A`-`Z`, `!`, `0`-`9`, `:`, and
+`.`, each frame a fixed 5x6px cell (see `assets.js`'s `INTRO_FONT_CHARS`
+for the exact frame order -- digits/punctuation were appended after the
+original letter set so existing frame indices never shifted). `LevelIntro
+.js`'s `buildTextRow()` looks up each character's frame and lays the
 images out left to right, so composing new fixed text (or a level name
 with different characters) needs no new art, only characters this font
 already covers -- extend `INTRO_FONT_CHARS`/the generation script's glyph
-table for anything else (accented letters, digits, punctuation, ...).
-Each row is drawn at its own `setScale()` (3 for "LEVEL"/"READY"/"GO!", 2
-for the level name) off the one base spritesheet, rather than baking
-separate image sizes, since Phaser's pixel-art nearest-neighbor scaling
-keeps any integer scale crisp.
+table for anything else (accented letters, more punctuation, ...). Each
+row is drawn at its own `setScale()` (3 for "LEVEL"/"READY"/"GO!", 2 for
+the level name) off the one base spritesheet, rather than baking separate
+image sizes, since Phaser's pixel-art nearest-neighbor scaling keeps any
+integer scale crisp.
 
-To swap the whole font's look, replace `assets/intro/font_alpha.webp`
-(same 140x6 dimensions, same 28 5x6px frames in the same order) with new
-art -- no code change needed. "READY" blinks for `LEVEL_INTRO_READY_SEC`
-(2s) then "GO!" holds solid for `LEVEL_INTRO_GO_SEC` (1s) -- both live in
-`constants.js`, shared with `GameScene.js`'s own countdown timer so the
-two never drift out of sync.
+**The same spritesheet is also the entire DOM menu system's font.**
+`js/PixelText.js` is the DOM equivalent of `LevelIntro.js`'s `buildTextRow
+()`: it loads `font_alpha.webp` as a plain `<img>` (outside Phaser
+entirely) and renders any string to a `<canvas class="pixel-text">`
+(`renderPixelText()`), or replaces an element's whole content with one
+(`setPixelText()`, which also sets `aria-label` to the original string,
+since a canvas has no text of its own for assistive tech to read). Every
+heading, button label, settings-row label, and dynamic score/list text
+across the main menu, options, level select, pause, game over, victory,
+and high-score screens goes through this -- see `ui.js`'s `STATIC_LABELS`
+table and its `renderLevelSelect()`/`renderHighScores()`/`setScreen()`.
+The two deliberate exceptions are the live-editable high-score initials
+`<input>` (nothing to render ahead of time) and the per-frame powerup-
+timer chips (rebuilt every frame; real CSS text is cheaper there than a
+fresh canvas 60 times a second) -- both stay plain styled CSS text
+instead, see `style.css`.
+
+Sizing is unified too: `PixelText.js`'s named tiers (`h1`/`h2`/`button`/
+`body`) are plain multipliers on top of the *actual* game canvas's
+current CSS size (read straight from the DOM, not re-derived from the
+viewport), so DOM text sits at the same visual scale as its Phaser
+counterparts and grows/shrinks in lockstep with the game canvas on
+resize/fullscreen -- a `ResizeObserver` on the canvas element (not a
+plain `window` resize listener, since Phaser's own Scale Manager can
+still be mid-layout on the very first paint) re-renders every live
+pixel-text element whenever that size actually changes.
+
+To swap the whole font's look (menus included), replace `assets/intro
+/font_alpha.webp` (same 200x6 dimensions, same 40 5x6px frames in the
+same order) with new art -- no code change needed. "READY" blinks for
+`LEVEL_INTRO_READY_SEC` (2s) then "GO!" holds solid for
+`LEVEL_INTRO_GO_SEC` (1s) -- both live in `constants.js`, shared with
+`GameScene.js`'s own countdown timer so the two never drift out of sync.
