@@ -20,6 +20,40 @@ export function ballTexturePath(shape, size) {
   return `${BALL_TEXTURE_DIR}${ballTextureKey(shape, size)}.webp`;
 }
 
+// Hex balls spin (see Ball.js) -- unlike round balls (one static image per
+// size), a hex ball's own texture is a HEX_SPIN_FRAMES-frame spritesheet,
+// each frame one rotation phase spaced across a regular hexagon's 60°
+// rotational symmetry (0°, 20°, 40°) so frame 2 -> frame 0 loops
+// seamlessly. Still the exact same filename/naming/native-size convention
+// as ballTexturePath above (BootScene picks image-vs-spritesheet loading
+// per shape) -- only hex is animated this way today.
+export const HEX_SPIN_FRAMES = 3;
+
+export function ballSpinAnimKey(shape, size) {
+  return `ball-spin-${shape}-${size}`;
+}
+
+// Pop effect: a BALL_POP_FRAMES-frame animation played exactly where a
+// ball popped (see GameScene.popBall), one image per (shape, size) pair
+// so a different burst can be authored per ball type/size. Each frame is
+// POP_FRAME_SCALE times that ball's own diameter square, centered on the
+// ball -- bigger than the ball itself so the burst has room to expand
+// past its edges within the frame.
+export const BALL_POP_FRAMES = 2;
+export const POP_FRAME_SCALE = 1.6;
+
+export function ballPopTextureKey(shape, size) {
+  return `ballpop_${shape}_${size}`;
+}
+
+export function ballPopTexturePath(shape, size) {
+  return `${BALL_TEXTURE_DIR}pop_${shape}_${size}.webp`;
+}
+
+export function ballPopAnimKey(shape, size) {
+  return `ball-pop-${shape}-${size}`;
+}
+
 // Player: a single spritesheet (one PNG, not one file per frame) of
 // PLAYER_CONFIG.spriteWidth x spriteHeight (16x32) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,

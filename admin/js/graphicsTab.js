@@ -45,7 +45,9 @@ async function buildGraphicList() {
 
   for (const item of elements) {
     if (item.category === 'ball') {
-      list.push({ label: `Ball -- ${item.shape} size ${item.size} (${item.label ?? item.id})`, path: assets.ballTexturePath(item.shape, item.size) });
+      const spinNote = item.shape === 'hex' ? ` -- ${assets.HEX_SPIN_FRAMES}-frame spin spritesheet` : '';
+      list.push({ label: `Ball -- ${item.shape} size ${item.size} (${item.label ?? item.id})${spinNote}`, path: assets.ballTexturePath(item.shape, item.size) });
+      list.push({ label: `Ball pop effect -- ${item.shape} size ${item.size} (${assets.BALL_POP_FRAMES}-frame)`, path: assets.ballPopTexturePath(item.shape, item.size) });
     }
   }
 

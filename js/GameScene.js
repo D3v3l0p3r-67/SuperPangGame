@@ -11,11 +11,15 @@ import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
+import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
-import { obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
+import {
+  obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
+  ballPopTextureKey, ballPopAnimKey,
+} from './assets.js';
 
 const LEVEL_CLEAR_SEC = 1.6;
 const HIT_FREEZE_SEC = 2;
@@ -61,6 +65,7 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = false;
     this.customLevelDef = null;
     this.weaponType = 'harpoon';
+    this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
@@ -266,6 +271,8 @@ export class GameScene extends Phaser.Scene {
   // or the editor's own level definition object for a custom level.
   loadLevel(idxOrDef) {
     const def = loadLevelData(this, idxOrDef);
+    for (const popup of this.scorePopups) popup.destroy();
+    this.scorePopups = [];
     this.player.reset();
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
@@ -465,9 +472,15 @@ export class GameScene extends Phaser.Scene {
     for (const ball of this.balls.getChildren()) {
       ball.body.moves = !this.ballsFrozen;
       ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
-      if (!this.ballsFrozen) ball.spin(dt);
+      ball.setFrozen(this.ballsFrozen);
     }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
+
+    for (let i = this.scorePopups.length - 1; i >= 0; i--) {
+      const popup = this.scorePopups[i];
+      popup.update(dt);
+      if (popup.dead) this.scorePopups.splice(i, 1);
+    }
 
     if (this.state === GAME_STATES.PLAYING && this.balls.countActive(true) === 0) {
       this.levelClear();
@@ -492,9 +505,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   popBall(ball) {
-    this.score += Math.round(ball.points * this.scoreMultiplier);
+    const awarded = Math.round(ball.points * this.scoreMultiplier);
+    this.score += awarded;
     this.audio.play('balldestroy');
-    this.spawnBurst(ball.x, ball.y, ball.color, 10);
+    this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
+    this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color));
 
     const children = ball.getSplitChildren();
     const forcedPowerup = ball.forcedPowerup;
@@ -512,6 +527,17 @@ export class GameScene extends Phaser.Scene {
       const bonus = new Bonus(this, dropType, ball.x, ball.y);
       this.powerups.add(bonus);
     }
+  }
+
+  // A 2-frame pop animation, one image per (shape, size) ball -- see
+  // assets.js's ballPopTexturePath/ballPopAnimKey -- played once exactly
+  // where the ball was, in place of the generic tinted-particle burst
+  // spawnBurst() still uses for obstacles/power-ups.
+  playBallPopEffect(x, y, shape, size) {
+    const sprite = this.add.sprite(x, y, ballPopTextureKey(shape, size));
+    sprite.setDepth(6);
+    sprite.play(ballPopAnimKey(shape, size));
+    sprite.once('animationcomplete', () => sprite.destroy());
   }
 
   spawnBurst(x, y, colorHex, count, small = false) {

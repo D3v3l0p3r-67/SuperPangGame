@@ -3,7 +3,8 @@ import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES } from './config.js';
 import { LEVELS } from './LevelManager.js';
 import {
-  ballTextureKey, ballTexturePath,
+  ballTextureKey, ballTexturePath, HEX_SPIN_FRAMES, ballSpinAnimKey,
+  ballPopTextureKey, ballPopTexturePath, BALL_POP_FRAMES, POP_FRAME_SCALE, ballPopAnimKey,
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   obstacleTextureKey, obstacleTexturePath,
   PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
@@ -20,6 +21,18 @@ import {
   INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME,
 } from './assets.js';
 
+// Angular speed a hex ball's fixed diagonal speed/radius implies (this is
+// the same relationship Ball.js used to apply as a smooth per-frame
+// rotation transform -- bigger/slower balls turn slower -- before that
+// became visibly blurry/aliased on this game's tiny pixel-art hexagons at
+// arbitrary rotation angles), converted from radians/sec to frames/sec
+// for a HEX_SPIN_FRAMES-frame-per-rotation cycle.
+function hexSpinFrameRate(speed, radius) {
+  const hSpeed = speed * Math.SQRT1_2;
+  const angularSpeed = hSpeed / radius; // radians/sec
+  return (angularSpeed / (Math.PI * 2)) * HEX_SPIN_FRAMES;
+}
+
 // Runs after ElementsScene, which has already populated BALL_ELEMENTS/
 // OBSTACLE_TYPES/POWERUP_TYPE_KEYS (see elements.js) -- this scene's only
 // job is to load every graphic file those registries call for (see
@@ -34,7 +47,16 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     for (const el of BALL_ELEMENTS) {
-      this.load.image(ballTextureKey(el.shape, el.size), ballTexturePath(el.shape, el.size));
+      // Hex balls spin (see Ball.js/assets.js's HEX_SPIN_FRAMES) so their
+      // own texture is a spritesheet; round balls are one static image.
+      if (el.shape === 'hex') {
+        this.load.spritesheet(ballTextureKey(el.shape, el.size), ballTexturePath(el.shape, el.size), { frameWidth: el.radius * 2, frameHeight: el.radius * 2 });
+      } else {
+        this.load.image(ballTextureKey(el.shape, el.size), ballTexturePath(el.shape, el.size));
+      }
+
+      const popFrameSize = Math.round(el.radius * 2 * POP_FRAME_SCALE);
+      this.load.spritesheet(ballPopTextureKey(el.shape, el.size), ballPopTexturePath(el.shape, el.size), { frameWidth: popFrameSize, frameHeight: popFrameSize });
     }
 
     this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
@@ -84,7 +106,31 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this.buildPlayerAnimations();
+    this.buildBallAnimations();
     this.scene.start('Game');
+  }
+
+  // One pop animation per (shape, size) ball (see assets.js's
+  // ballPopAnimKey), plus one looping spin animation per hex size --
+  // round balls don't spin, so they only get a pop animation.
+  buildBallAnimations() {
+    for (const el of BALL_ELEMENTS) {
+      this.anims.create({
+        key: ballPopAnimKey(el.shape, el.size),
+        frames: this.anims.generateFrameNumbers(ballPopTextureKey(el.shape, el.size), { start: 0, end: BALL_POP_FRAMES - 1 }),
+        frameRate: 12,
+        repeat: 0,
+      });
+
+      if (el.shape === 'hex') {
+        this.anims.create({
+          key: ballSpinAnimKey(el.shape, el.size),
+          frames: this.anims.generateFrameNumbers(ballTextureKey(el.shape, el.size), { start: 0, end: HEX_SPIN_FRAMES - 1 }),
+          frameRate: hexSpinFrameRate(el.speed, el.radius),
+          repeat: -1,
+        });
+      }
+    }
   }
 
   // One Phaser animation per player state, built from frame indices within

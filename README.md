@@ -216,7 +216,9 @@ js/
   Ball.js            Phaser.Physics.Arcade.Sprite: reads its one
                       BALL_ELEMENTS entry (shape+size) for every physical
                       parameter, deterministic landOnTop()/bounce methods,
-                      split-children descriptors
+                      split-children descriptors; hex balls play a looping
+                      spin animation (setFrozen pauses/resumes it for
+                      time_freeze)
   Projectile.js      Phaser.Physics.Arcade.Sprite for the harpoon shot
   Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body,
                       representing one obstacle block; destructible via
@@ -247,6 +249,11 @@ js/
                       -- Phaser Images/digit spritesheets drawn into the
                       HUD_H strip, entirely from loaded files, no drawn
                       text
+  ScorePopup.js      The floating "+N" points readout a popped ball
+                      leaves behind (see "Swapping graphics"'s "Score
+                      popup") -- reuses the HUD's own digit spritesheet,
+                      tinted to the ball's color; GameScene owns the live
+                      instances (this.scorePopups)
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
                       from a loaded A-Z font, then blinking READY/GO!
@@ -280,7 +287,7 @@ resolved (no shared/derived values):
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
   "label": "Round 1", "hasGravity": true, "gravityAccel": 260,
-  "radius": 4, "speed": 40, "bounceVelocity": 221, "points": 800,
+  "radius": 4, "speed": 40, "bounceVelocity": 221, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -288,8 +295,13 @@ resolved (no shared/derived values):
 `bounceVelocity` and instead drifts at a constant diagonal speed,
 reflecting off walls/floor/ceiling/platforms. However many size entries a
 shape has *is* that shape's max size -- there's no separate cap to keep in
-sync. Needs an `assets/balls/ball_<shape>_<size>.webp` image at exactly
-`radius * 2` square (see "Swapping graphics").
+sync. `points` is what popping that exact ball awards (`GameScene.popBall`,
+scaled by `scoreMultiplier` if active) -- bigger balls are worth more
+(200/400/800/1600/3200 for sizes 1-5 today), shown as a floating "+N"
+readout (see "Swapping graphics"'s "Score popup" below). `color` also
+tints that readout. Needs an `assets/balls/ball_<shape>_<size>.webp` image
+at exactly `radius * 2` square (see "Swapping graphics") -- for `hasGravity:
+false` shapes this is instead a spin spritesheet, see below.
 
 **Obstacle** (`category: "obstacle"`) -- one file per obstacle type:
 ```json
@@ -411,6 +423,24 @@ dimensions:
   exactly 2x that element's `radius` square (8/16/24/32/48px for round
   sizes 1-5, 8/16/24px for hex sizes 1-3), used at native resolution with
   no runtime scaling -- that's also the ball's physics collision diameter.
+  A shape with `hasGravity: false` (hex today) spins, so its file is
+  instead a `HEX_SPIN_FRAMES`-frame (3) spritesheet stacked vertically,
+  each frame that same square, one rotation phase spaced across the
+  shape's own rotational symmetry so the last frame loops back into the
+  first seamlessly (see `js/assets.js`'s `ballSpinAnimKey` and
+  `BootScene.js`'s `hexSpinFrameRate` for the fixed per-size playback
+  speed) -- a `hasGravity: true` shape (round today) never spins, so it
+  stays one plain static image.
+- **Ball pop effect**: `assets/balls/pop_<shape>_<size>.webp` -- one
+  `BALL_POP_FRAMES`-frame (2) spritesheet per ball element, played once
+  exactly where that ball popped (`GameScene.popBall`/`playBallPopEffect`)
+  in place of the game's generic burst particles. Each frame is
+  `POP_FRAME_SCALE` (1.6x) that ball's own diameter square, centered on
+  the ball, so the effect has room to expand past the ball's own edges.
+- **Score popup**: not a separate asset -- the floating "+N" points
+  readout a pop leaves behind (see `js/ScorePopup.js`) reuses the HUD's
+  own large score-digit spritesheet (`assets/hud/digits_large.webp`, see
+  "Swapping HUD graphics" below), tinted to the popped ball's `color`.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
   file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
