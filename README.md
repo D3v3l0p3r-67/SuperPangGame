@@ -19,10 +19,15 @@ always takes it from a resting center 4px off the ground up to a peak
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
 that's actually shot, leaving the rest of the shape intact. A single
-bounce only ever changes one axis of a ball's velocity -- a corner hit (a
-vertical and a horizontal surface both touched in the same collision)
-resolves as a vertical bounce, never both axes at once (see GameScene.js's
-`onWorldBounds`/`onBallHitObstacle`).
+bounce only ever changes the *direction* of one axis of a ball's velocity
+-- a corner hit (a vertical and a horizontal surface both touched in the
+same collision) resolves as a vertical bounce, never both axes reversing
+at once (see GameScene.js's `onWorldBounds`/`onBallHitObstacle`). Arcade
+Physics still zeroes *both* axes' velocity while separating a corner
+collision though, so the non-bouncing horizontal axis is explicitly
+reasserted to its unchanged direction afterwards (`Ball.reassertHorizontal
+()`, tracked via `Ball.hDir`) rather than being left at zero -- without
+that, a ball could get stuck bouncing in place on one spot forever.
 
 All graphics and sound are original: pixel art loaded from `.webp` files
 under `assets/` (see "Swapping graphics" / "Swapping HUD graphics" below)
@@ -95,6 +100,10 @@ Touch controls appear automatically on devices with a coarse pointer
 - A shield absorbs one hit with no life lost and no interruption; without
   a shield, a hit costs a life and restarts the *current* level from
   scratch (score and remaining lives carry over). Zero lives ends the run.
+  Running out of time on a timed level (`GameScene.onTimeUp()`) is exactly
+  the same hit -- same shield absorption, same life loss/restart, checked
+  every frame the clock stays expired the same way an overlapping ball
+  would keep re-triggering a hit.
 - A graphic HUD (1-P, life icons, score, weapon socket, time/world/hi-score
   -- see "Swapping HUD graphics") always shows remaining level time, lives,
   and the current weapon (plus score, level, top score, and active timed

@@ -417,6 +417,15 @@ export class GameScene extends Phaser.Scene {
     this.levelTimer += dt;
     this.effects.update(this, this.elapsedMs);
 
+    // Running out of time is exactly the same hit as a ball touching the
+    // player (see onTimeUp/hitPlayer) -- checked every frame the clock
+    // stays expired, same as an overlapping ball would keep re-triggering
+    // onPlayerHitBall, so shield/invulnerability behave identically.
+    if (this.currentLevelDef?.timeLimitSec && this.levelTimer >= this.currentLevelDef.timeLimitSec) {
+      this.onTimeUp();
+      if (this.state !== GAME_STATES.PLAYING) return; // hitPlayer() may have frozen/ended the run
+    }
+
     // 15s left: switch the background music itself to the more urgent
     // loop (independent of the short one-shot ping below, at its own
     // later/shorter threshold).
@@ -522,28 +531,45 @@ export class GameScene extends Phaser.Scene {
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
     if (go instanceof Ball) {
-      // Exactly one axis changes per bounce -- a corner hit (e.g. down AND
-      // left both true at once) picks vertical over horizontal rather than
-      // flipping both, so the ball's direction only ever changes in one
-      // dimension at a time.
-      if (down) go.landOnTop();
-      else if (up) go.bounceOffBottom();
-      else if (left) go.bounceOffLeft();
-      else if (right) go.bounceOffRight();
+      // Exactly one axis changes DIRECTION per bounce -- a corner hit
+      // (e.g. down AND left both true at once) picks vertical over
+      // horizontal rather than flipping both. Arcade still zeroes both
+      // axes' velocity while resolving a corner collision though (see
+      // Ball.js), so the horizontal axis -- even though it isn't
+      // supposed to change direction here -- has to be explicitly
+      // reasserted or the ball is left motionless on it.
+      if (down) {
+        go.landOnTop();
+        if (left || right) go.reassertHorizontal();
+      } else if (up) {
+        go.bounceOffBottom();
+        if (left || right) go.reassertHorizontal();
+      } else if (left) {
+        go.bounceOffLeft();
+      } else if (right) {
+        go.bounceOffRight();
+      }
     } else if (go instanceof Projectile) {
       if (up) go.destroy();
     }
   }
 
   onBallHitObstacle(ballGO, obstacleGO) {
-    // Exactly one axis changes per bounce, same rule as onWorldBounds --
-    // vertical wins on a corner hit (touching.down/up AND touching.left/
-    // right both true at once), never both in the same collision.
+    // Same rule (and same Arcade-zeroes-both-axes caveat) as
+    // onWorldBounds above -- vertical wins on a corner hit (touching.
+    // down/up AND touching.left/right both true at once).
     const body = ballGO.body;
-    if (body.touching.down) ballGO.landOnTop();
-    else if (body.touching.up) ballGO.bounceOffBottom();
-    else if (body.touching.left) ballGO.bounceOffLeft();
-    else if (body.touching.right) ballGO.bounceOffRight();
+    if (body.touching.down) {
+      ballGO.landOnTop();
+      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
+    } else if (body.touching.up) {
+      ballGO.bounceOffBottom();
+      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
+    } else if (body.touching.left) {
+      ballGO.bounceOffLeft();
+    } else if (body.touching.right) {
+      ballGO.bounceOffRight();
+    }
   }
 
   onProjectileHitObstacle(projGO, obstacleGO) {
@@ -572,7 +598,20 @@ export class GameScene extends Phaser.Scene {
   onPlayerHitBall(playerGO, ballGO) {
     if (this.state !== GAME_STATES.PLAYING || !ballGO.active) return;
     if (this.ballsFrozen) return; // time_freeze: frozen balls can't hurt the player
+    this.hitPlayer();
+  }
 
+  // Running out of time counts as exactly the same hit as a ball touching
+  // the player -- shield absorbs it the same way, otherwise it costs a
+  // life and freezes the same way (see updatePlaying's timeLimitSec
+  // check). Kept as its own entry point (rather than folding into
+  // onPlayerHitBall) since there's no ball/overlap involved.
+  onTimeUp() {
+    if (this.state !== GAME_STATES.PLAYING) return;
+    this.hitPlayer();
+  }
+
+  hitPlayer() {
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();
     if (!lostLife && hadShield) {
