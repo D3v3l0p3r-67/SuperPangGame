@@ -7,5 +7,8 @@
   "durationMs": 12000,
   "instant": false,
   "kind": "weapon_max_shots",
-  "params": { "maxActiveShots": 3 }
+  "params": {
+    "maxActiveShots": 3
+  },
+  "pickupSound": "weaponhold"
 }

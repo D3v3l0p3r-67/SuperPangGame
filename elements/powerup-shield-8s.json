@@ -7,5 +7,6 @@
   "durationMs": 8000,
   "instant": false,
   "kind": "player_shield",
-  "params": {}
+  "params": {},
+  "pickupSound": "itemshieldget"
 }

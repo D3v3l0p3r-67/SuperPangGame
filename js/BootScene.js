@@ -1,4 +1,5 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
+import { AUDIO_CONFIG } from './audio.js';
 import {
   ballTextureKey, ballTexturePath,
   playerTextureKey, playerTexturePath, PLAYER_ANIM_FRAME_COUNTS,
@@ -6,6 +7,7 @@ import {
   PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
+  audioPath,
 } from './assets.js';
 
 // Runs after ElementsScene, which has already populated BALL_ELEMENTS/
@@ -41,6 +43,14 @@ export class BootScene extends Phaser.Scene {
 
     for (const type of POWERUP_TYPE_KEYS) {
       this.load.image(powerupTextureKey(type), powerupTexturePath(type));
+    }
+
+    // AUDIO_CONFIG is already fully populated by ElementsScene (audio.json
+    // is self-contained, no manifest indirection needed -- see
+    // ElementsScene.js) -- each sound is loaded under its own config key
+    // name, so AudioManager can play it back by that same name.
+    for (const [name, cfg] of Object.entries(AUDIO_CONFIG)) {
+      this.load.audio(name, audioPath(cfg.file));
     }
   }
 

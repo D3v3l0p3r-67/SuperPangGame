@@ -7,5 +7,6 @@
   "durationMs": 0,
   "instant": true,
   "kind": "extra_life",
-  "params": {}
+  "params": {},
+  "pickupSound": "playerlifeget"
 }

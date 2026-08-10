@@ -93,7 +93,11 @@ Touch controls appear automatically on devices with a coarse pointer
   (`localStorage`, with a versioned schema for safe future upgrades).
 - Full menu flow: main menu, level intro, pause, game over, victory,
   high score entry/table, restart.
-- Procedurally generated 8-bit style sound effects and background music.
+- 17 sounds (sfx, ui, and 2 looping music tracks) driven entirely by
+  `assets/audio/audio.json` through a central `AudioManager` -- see
+  "Swapping / adding sounds". Music never overlaps itself, doesn't
+  duplicate on level restart, and mute/`musicVolume`/`sfxVolume` are
+  global settings persisted the same way as high scores.
 
 ## Debug mode
 
@@ -116,13 +120,15 @@ Useful while tuning levels or ball behavior:
 index.html          Phaser injects its own canvas into #game-container;
                       DOM overlay for menus/HUD/touch controls sits on top
 style.css            All visual styling, responsive/touch layout
-assets/              Every graphic in the game, as real files -- see
-                      "Swapping graphics" below
+assets/              Every graphic and sound in the game, as real files --
+                      see "Swapping graphics" / "Swapping sounds" below
   balls/             ball_<shape>_<size>.webp
   player/            player_<state>_<frame>.webp
   obstacles/         wall.webp, crate.webp
   powerups/          <powerup type>.webp
   projectile.webp, particle.webp
+  audio/             audio.json (every sound's config) + one .ogg file per
+                      sound named there -- see "Swapping sounds" below
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
@@ -181,9 +187,12 @@ js/
   weapons.js         Weapon state + power-up effect timers (EffectManager
                       calls each active POWERUP_TYPES entry's apply()/
                       revert(), never needs to know what they actually do)
-  audio.js           Synthesized SFX + procedural music (Web Audio API --
-                      there are no audio files, so Phaser's file-based
-                      Sound Manager doesn't apply here)
+  audio.js           AUDIO_CONFIG (empty until ElementsScene populates it
+                      from assets/audio/audio.json) + AudioManager, the
+                      only thing in the game allowed to call Phaser's
+                      Sound Manager -- every trigger elsewhere is
+                      audio.play('<name>') / audio.playMusic('<name>'),
+                      never a filename/volume/loop flag
   input.js           Thin DOM bridge for the on-screen touch buttons only
                       (keyboard is native Phaser input, see GameScene)
   ui.js              DOM menus/HUD/screens
@@ -246,7 +255,7 @@ own numbers:
   "id": "powerup-stoptime-6s", "category": "powerup", "type": "time_freeze",
   "label": "Time Freeze", "color": "#48dbfb",
   "durationMs": 6000, "instant": false,
-  "kind": "freeze_balls", "params": {}
+  "kind": "freeze_balls", "params": {}, "pickupSound": "itempick"
 }
 ```
 Two power-ups can share a `kind` and just differ in `durationMs`/`params`
@@ -256,7 +265,9 @@ used everywhere else -- effects tracking, HUD, level `powerup` fields) can
 both use `kind: "freeze_balls"`. Needs an
 `assets/powerups/<type>.webp` icon (9x9, see "Swapping graphics"). Adding
 a genuinely new *behavior* (not just a new tuning of an existing one) does
-need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`.
+need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`. `pickupSound`
+names an `assets/audio/audio.json` entry to play on pickup (falls back to
+`"itempick"` if omitted) -- see "Swapping / adding sounds".
 
 ### Adding levels
 
@@ -326,3 +337,57 @@ dimensions:
 `GameScene.js`, `Ball.js`, `Player.js`, `Obstacle.js`, `Bonus.js`, and
 `LevelManager.js` all read `js/elements.js`'s registries and `js/assets.js`
 generically, so nothing else needs to change.
+
+### Swapping / adding sounds
+
+Every sound is a real `.ogg` file under `assets/audio/`, driven entirely by
+`assets/audio/audio.json` -- game code never hardcodes a filename, volume,
+or loop flag; it only ever calls `audio.play('<name>')` or
+`audio.playMusic('<name>')` by the sound's config key (see `js/audio.js`'s
+`AudioManager`). To swap a sound, just replace its `.ogg` file in place
+(same name). To retune one (volume, whether it can overlap itself, ...) or
+add a new named sound, edit `audio.json` -- no code change needed either
+way as long as the call sites already use that name.
+
+Each entry in `audio.json` looks like:
+```json
+"balldestroy": { "file": "balldestroy.ogg", "category": "sfx", "volume": 0.7, "mode": "once", "overlap": true }
+```
+- `file` -- the `.ogg` filename under `assets/audio/`.
+- `category` -- `music`, `sfx`, or `ui`. `music`/`sfx`/`ui` volumes are
+  bucketed under the two global sliders: `music` uses `musicVolume`,
+  `sfx`/`ui` both use `sfxVolume`.
+- `volume` -- this sound's own base volume (0-1), multiplied by its
+  category's global volume when played.
+- `mode` -- `"once"` (a one-shot sfx/ui sound, played via `audio.play()`)
+  or `"loop"` (a looping track, played via `audio.playMusic()` -- only
+  `category: "music"` entries currently use this).
+- `overlap` -- whether the same sound can have more than one instance
+  playing at once (e.g. several balls popping the same frame). When
+  `false`, a repeat trigger stops the previous instance first, so it never
+  stacks.
+- `maxDurationMs` (optional) -- hard-stops playback after this many
+  milliseconds even if the file itself is longer.
+
+`AudioManager` guarantees, regardless of what individual sounds do:
+**music** is always a singleton (`playMusic()` stops whatever track was
+playing before starting a new one, and is a no-op if the requested track is
+already playing -- so a level restart with the same music group never
+duplicates the loop or briefly overlaps two tracks); mute
+(`audio.setMuted()`) and the two volume sliders (`audio.setSfxVolume()` /
+`audio.setMusicVolume()`) apply globally and update the currently-playing
+music track live; short sfx/ui sounds overlap or not purely based on their
+own `overlap` flag.
+
+The 17 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
+tones/noise bursts generated offline (see the synthesis style used
+elsewhere in this file) rather than original audio -- drop in real files
+with the same names to replace them, one for one, no other changes needed:
+`weaponshoot`, `weaponshootm` (a boosted/rapid shot), `balldestroy`,
+`walldestroy`, `playerlifeloose`, `playerlifeget`, `itempick`,
+`itemscorerpick` (fruit/bonus-score pickups), `itemshieldget`,
+`itemshieldloose` (shield absorbs a hit), `hurryup` (low time remaining),
+`gameover`, `levelcomplete`, `superpang` (run-start jingle), `weaponhold`
+(picking up a weapon-boosting power-up), and the two looping tracks
+`music01`/`music02` (`GameScene.loadLevel()` splits `LEVELS` into two
+halves, one track per half, so adding levels keeps both tracks in use).

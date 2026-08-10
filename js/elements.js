@@ -20,7 +20,7 @@ export const BALL_SHAPE_KEYS = []; // distinct shapes across BALL_ELEMENTS, in f
 export const OBSTACLE_TYPES = {}; // type -> {label, destructible, hitPoints, color, tileTexture}
 export const OBSTACLE_TYPE_KEYS = [];
 
-export const POWERUP_TYPES = {}; // type -> {label, color, durationMs, instant, apply(game), revert(game)}
+export const POWERUP_TYPES = {}; // type -> {label, color, durationMs, instant, pickupSound, apply(game), revert(game)}
 export const POWERUP_TYPE_KEYS = [];
 
 export function getBallElement(shape, size) {
@@ -96,6 +96,7 @@ export function registerElement(el, harpoon) {
       color: el.color,
       durationMs: el.durationMs,
       instant: el.instant,
+      pickupSound: el.pickupSound || 'itempick',
       apply: (game) => behavior.apply(game, params, harpoon),
       revert: (game) => behavior.revert(game, params, harpoon),
     };

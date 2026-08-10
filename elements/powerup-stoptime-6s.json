@@ -7,5 +7,6 @@
   "durationMs": 6000,
   "instant": false,
   "kind": "freeze_balls",
-  "params": {}
+  "params": {},
+  "pickupSound": "itempick"
 }

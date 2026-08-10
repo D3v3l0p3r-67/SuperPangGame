@@ -1,9 +1,11 @@
 import { WEAPON_TYPES } from './config.js';
 import { registerElement } from './elements.js';
 import { LEVELS } from './LevelManager.js';
+import { AUDIO_CONFIG } from './audio.js';
 import {
   ELEMENTS_INDEX_PATH, ELEMENTS_INDEX_KEY, elementFileKey, elementFilePath,
   levelFileKey, levelFilePath, MAX_LEVEL_FILES,
+  AUDIO_CONFIG_PATH, AUDIO_CONFIG_KEY,
 } from './assets.js';
 
 // Runs before BootScene so every ball/obstacle/power-up "element" (see
@@ -29,6 +31,14 @@ export class ElementsScene extends Phaser.Scene {
     for (let n = 1; n <= MAX_LEVEL_FILES; n++) {
       this.load.json(levelFileKey(n), levelFilePath(n));
     }
+
+    // Single self-contained config -- unlike elements/index.json (a
+    // manifest naming OTHER files still to be loaded), audio.json already
+    // holds every sound's full playback config, so it needs no second
+    // wave: BootScene's preload() reads AUDIO_CONFIG (populated below) to
+    // know which .ogg files to load, same as it already does for
+    // BALL_ELEMENTS/OBSTACLE_TYPES/POWERUP_TYPE_KEYS.
+    this.load.json(AUDIO_CONFIG_KEY, AUDIO_CONFIG_PATH);
   }
 
   create() {
@@ -36,6 +46,8 @@ export class ElementsScene extends Phaser.Scene {
       const key = levelFileKey(n);
       if (this.cache.json.has(key)) LEVELS.push(this.cache.json.get(key));
     }
+
+    Object.assign(AUDIO_CONFIG, this.cache.json.get(AUDIO_CONFIG_KEY) || {});
 
     const elementIds = this.cache.json.get(ELEMENTS_INDEX_KEY) || [];
     for (const id of elementIds) {

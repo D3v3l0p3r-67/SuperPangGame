@@ -123,3 +123,18 @@ export function elementFileKey(id) {
 export function elementFilePath(id) {
   return `${ELEMENTS_DIR}${id}.json`;
 }
+
+// Audio: a single config file lists every named sound (see audio.js's
+// AUDIO_CONFIG, populated from this) with its file/category/volume/mode/
+// overlap -- swapping a sound is replacing the .ogg file it points to, no
+// code change. Same two-scene split as the elements/graphics above:
+// ElementsScene loads+parses audio.json into AUDIO_CONFIG, then
+// BootScene's preload() reads that registry to know which .ogg files to
+// load, exactly like it already does for ball/obstacle/powerup graphics.
+export const AUDIO_DIR = 'assets/audio/';
+export const AUDIO_CONFIG_PATH = 'assets/audio/audio.json';
+export const AUDIO_CONFIG_KEY = 'audio-config';
+
+export function audioPath(file) {
+  return `${AUDIO_DIR}${file}`;
+}

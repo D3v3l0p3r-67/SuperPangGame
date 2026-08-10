@@ -7,5 +7,8 @@
   "durationMs": 15000,
   "instant": false,
   "kind": "score_multiplier",
-  "params": { "multiplier": 2 }
+  "params": {
+    "multiplier": 2
+  },
+  "pickupSound": "itempick"
 }
