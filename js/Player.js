@@ -59,7 +59,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   reset() {
-    this.setPosition(VIRTUAL_W / 2, GROUND_Y - PLAYER_CONFIG.spriteHeight / 2);
+    const x = VIRTUAL_W / 2;
+    const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
+    this.setPosition(x, y);
     this.body.setVelocity(0, 0);
     this.speedMultiplier = 1;
     this.shielded = false;
@@ -69,6 +71,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setFlipX(this.facing > 0);
     this.oneShotAnim = null;
     this.play('player-idle');
+    // update() is the only other place this normally moves/shows -- and
+    // it doesn't run during LEVEL_INTRO (see GameScene.updatePlaying), so
+    // without this a shield still active right as a level ends would sit
+    // frozen at its old position/visible through the next level's intro
+    // instead of following the player's fresh spawn point.
+    this.shieldOutline.setPosition(x, y);
+    this.shieldOutline.setVisible(false);
   }
 
   // Plays once, holding update() off the idle/move animation until it
