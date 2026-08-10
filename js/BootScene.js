@@ -26,11 +26,14 @@ import {
 // rotation transform -- bigger/slower balls turn slower -- before that
 // became visibly blurry/aliased on this game's tiny pixel-art hexagons at
 // arbitrary rotation angles), converted from radians/sec to frames/sec
-// for a HEX_SPIN_FRAMES-frame-per-rotation cycle.
+// for a HEX_SPIN_FRAMES-frame-per-rotation cycle, then sped up another 1/2
+// (SPIN_SPEED_MULTIPLIER) on top of that physically-derived rate.
+const SPIN_SPEED_MULTIPLIER = 1.5;
+
 function hexSpinFrameRate(speed, radius) {
   const hSpeed = speed * Math.SQRT1_2;
   const angularSpeed = hSpeed / radius; // radians/sec
-  return (angularSpeed / (Math.PI * 2)) * HEX_SPIN_FRAMES;
+  return (angularSpeed / (Math.PI * 2)) * HEX_SPIN_FRAMES * SPIN_SPEED_MULTIPLIER;
 }
 
 // Runs after ElementsScene, which has already populated BALL_ELEMENTS/
