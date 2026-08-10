@@ -1,0 +1,14 @@
+{
+  "id": "powerup-wideharpoon-10s",
+  "category": "powerup",
+  "type": "wide_harpoon",
+  "label": "Wide Harpoon",
+  "color": "#54a0ff",
+  "durationMs": 10000,
+  "instant": false,
+  "kind": "weapon_wide_pierce",
+  "params": {
+    "widthMultiplier": 4
+  },
+  "pickupSound": "weaponhold"
+}

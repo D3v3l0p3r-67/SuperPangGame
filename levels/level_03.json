@@ -1,0 +1,51 @@
+{
+  "id": 3,
+  "name": "Market Square",
+  "timeLimitSec": 90,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 8,
+      "y": 136,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 136,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 168,
+      "y": 96,
+      "w": 48,
+      "h": 8
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 45,
+      "y": 25,
+      "vx": 45
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 339,
+      "y": 25,
+      "vx": 40
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 192,
+      "y": 60,
+      "vx": -50
+    }
+  ]
+}

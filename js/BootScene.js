@@ -1,117 +1,81 @@
-import { PLAYER_PALETTE, PLAYER_IDLE, PLAYER_WALK, buildPixelCanvas, buildPowerupCanvas } from './sprites.js';
-import { BALL_SHAPES, POWERUP_TYPES } from './config.js';
-import { BALL_TEXTURE_REF_RADIUS } from './Ball.js';
-import { OBSTACLE_BLOCK_SIZE, COLORS } from './constants.js';
+import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
+import { AUDIO_CONFIG } from './audio.js';
+import {
+  ballTextureKey, ballTexturePath,
+  playerTextureKey, playerTexturePath, PLAYER_ANIM_FRAME_COUNTS,
+  obstacleTextureKey, obstacleTexturePath,
+  PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
+  PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
+  powerupTextureKey, powerupTexturePath,
+  audioPath,
+} from './assets.js';
 
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
-}
-
-// Generates every texture the game needs procedurally (pixel-grid canvases
-// for the player, Graphics-drawn shapes for balls/projectiles/particles,
-// glyph-on-a-disc canvases for power-up icons) and registers them with
-// Phaser's texture manager -- no image files anywhere, nothing to preload
-// over the network, so this finishes synchronously and starts GameScene
-// immediately.
+// Runs after ElementsScene, which has already populated BALL_ELEMENTS/
+// OBSTACLE_TYPES/POWERUP_TYPE_KEYS (see elements.js) -- this scene's only
+// job is to load every graphic file those registries call for (see
+// assets.js for each one's naming/path convention) and, for the player,
+// wire the loaded frames into Phaser animations. Nothing is drawn
+// procedurally, so swapping any graphic is purely a file replacement, no
+// code changes.
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
   }
 
-  create() {
-    this.textures.addCanvas('player-idle', buildPixelCanvas(PLAYER_IDLE, PLAYER_PALETTE));
-    this.textures.addCanvas('player-walk', buildPixelCanvas(PLAYER_WALK, PLAYER_PALETTE));
-
-    this.buildBallTexture('ball-round', BALL_SHAPES.round, false);
-    this.buildBallTexture('ball-hex', BALL_SHAPES.hex, true);
-
-    this.buildProjectileTexture();
-    this.buildParticleTexture();
-    this.buildBorderTileTexture();
-
-    for (const [type, def] of Object.entries(POWERUP_TYPES)) {
-      this.textures.addCanvas(`powerup-${type}`, buildPowerupCanvas(def.icon, def.color));
+  preload() {
+    for (const el of BALL_ELEMENTS) {
+      this.load.image(ballTextureKey(el.shape, el.size), ballTexturePath(el.shape, el.size));
     }
 
+    for (const [state, count] of Object.entries(PLAYER_ANIM_FRAME_COUNTS)) {
+      for (let frame = 1; frame <= count; frame++) {
+        this.load.image(playerTextureKey(state, frame), playerTexturePath(state, frame));
+      }
+    }
+
+    const tileNames = new Set(OBSTACLE_TYPE_KEYS.map((type) => OBSTACLE_TYPES[type].tileTexture));
+    for (const name of tileNames) {
+      this.load.image(obstacleTextureKey(name), obstacleTexturePath(name));
+    }
+
+    this.load.image(PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH);
+    this.load.image(PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH);
+
+    for (const type of POWERUP_TYPE_KEYS) {
+      this.load.image(powerupTextureKey(type), powerupTexturePath(type));
+    }
+
+    // AUDIO_CONFIG is already fully populated by ElementsScene (audio.json
+    // is self-contained, no manifest indirection needed -- see
+    // ElementsScene.js) -- each sound is loaded under its own config key
+    // name, so AudioManager can play it back by that same name.
+    for (const [name, cfg] of Object.entries(AUDIO_CONFIG)) {
+      this.load.audio(name, audioPath(cfg.file));
+    }
+  }
+
+  create() {
+    this.buildPlayerAnimations();
     this.scene.start('Game');
   }
 
-  buildBallTexture(key, shapeDef, isHex) {
-    const r = BALL_TEXTURE_REF_RADIUS;
-    const size = r * 2;
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-
-    g.fillStyle(hexColor(shapeDef.color), 1);
-    g.lineStyle(1, 0x0b0e2a, 1);
-    if (isHex) {
-      const points = [];
-      for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
-        points.push(new Phaser.Geom.Point(r + r * Math.cos(angle), r + r * Math.sin(angle)));
-      }
-      g.fillPoints(points, true);
-      g.strokePoints(points, true);
-    } else {
-      g.fillCircle(r, r, r);
-      g.strokeCircle(r, r, r - 0.5);
+  // One Phaser animation per player state, built from the loaded frame
+  // images (see assets.js's PLAYER_ANIM_FRAME_COUNTS) -- Player.js just
+  // calls this.play('player-<state>'). idle/move loop; shot/dead play
+  // once and Player.js switches back to idle/move itself when they end
+  // (see Player.js's 'animationcomplete' handling).
+  buildPlayerAnimations() {
+    const LOOPING = new Set(['idle', 'move']);
+    const FRAME_RATE = { idle: 1, move: 8, shot: 14, dead: 5 };
+    for (const [state, count] of Object.entries(PLAYER_ANIM_FRAME_COUNTS)) {
+      const frames = [];
+      for (let frame = 1; frame <= count; frame++) frames.push({ key: playerTextureKey(state, frame) });
+      this.anims.create({
+        key: `player-${state}`,
+        frames,
+        frameRate: FRAME_RATE[state] ?? 8,
+        repeat: LOOPING.has(state) ? -1 : 0,
+      });
     }
-
-    g.fillStyle(hexColor(shapeDef.highlight), 0.85);
-    g.fillCircle(r - r * 0.35, r - r * 0.35, Math.max(1, r * 0.3));
-
-    g.generateTexture(key, size, size);
-    g.destroy();
-  }
-
-  buildProjectileTexture() {
-    const w = 4;
-    const h = 7;
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    g.fillStyle(0xffd23f, 1);
-    g.fillRect(0, 3, w, h - 3);
-    g.fillTriangle(0, 3, w / 2, 0, w, 3);
-    g.generateTexture('projectile', w, h);
-    g.destroy();
-  }
-
-  buildParticleTexture() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-    g.fillStyle(0xffffff, 1);
-    g.fillRect(0, 0, 2, 2);
-    g.generateTexture('particle', 2, 2);
-    g.destroy();
-  }
-
-  // Repeating tiles for obstacle walls -- a beveled block with a small
-  // rivet, tiled via Phaser TileSprites so each wall is drawn once and
-  // reused unchanged everywhere. 'border-tile' (blue) is the playfield
-  // frame (see GameScene.drawBorder) and indestructible obstacles;
-  // 'border-tile-crate' (brown) is the same shape/texture for destructible
-  // crates (see Obstacle.js) -- only the palette differs.
-  buildBorderTileTexture() {
-    this.buildWallTexture('border-tile', COLORS.frameBase, COLORS.frameHighlight, COLORS.frameShadow, COLORS.frameRivet);
-    this.buildWallTexture('border-tile-crate', COLORS.crateBase, COLORS.crateHighlight, COLORS.crateShadow, COLORS.frameRivet);
-  }
-
-  buildWallTexture(key, base, highlight, shadow, rivet) {
-    const size = OBSTACLE_BLOCK_SIZE;
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-
-    g.fillStyle(hexColor(base), 1);
-    g.fillRect(0, 0, size, size);
-
-    g.fillStyle(hexColor(highlight), 1);
-    g.fillRect(0, 0, size, 1);
-    g.fillRect(0, 0, 1, size);
-
-    g.fillStyle(hexColor(shadow), 1);
-    g.fillRect(0, size - 1, size, 1);
-    g.fillRect(size - 1, 0, 1, size);
-
-    g.fillStyle(hexColor(rivet), 1);
-    g.fillRect(size / 2 - 1, size / 2 - 1, 2, 2);
-
-    g.generateTexture(key, size, size);
-    g.destroy();
   }
 }

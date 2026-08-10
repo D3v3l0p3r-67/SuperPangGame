@@ -1,0 +1,14 @@
+{
+  "id": "powerup-rapidshot-12s",
+  "category": "powerup",
+  "type": "rapid_shot",
+  "label": "Rapid Shot",
+  "color": "#ff9f43",
+  "durationMs": 12000,
+  "instant": false,
+  "kind": "weapon_max_shots",
+  "params": {
+    "maxActiveShots": 3
+  },
+  "pickupSound": "weaponhold"
+}

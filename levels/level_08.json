@@ -1,0 +1,79 @@
+{
+  "id": 8,
+  "name": "Storm Deck",
+  "timeLimitSec": 75,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 16,
+      "y": 152,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 312,
+      "y": 152,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 112,
+      "w": 64,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 24,
+      "y": 64,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 312,
+      "y": 64,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "crate",
+      "x": 48,
+      "y": 152,
+      "w": 24,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 312,
+      "y": 152,
+      "w": 24,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 192,
+      "y": 20,
+      "vx": 30
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 60,
+      "y": 55,
+      "vx": 45
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 324,
+      "y": 55,
+      "vx": -40
+    }
+  ]
+}

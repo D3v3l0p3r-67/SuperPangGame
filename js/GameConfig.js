@@ -1,4 +1,5 @@
 import { VIRTUAL_W, VIRTUAL_H } from './constants.js';
+import { ElementsScene } from './ElementsScene.js';
 import { BootScene } from './BootScene.js';
 import { GameScene } from './GameScene.js';
 
@@ -20,5 +21,5 @@ export const GAME_CONFIG = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, GameScene],
+  scene: [ElementsScene, BootScene, GameScene],
 };

@@ -1,0 +1,72 @@
+{
+  "id": 9,
+  "name": "Lightning Spire",
+  "timeLimitSec": 75,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 16,
+      "y": 152,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 312,
+      "y": 152,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 112,
+      "w": 64,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 24,
+      "y": 64,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 312,
+      "y": 64,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "crate",
+      "x": 176,
+      "y": 152,
+      "w": 32,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 60,
+      "y": 25,
+      "vx": 40
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 324,
+      "y": 25,
+      "vx": -40
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 192,
+      "y": 55,
+      "vx": -35
+    }
+  ]
+}

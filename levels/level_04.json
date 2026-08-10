@@ -1,0 +1,51 @@
+{
+  "id": 4,
+  "name": "Wind Tunnel",
+  "timeLimitSec": 85,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 8,
+      "y": 136,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 136,
+      "w": 56,
+      "h": 8
+    },
+    {
+      "type": "crate",
+      "x": 176,
+      "y": 152,
+      "w": 32,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 192,
+      "y": 25,
+      "vx": -35
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 60,
+      "y": 60,
+      "vx": 50
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 324,
+      "y": 60,
+      "vx": -50
+    }
+  ]
+}

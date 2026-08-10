@@ -1,0 +1,15 @@
+{
+  "id": "round-ball-4",
+  "category": "ball",
+  "shape": "round",
+  "size": 4,
+  "label": "Round 4",
+  "hasGravity": true,
+  "gravityAccel": 260,
+  "radius": 16,
+  "speed": 85,
+  "bounceVelocity": 277,
+  "points": 100,
+  "color": "#ff6b6b",
+  "highlight": "#ffb3b3"
+}

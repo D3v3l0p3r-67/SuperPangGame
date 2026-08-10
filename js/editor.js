@@ -1,5 +1,5 @@
 import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
-import { BALL_SHAPES, BALL_SIZES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES } from './config.js';
+import { OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { Obstacle } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import * as storage from './storage.js';
@@ -10,18 +10,11 @@ const BRUSHES = [
   { id: 'erase', label: 'Erase' },
 ];
 
-// Builds the brush list for balls from the same registries the debug
-// spawn panel uses, so adding a new ball size/shape shows up here too.
+// Builds the brush list for balls straight from BALL_ELEMENTS, so a new
+// elements/<shape>-ball-<size>.json shows up as a brush automatically --
+// same registry the debug spawn panel uses.
 function ballBrushes() {
-  const brushes = [];
-  for (const shape of Object.keys(BALL_SHAPES)) {
-    const maxSize = BALL_SHAPES[shape].maxSize;
-    for (const { size } of BALL_SIZES) {
-      if (size > maxSize) continue;
-      brushes.push({ id: `ball-${shape}-${size}`, label: `${shape[0].toUpperCase()}${size}` });
-    }
-  }
-  return brushes;
+  return BALL_ELEMENTS.map((el) => ({ id: `ball-${el.shape}-${el.size}`, label: `${el.shape[0].toUpperCase()}${el.size}` }));
 }
 
 // Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that
@@ -42,8 +35,7 @@ function snapObstacleOrigin(x, y) {
 }
 
 function ballRadius(shape, size) {
-  const shapeDef = BALL_SHAPES[shape];
-  return BALL_SIZES[Math.min(size, shapeDef.maxSize) - 1].radius;
+  return getBallElement(shape, Math.min(size, maxBallSize(shape))).radius;
 }
 
 // Initial velocity for a ball placed with a given (dirX, dirY) direction
@@ -52,11 +44,9 @@ function ballRadius(shape, size) {
 // horizontally at first (dirY is meaningless for them); hex balls split
 // their speed diagonally across both axes.
 function computeBallVelocity(shape, size, dirX, dirY) {
-  const shapeDef = BALL_SHAPES[shape];
-  const sizeDef = BALL_SIZES[Math.min(size, shapeDef.maxSize) - 1];
-  const speed = sizeDef.speed * (shapeDef.speedMultiplier || 1);
-  if (shapeDef.gravity) return { vx: speed * dirX, vy: 0 };
-  const component = speed * Math.SQRT1_2;
+  const el = getBallElement(shape, Math.min(size, maxBallSize(shape)));
+  if (el.hasGravity) return { vx: el.speed * dirX, vy: 0 };
+  const component = el.speed * Math.SQRT1_2;
   return { vx: component * dirX, vy: component * dirY };
 }
 
@@ -246,7 +236,7 @@ export class Editor {
       }
     }
     for (const b of def.balls || []) {
-      if (!BALL_SHAPES[b.shape] || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
+      if (!BALL_ELEMENTS.some((el) => el.shape === b.shape) || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
       // b.x/b.y are the ball's CENTER (the coordinate real gameplay spawns
       // it at); the editor's grid cell is anchored to its top-left corner
       // (center - radius), so recover that corner before snapping rather

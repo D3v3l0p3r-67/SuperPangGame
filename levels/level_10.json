@@ -1,0 +1,93 @@
+{
+  "id": 10,
+  "name": "Final Ascent",
+  "timeLimitSec": 70,
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 16,
+      "y": 152,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 152,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 168,
+      "y": 112,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 24,
+      "y": 72,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 312,
+      "y": 72,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "platform",
+      "x": 168,
+      "y": 32,
+      "w": 48,
+      "h": 8
+    },
+    {
+      "type": "crate",
+      "x": 8,
+      "y": 152,
+      "w": 16,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 360,
+      "y": 152,
+      "w": 16,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 45,
+      "y": 20,
+      "vx": 40
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 339,
+      "y": 20,
+      "vx": -45
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 135,
+      "y": 55,
+      "vx": -35
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 249,
+      "y": 55,
+      "vx": 40
+    }
+  ]
+}

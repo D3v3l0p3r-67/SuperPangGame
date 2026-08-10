@@ -1,6 +1,8 @@
+import { PROJECTILE_TEXTURE_KEY } from './assets.js';
+
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, width, speed, pierce) {
-    super(scene, x, y, 'projectile');
+    super(scene, x, y, PROJECTILE_TEXTURE_KEY);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);

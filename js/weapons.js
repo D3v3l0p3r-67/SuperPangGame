@@ -1,4 +1,5 @@
-import { WEAPON_TYPES, POWERUP_TYPES } from './config.js';
+import { WEAPON_TYPES } from './config.js';
+import { POWERUP_TYPES } from './elements.js';
 
 export function createWeaponState() {
   const base = WEAPON_TYPES.harpoon;

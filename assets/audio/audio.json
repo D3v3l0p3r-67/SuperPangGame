@@ -1,0 +1,19 @@
+{
+  "weaponshoot": { "file": "weaponshoot.ogg", "category": "sfx", "volume": 0.55, "mode": "once", "overlap": true },
+  "weaponshootm": { "file": "weaponshootm.ogg", "category": "sfx", "volume": 0.55, "mode": "once", "overlap": true },
+  "balldestroy": { "file": "balldestroy.ogg", "category": "sfx", "volume": 0.7, "mode": "once", "overlap": true },
+  "walldestroy": { "file": "walldestroy.ogg", "category": "sfx", "volume": 0.7, "mode": "once", "overlap": true },
+  "playerlifeloose": { "file": "playerlifeloose.ogg", "category": "sfx", "volume": 0.9, "mode": "once", "overlap": false },
+  "playerlifeget": { "file": "playerlifeget.ogg", "category": "sfx", "volume": 0.85, "mode": "once", "overlap": false },
+  "itempick": { "file": "itempick.ogg", "category": "sfx", "volume": 0.65, "mode": "once", "overlap": true },
+  "itemscorerpick": { "file": "itemscorerpick.ogg", "category": "sfx", "volume": 0.65, "mode": "once", "overlap": true },
+  "itemshieldget": { "file": "itemshieldget.ogg", "category": "sfx", "volume": 0.75, "mode": "once", "overlap": false },
+  "itemshieldloose": { "file": "itemshieldloose.ogg", "category": "sfx", "volume": 0.75, "mode": "once", "overlap": false },
+  "hurryup": { "file": "hurryup.ogg", "category": "sfx", "volume": 0.8, "mode": "once", "overlap": false, "maxDurationMs": 500 },
+  "gameover": { "file": "gameover.ogg", "category": "sfx", "volume": 0.9, "mode": "once", "overlap": false },
+  "levelcomplete": { "file": "levelcomplete.ogg", "category": "sfx", "volume": 0.85, "mode": "once", "overlap": false },
+  "superpang": { "file": "superpang.ogg", "category": "ui", "volume": 0.9, "mode": "once", "overlap": false },
+  "weaponhold": { "file": "weaponhold.ogg", "category": "sfx", "volume": 0.75, "mode": "once", "overlap": false },
+  "music01": { "file": "music01.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music02": { "file": "music02.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false }
+}

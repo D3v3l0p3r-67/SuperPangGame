@@ -1,7 +1,11 @@
 import { OBSTACLE_BLOCK_SIZE } from './constants.js';
-import { LEVELS } from './levels.js';
 import { Ball } from './Ball.js';
 import { Obstacle } from './Obstacle.js';
+
+// Populated by BootScene.populateLevels() from levels/*.json (see
+// assets.js) before GameScene ever starts -- mutated in place (never
+// reassigned) so this exported reference stays valid for every importer.
+export const LEVELS = [];
 
 // Every level obstacle becomes one or more independent Obstacle blocks,
 // each its own Arcade body -- that's what lets a breakable obstacle lose
@@ -24,11 +28,11 @@ function obstacleBlocks(o) {
   return blocks;
 }
 
-// Loads a level definition (unchanged data from levels.js) into a
-// GameScene's groups. Adding level 11+ is purely a levels.js change --
-// nothing here needs to change. `idxOrDef` is normally an index into
-// LEVELS, but the level editor passes a level definition object
-// directly (its own, not part of LEVELS) to preview/play a custom level.
+// Loads a level definition into a GameScene's groups. Adding level 11+ is
+// purely a new levels/level_11.json file -- nothing here needs to change.
+// `idxOrDef` is normally an index into LEVELS, but the level editor passes
+// a level definition object directly (its own, not part of LEVELS) to
+// preview/play a custom level.
 export function loadLevel(scene, idxOrDef) {
   const def = typeof idxOrDef === 'number' ? LEVELS[idxOrDef] : idxOrDef;
 
@@ -51,5 +55,3 @@ export function loadLevel(scene, idxOrDef) {
 
   return def;
 }
-
-export { LEVELS };

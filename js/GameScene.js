@@ -1,17 +1,19 @@
 import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
-import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_TYPE_KEYS, POWERUP_DROP_CHANCE } from './config.js';
+import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
+import { POWERUP_TYPE_KEYS } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
 import { Bonus } from './Bonus.js';
 import { createWeaponState, EffectManager } from './weapons.js';
 import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
-import { AudioEngine } from './audio.js';
+import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
+import { obstacleTextureKey, PARTICLE_TEXTURE_KEY } from './assets.js';
 
 // 1s each for "3", "2", "1", then a shorter "GO!" beat before play starts.
 const LEVEL_INTRO_COUNT_SEC = 3;
@@ -38,7 +40,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.audio = new AudioEngine();
+    this.audio = new AudioManager(this);
     const settings = storage.loadSettings();
     this.audio.applySettings(settings);
     const originalResume = this.audio.resumeContext.bind(this.audio);
@@ -145,11 +147,12 @@ export class GameScene extends Phaser.Scene {
   // of the playfield.
   drawBorder() {
     const t = OBSTACLE_BLOCK_SIZE;
+    const wallTexture = obstacleTextureKey('wall');
     const strips = [
-      this.add.tileSprite(0, 0, VIRTUAL_W, t, 'border-tile'),
-      this.add.tileSprite(0, 0, t, GROUND_Y, 'border-tile'),
-      this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, 'border-tile'),
-      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, 'border-tile'),
+      this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
+      this.add.tileSprite(0, 0, t, GROUND_Y, wallTexture),
+      this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, wallTexture),
+      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, wallTexture),
     ];
     for (const strip of strips) {
       strip.setOrigin(0, 0);
@@ -193,6 +196,7 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = false;
     this.customLevelDef = null;
     this.effects.reset(this);
+    this.audio.play('superpang');
     this.loadLevel(this.levelIndex);
     this.startLevelIntro();
   }
@@ -210,6 +214,7 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = true;
     this.customLevelDef = def;
     this.effects.reset(this);
+    this.audio.play('superpang');
     this.loadLevel(def);
     this.startLevelIntro();
   }
@@ -254,8 +259,13 @@ export class GameScene extends Phaser.Scene {
     this.weaponState = createWeaponState();
     this.effects.reset(this);
     this.levelTimer = 0;
-    const musicGroup = typeof idxOrDef !== 'number' ? 2 : idxOrDef < 3 ? 0 : idxOrDef < 6 ? 1 : 2;
-    this.audio.playMusic(musicGroup);
+    this.hurryUpPlayed = false;
+    // Editor/custom levels and the first half of LEVELS play music01, the
+    // rest play music02 -- playMusic() itself is a no-op if that track is
+    // already the one playing (e.g. two music01 levels back to back, or
+    // restarting the current level), so loops never duplicate or overlap.
+    const musicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
+    this.audio.playMusic(musicName);
     return def;
   }
 
@@ -282,7 +292,7 @@ export class GameScene extends Phaser.Scene {
       const remaining = Math.max(0, def.timeLimitSec - this.levelTimer);
       this.score += Math.round(remaining * 10);
     }
-    this.audio.levelclear();
+    this.audio.play('levelcomplete');
     this.state = GAME_STATES.LEVEL_CLEAR;
     this.stateTimer = LEVEL_CLEAR_SEC;
   }
@@ -290,8 +300,8 @@ export class GameScene extends Phaser.Scene {
   finishRun(outcome) {
     this.audio.stopMusic();
     this.lastOutcome = outcome;
-    if (outcome === 'gameover') this.audio.gameover();
-    else this.audio.levelclear();
+    if (outcome === 'gameover') this.audio.play('gameover');
+    else this.audio.play('levelcomplete');
 
     if (storage.qualifiesForHighScore(this.score)) {
       this.state = GAME_STATES.HIGH_SCORE_ENTRY;
@@ -388,6 +398,11 @@ export class GameScene extends Phaser.Scene {
     this.levelTimer += dt;
     this.effects.update(this, this.elapsedMs);
 
+    if (!this.hurryUpPlayed && this.currentLevelDef?.timeLimitSec && this.remainingLevelTime > 0 && this.remainingLevelTime <= 10) {
+      this.audio.play('hurryup');
+      this.hurryUpPlayed = true;
+    }
+
     const inputState = this.readInput();
     this.player.update(dt, inputState);
 
@@ -419,13 +434,18 @@ export class GameScene extends Phaser.Scene {
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
     const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce);
     this.projectiles.add(proj);
-    this.audio.shoot();
+    // "Special/rapid" shot sound whenever an active weapon power-up is
+    // boosting the harpoon (rapid_shot: more simultaneous shots,
+    // wide_harpoon: wider/piercing shot); the plain harpoon otherwise.
+    const isSpecialShot = this.effects.active.has('rapid_shot') || this.effects.active.has('wide_harpoon');
+    this.audio.play(isSpecialShot ? 'weaponshootm' : 'weaponshoot');
+    this.player.playShotAnim();
   }
 
   popBall(ball) {
     this.score += Math.round(ball.points * this.scoreMultiplier);
-    this.audio.pop(5 - ball.size);
-    this.spawnBurst(ball.x, ball.y, ball.shapeDef.color, 10);
+    this.audio.play('balldestroy');
+    this.spawnBurst(ball.x, ball.y, ball.color, 10);
 
     const children = ball.getSplitChildren();
     const forcedPowerup = ball.forcedPowerup;
@@ -450,7 +470,7 @@ export class GameScene extends Phaser.Scene {
     // visibly drifts away from the hit point before it fades, which reads
     // as "the effect isn't where the ball was" even though it started
     // exactly there.
-    const emitter = this.add.particles(x, y, 'particle', {
+    const emitter = this.add.particles(x, y, PARTICLE_TEXTURE_KEY, {
       lifespan: small ? 220 : 280,
       speed: small ? { min: 10, max: 25 } : { min: 15, max: 45 },
       scale: { start: small ? 1.5 : 2, end: 0 },
@@ -506,6 +526,7 @@ export class GameScene extends Phaser.Scene {
     const forcedPowerup = obstacleGO.forcedPowerup;
     const destroyed = obstacleGO.takeHit();
     if (destroyed) {
+      this.audio.play('walldestroy');
       this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
       // A crate the level editor tagged with a powerup drops it the
       // moment it's shot down -- see Obstacle.js's forcedPowerup.
@@ -528,11 +549,15 @@ export class GameScene extends Phaser.Scene {
 
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();
-    if (!lostLife && hadShield) this.effects.active.delete('shield');
+    if (!lostLife && hadShield) {
+      this.effects.active.delete('shield');
+      this.audio.play('itemshieldloose');
+    }
 
     if (lostLife) {
-      this.audio.hit();
+      this.audio.play('playerlifeloose');
       this.lives -= 1;
+      this.player.playDeadAnim();
       this.startHitFreeze(this.lives <= 0);
     }
   }
@@ -551,7 +576,7 @@ export class GameScene extends Phaser.Scene {
   onPlayerCollectPowerup(playerGO, bonusGO) {
     if (!bonusGO.active) return;
     this.effects.apply(bonusGO.type, this, this.elapsedMs);
-    this.audio.powerup();
+    this.audio.play(bonusGO.def.pickupSound);
     this.spawnBurst(bonusGO.x, bonusGO.y, bonusGO.def.color, 8, true);
     bonusGO.destroy();
   }

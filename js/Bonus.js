@@ -1,11 +1,13 @@
-import { POWERUP_TYPES, POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { POWERUP_FALL_SPEED, POWERUP_TTL_MS } from './config.js';
+import { POWERUP_TYPES } from './elements.js';
 import { GROUND_Y } from './constants.js';
+import { powerupTextureKey } from './assets.js';
 
 // A collectible power-up pickup. Drifts down to (roughly) ground level and
 // despawns after a few seconds if not collected.
 export class Bonus extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, type, x, y) {
-    super(scene, x, y, `powerup-${type}`);
+    super(scene, x, y, powerupTextureKey(type));
 
     scene.add.existing(this);
     scene.physics.add.existing(this);

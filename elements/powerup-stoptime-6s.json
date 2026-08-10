@@ -1,0 +1,12 @@
+{
+  "id": "powerup-stoptime-6s",
+  "category": "powerup",
+  "type": "time_freeze",
+  "label": "Time Freeze",
+  "color": "#48dbfb",
+  "durationMs": 6000,
+  "instant": false,
+  "kind": "freeze_balls",
+  "params": {},
+  "pickupSound": "itempick"
+}

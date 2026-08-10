@@ -1,0 +1,14 @@
+{
+  "id": "hex-ball-1",
+  "category": "ball",
+  "shape": "hex",
+  "size": 1,
+  "label": "Hex 1",
+  "hasGravity": false,
+  "radius": 4,
+  "speed": 60,
+  "bounceVelocity": 0,
+  "points": 800,
+  "color": "#4ecdc4",
+  "highlight": "#a8f0ea"
+}

@@ -1,0 +1,64 @@
+{
+  "id": 1,
+  "name": "Rooftop Start",
+  "timeLimitSec": 90,
+  "obstacles": [],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 30,
+      "y": 40,
+      "vx": -50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 68,
+      "y": 60,
+      "vx": -50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 105,
+      "y": 45,
+      "vx": -50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 143,
+      "y": 65,
+      "vx": -50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 241,
+      "y": 65,
+      "vx": 50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 279,
+      "y": 45,
+      "vx": 50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 316,
+      "y": 60,
+      "vx": 50
+    },
+    {
+      "shape": "round",
+      "size": 1,
+      "x": 354,
+      "y": 40,
+      "vx": 50
+    }
+  ]
+}

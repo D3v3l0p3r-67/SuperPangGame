@@ -1,8 +1,8 @@
 import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE } from './constants.js';
-import { BALL_SHAPE_KEYS, BALL_SHAPES, BALL_SIZES, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './config.js';
+import { BALL_SHAPE_KEYS, BALL_ELEMENTS, maxBallSize, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './elements.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
-import { LEVELS } from './levels.js';
+import { LEVELS } from './LevelManager.js';
 
 // Purely observational + a couple of manual test hooks -- reads scene
 // state and draws over it, never mutates gameplay logic. Can be deleted
@@ -66,13 +66,13 @@ export class Debug {
     // Rebuilt whenever the shape changes -- hex only goes up to its
     // maxSize (3), not the full 5 round tiers.
     const populateSizes = () => {
-      const maxSize = BALL_SHAPES[shapeSelect.value].maxSize;
+      const maxSize = maxBallSize(shapeSelect.value);
       sizeSelect.innerHTML = '';
-      for (const { size } of BALL_SIZES) {
-        if (size > maxSize) continue;
+      for (const el of BALL_ELEMENTS) {
+        if (el.shape !== shapeSelect.value) continue;
         const opt = document.createElement('option');
-        opt.value = String(size);
-        opt.textContent = `size ${size}`;
+        opt.value = String(el.size);
+        opt.textContent = `size ${el.size}`;
         sizeSelect.appendChild(opt);
       }
       sizeSelect.value = String(maxSize);

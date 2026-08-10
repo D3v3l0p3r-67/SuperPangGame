@@ -1,0 +1,15 @@
+{
+  "id": "round-ball-5",
+  "category": "ball",
+  "shape": "round",
+  "size": 5,
+  "label": "Round 5",
+  "hasGravity": true,
+  "gravityAccel": 260,
+  "radius": 24,
+  "speed": 100,
+  "bounceVelocity": 286,
+  "points": 50,
+  "color": "#ff6b6b",
+  "highlight": "#ffb3b3"
+}
