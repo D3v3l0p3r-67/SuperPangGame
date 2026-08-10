@@ -275,9 +275,14 @@ export class UI {
       const color = isNew ? COLORS.accent : COLORS.text;
       // Two separate canvases (rank+name, score) rather than one string,
       // so the li's flex justify-content:space-between still pushes the
-      // score to the right edge like the old single-line text did.
+      // score to the right edge like the old single-line text did. Rank
+      // is padded to a fixed 2-digit width (a leading space for 1-9) so
+      // every row's rank+name canvas is exactly as wide as "10. XXX" --
+      // without this, rows 1-9 render narrower than row 10 and end up
+      // with a visibly bigger gap before the score than row 10 gets
+      // (which can shrink to nothing at small canvas scales).
       const rankName = document.createElement('span');
-      setPixelText(rankName, `${i + 1}. ${entry.name}`, 'body', color);
+      setPixelText(rankName, `${String(i + 1).padStart(2, ' ')}. ${entry.name}`, 'body', color);
       const score = document.createElement('span');
       setPixelText(score, String(entry.score), 'body', color);
       li.append(rankName, score);

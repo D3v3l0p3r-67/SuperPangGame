@@ -162,6 +162,7 @@ body {
 .menu-btn:hover,
 .menu-btn:focus-visible {
   background: var(--panel-border);
+  border-width: 1px;
   outline: none;
 }
 
@@ -206,6 +207,7 @@ body {
 .level-select-btn:hover:not(:disabled),
 .level-select-btn:focus-visible:not(:disabled) {
   background: var(--panel-border);
+  border-width: 1px;
   outline: none;
 }
 
