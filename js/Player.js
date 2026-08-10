@@ -1,6 +1,6 @@
 import { PLAYER_CONFIG } from './config.js';
 import { VIRTUAL_W, GROUND_Y } from './constants.js';
-import { PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES } from './assets.js';
+import { PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES, PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_ANIM_KEY } from './assets.js';
 
 // Arcade sprite. Movement stays explicit (velocity assigned every frame
 // from input, not left to generic physics forces) -- Phaser owns the
@@ -44,11 +44,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.on('animationcomplete-player-victory', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
 
-    this.shieldOutline = scene.add.rectangle(x, y, PLAYER_CONFIG.shieldSize, PLAYER_CONFIG.shieldSize);
-    this.shieldOutline.setStrokeStyle(1, 0xffd23f);
-    this.shieldOutline.setFillStyle();
-    this.shieldOutline.setVisible(false);
-    this.shieldOutline.setDepth(5);
+    // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
+    // instead of a drawn outline -- see update()/reset() for how it
+    // tracks the player's position/visibility.
+    this.shieldEffect = scene.add.sprite(x, y, PLAYER_SHIELD_TEXTURE_KEY);
+    this.shieldEffect.play(PLAYER_SHIELD_ANIM_KEY);
+    this.shieldEffect.setVisible(false);
+    this.shieldEffect.setDepth(5);
     this.setDepth(4);
 
     this.play('player-idle');
@@ -76,8 +78,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // without this a shield still active right as a level ends would sit
     // frozen at its old position/visible through the next level's intro
     // instead of following the player's fresh spawn point.
-    this.shieldOutline.setPosition(x, y);
-    this.shieldOutline.setVisible(false);
+    this.shieldEffect.setPosition(x, y);
+    this.shieldEffect.setVisible(false);
   }
 
   // Plays once, holding update() off the idle/move animation until it
@@ -122,8 +124,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // it's the RIGHT-facing case that needs the mirror now.
     this.setFlipX(this.facing > 0);
 
-    this.shieldOutline.setPosition(this.x, this.y);
-    this.shieldOutline.setVisible(this.shielded);
+    this.shieldEffect.setPosition(this.x, this.y);
+    this.shieldEffect.setVisible(this.shielded);
   }
 
   // Returns true if a life should be lost (i.e. no shield absorbed the hit).

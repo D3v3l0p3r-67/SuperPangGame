@@ -1,11 +1,12 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
-import { WEAPON_TYPES } from './config.js';
+import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
 import {
   ballTextureKey, ballTexturePath, HEX_SPIN_FRAMES, ballSpinAnimKey,
   ballPopTextureKey, ballPopTexturePath, BALL_POP_FRAMES, POP_FRAME_SCALE, ballPopAnimKey,
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
+  PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
   PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
@@ -63,6 +64,7 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
+    this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
 
     const tileNames = new Set(OBSTACLE_TYPE_KEYS.map((type) => OBSTACLE_TYPES[type].tileTexture));
     for (const name of tileNames) {
@@ -110,6 +112,12 @@ export class BootScene extends Phaser.Scene {
   create() {
     this.buildPlayerAnimations();
     this.buildBallAnimations();
+    this.anims.create({
+      key: PLAYER_SHIELD_ANIM_KEY,
+      frames: this.anims.generateFrameNumbers(PLAYER_SHIELD_TEXTURE_KEY, { start: 0, end: PLAYER_SHIELD_FRAMES - 1 }),
+      frameRate: 8,
+      repeat: -1,
+    });
     this.scene.start('Game');
   }
 

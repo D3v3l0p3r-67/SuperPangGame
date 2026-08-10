@@ -57,11 +57,10 @@ export function ballPopAnimKey(shape, size) {
 // Player: a single spritesheet (one PNG, not one file per frame) of
 // PLAYER_CONFIG.spriteWidth x spriteHeight (16x32) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
-// dead -- see PLAYER_ANIM_FRAMES below for which index is which, and
-// generate_player.js (referenced from the README's "Swapping graphics")
-// for how it's drawn. Every frame is authored facing LEFT; Player.js
-// mirrors it (setFlipX) for right-facing instead of needing a separate
-// left/right file.
+// dead -- see PLAYER_ANIM_FRAMES below for which index is which (see the
+// README's "Swapping graphics" for the full frame reference). Every frame
+// is authored facing LEFT; Player.js mirrors it (setFlipX) for
+// right-facing instead of needing a separate left/right file.
 export const PLAYER_TEXTURE_KEY = 'player';
 export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
 export const PLAYER_FRAME = { frameWidth: 16, frameHeight: 32 };
@@ -75,6 +74,17 @@ export const PLAYER_ANIM_FRAMES = {
   victory: [6],
   dead: [7],
 };
+
+// Shield power-up effect: a PLAYER_SHIELD_FRAMES-frame looping animation
+// drawn centered on the player while shielded (see Player.js's
+// shieldEffect, toggled by the `shield` power-up's player_shield
+// behavior -- elements.js's POWERUP_BEHAVIORS). One PLAYER_CONFIG.
+// shieldSize (32) square spritesheet, frames stacked vertically same as
+// the player's own sheet above.
+export const PLAYER_SHIELD_TEXTURE_KEY = 'player-shield';
+export const PLAYER_SHIELD_TEXTURE_PATH = 'assets/player/shield.webp';
+export const PLAYER_SHIELD_FRAMES = 3;
+export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each

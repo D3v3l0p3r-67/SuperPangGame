@@ -164,7 +164,8 @@ assets/              Every graphic and sound in the game, as real files --
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
   player/            player.png, a single spritesheet (idle, shot, 4 walk,
-                      victory, dead) -- see "Swapping graphics" below
+                      victory, dead) + shield.webp, the looping shield
+                      effect -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   powerups/          <powerup type>.webp
   backgrounds/       <name>.webp, one per distinct levels/*.json
@@ -215,10 +216,10 @@ js/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
   Player.js          Phaser.Physics.Arcade.Sprite: explicit per-frame
-                      velocity from input, shield outline, and 5 Phaser
-                      animations (idle/move/shot/victory/dead, see
-                      assets.js) -- facing is setFlipX, never a separate
-                      left/right asset
+                      velocity from input, the shield effect sprite, and
+                      5 Phaser animations (idle/move/shot/victory/dead,
+                      see assets.js) -- facing is setFlipX, never a
+                      separate left/right asset
   Ball.js            Phaser.Physics.Arcade.Sprite: reads its one
                       BALL_ELEMENTS entry (shape+size) for every physical
                       parameter, deterministic landOnTop()/bounce methods,
@@ -462,6 +463,11 @@ dimensions:
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
   the same 16x(32 x 8) total size and frame order.
+- **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
+  -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (32) square
+  per frame, drawn centered on the player the whole time the `shield`
+  power-up is active (`Player.js`'s `shieldEffect`). Distinct from the
+  power-up's own pickup icon (`assets/powerups/shield.webp`, see below).
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 8x8px, tiled across whatever area a block (or the

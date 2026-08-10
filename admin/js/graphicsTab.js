@@ -52,6 +52,7 @@ async function buildGraphicList() {
   }
 
   list.push({ label: 'Player spritesheet (idle, shot, 4 walk, victory, dead -- see README)', path: assets.PLAYER_TEXTURE_PATH });
+  list.push({ label: `Shield effect (${assets.PLAYER_SHIELD_FRAMES}-frame loop, while the shield power-up is active)`, path: assets.PLAYER_SHIELD_TEXTURE_PATH });
 
   const tileNames = new Set(elements.filter((item) => item.category === 'obstacle').map((item) => item.tileTexture));
   for (const name of tileNames) {
