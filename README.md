@@ -745,6 +745,29 @@ can write to `elements/`, `levels/`, and `assets/` (that's what
 `save.php` actually needs; nothing needs write access to `admin/`
 itself).
 
+### "Saves will fail" (write permissions)
+
+`index.php` checks on every load that the account PHP runs as can write
+to `elements/`, `levels/` and `assets/`. If it can't, the header turns
+red and a banner names the exact problem: which account PHP is
+(`webServerUser()` in `includes/config.php`), which folders block it,
+who owns them, their mode, and a ready-to-paste `chown`/`chmod` for
+those exact paths. This is the one setup problem that would otherwise
+make every single Save fail identically, so it's reported once up front
+rather than per-card.
+
+The usual cause is that the files were uploaded as a different account
+(over SMB/File Station/git) than the one the web server runs as. On a
+Synology NAS serving from `/volume1/web/...` that's typically `http`;
+on Debian/Ubuntu + Apache it's `www-data`. Fix it over SSH with the
+command the banner prints, or in DSM via **File Station → right-click
+the folder → Properties → Permission**, adding that account with
+Read/Write and ticking "Apply to this folder, sub-folders and files".
+Reload the admin page afterwards -- the check re-runs every time.
+
+Nothing needs write access to `admin/` itself; `save.php` deliberately
+refuses to write there at all (see "Saving" below).
+
 ### Login
 
 Username `bos`, password stored as a bcrypt hash in `includes/auth.php`

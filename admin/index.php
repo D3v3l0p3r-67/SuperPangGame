@@ -7,14 +7,11 @@ $csrf = csrfToken();
 // Where saves land is fixed in code (PROJECT_ROOT, see includes/
 // config.php) -- the admin never picks a folder. What CAN go wrong is the
 // web server user not being allowed to write there, so check that up
-// front and say so, rather than letting every individual Save fail with
-// the same permission error one at a time.
-$unwritableDirs = [];
-foreach (ALLOWED_SAVE_DIRS as $dir) {
-    if (!is_writable(PROJECT_ROOT . '/' . $dir)) {
-        $unwritableDirs[] = $dir;
-    }
-}
+// front and explain it once, rather than letting every individual Save
+// fail with the same permission error one at a time.
+$dirStatus = saveDirStatus();
+$blocked = array_values(array_filter($dirStatus, fn($d) => !$d['writable']));
+$phpUser = webServerUser();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -32,10 +29,8 @@ foreach (ALLOWED_SAVE_DIRS as $dir) {
   <header>
     <h1>Balloon Buster -- Admin</h1>
     <div id="fs-status">
-      <?php if ($unwritableDirs): ?>
-        <span class="fs-warning">Saves will fail: the web server user can't write to
-        <?= htmlspecialchars(implode(', ', $unwritableDirs), ENT_QUOTES) ?>
-        under <code><?= htmlspecialchars(PROJECT_ROOT, ENT_QUOTES) ?></code>.</span>
+      <?php if ($blocked): ?>
+        <span class="fs-warning">Saves will fail &mdash; see below</span>
       <?php else: ?>
         <span>Saves write to <code><?= htmlspecialchars(PROJECT_ROOT, ENT_QUOTES) ?></code></span>
       <?php endif; ?>
@@ -51,6 +46,44 @@ foreach (ALLOWED_SAVE_DIRS as $dir) {
   </nav>
 
   <main>
+    <?php if ($blocked): ?>
+      <div class="fs-fix">
+        <h2>Saves will fail until the web server can write to the project</h2>
+        <p>PHP is running as <code><?= htmlspecialchars($phpUser, ENT_QUOTES) ?></code>,
+        but these folders under <code><?= htmlspecialchars(PROJECT_ROOT, ENT_QUOTES) ?></code>
+        aren't writable by it:</p>
+        <table>
+          <tr><th>Folder</th><th>Owner</th><th>Mode</th><th>Problem</th></tr>
+          <?php foreach ($blocked as $d): ?>
+            <tr>
+              <td><code><?= htmlspecialchars($d['dir'], ENT_QUOTES) ?></code></td>
+              <td><code><?= htmlspecialchars($d['owner'], ENT_QUOTES) ?></code></td>
+              <td><code><?= htmlspecialchars($d['mode'], ENT_QUOTES) ?></code></td>
+              <td><?= $d['exists'] ? 'not writable' : 'missing' ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </table>
+        <p>Give that account write access. Over SSH, as an administrator:</p>
+        <pre><?php
+          $paths = implode(' ', array_map(
+              fn($d) => escapeshellarg(PROJECT_ROOT . '/' . $d['dir']),
+              $blocked
+          ));
+          echo htmlspecialchars(
+              "sudo chown -R " . escapeshellarg($phpUser) . " $paths\n"
+              . "sudo chmod -R u+w $paths",
+              ENT_QUOTES
+          );
+        ?></pre>
+        <p class="note">On Synology DSM you can do the same without SSH:
+        <strong>File Station</strong> &rarr; right-click each folder &rarr;
+        <strong>Properties &rarr; Permission</strong> &rarr; add
+        <code><?= htmlspecialchars($phpUser, ENT_QUOTES) ?></code> with
+        Read/Write, and tick "Apply to this folder, sub-folders and files".
+        Reload this page afterwards &mdash; the check re-runs on every load.</p>
+      </div>
+    <?php endif; ?>
+
     <section id="tab-graphics" class="tab-panel"></section>
     <section id="tab-sounds" class="tab-panel hidden"></section>
     <section id="tab-elements" class="tab-panel hidden"></section>
