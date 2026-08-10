@@ -98,6 +98,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.projectiles, this.obstacles, this.onProjectileHitObstacle, null, this);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
+    this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);
+    // A dropped power-up can land on an obstacle instead of falling all
+    // the way to the ground -- see onPowerupHitObstacle/Bonus.js.
+    this.physics.add.collider(this.powerups, this.obstacles, this.onPowerupHitObstacle, null, this);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys({ w: 'W', a: 'A', d: 'D', space: 'SPACE', p: 'P', esc: 'ESC' });
@@ -179,9 +183,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   startNewGame() {
+    this.startAtLevel(0);
+  }
+
+  // Entry point for the menu's Start Level screen -- identical setup to
+  // startNewGame(), just at an arbitrary (already-unlocked, see
+  // storage.isLevelUnlocked) level index instead of always 0.
+  startAtLevel(levelIndex) {
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
-    this.levelIndex = 0;
+    this.levelIndex = levelIndex;
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
     this.justSubmittedEntry = null;
@@ -284,6 +295,8 @@ export class GameScene extends Phaser.Scene {
       const remaining = Math.max(0, def.timeLimitSec - this.levelTimer);
       this.score += Math.round(remaining * 10);
     }
+    // Custom/editor levels aren't part of LEVELS and never unlock anything.
+    if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
     this.audio.stopMusic();
     this.audio.play('levelcomplete');
     this.state = GAME_STATES.LEVEL_CLEAR;
@@ -311,6 +324,14 @@ export class GameScene extends Phaser.Scene {
   showHighScores() {
     this.justSubmittedEntry = null;
     this.state = GAME_STATES.HIGH_SCORE_TABLE;
+  }
+
+  showOptions() {
+    this.state = GAME_STATES.OPTIONS;
+  }
+
+  showLevelSelect() {
+    this.state = GAME_STATES.LEVEL_SELECT;
   }
 
   submitHighScore(name) {
@@ -579,8 +600,27 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
   }
 
+  // Landed on top of an obstacle instead of the ground -- stop it there
+  // (Bonus.update's own floorY snap only ever fires if it never hits
+  // anything on the way down). Only the vertical case matters: a bonus
+  // has no horizontal velocity, so it can't arrive at a side face.
+  onPowerupHitObstacle(bonusGO, obstacleGO) {
+    if (bonusGO.body.touching.down) bonusGO.body.setVelocityY(0);
+  }
+
   onPlayerCollectPowerup(playerGO, bonusGO) {
     if (!bonusGO.active) return;
+    this.collectPowerup(bonusGO);
+  }
+
+  // Shooting a dropped power-up collects it too, same as walking into it.
+  onProjectileHitPowerup(projGO, bonusGO) {
+    if (!projGO.active || !bonusGO.active) return;
+    this.collectPowerup(bonusGO);
+    if (projGO.registerHit()) projGO.destroy();
+  }
+
+  collectPowerup(bonusGO) {
     this.effects.apply(bonusGO.type, this, this.elapsedMs);
     this.audio.play(bonusGO.def.pickupSound);
     this.spawnBurst(bonusGO.x, bonusGO.y, bonusGO.def.color, 8, true);

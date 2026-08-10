@@ -52,6 +52,8 @@ export const COLORS = {
 export const GAME_STATES = Object.freeze({
   BOOT: 'BOOT',
   MENU: 'MENU',
+  OPTIONS: 'OPTIONS',
+  LEVEL_SELECT: 'LEVEL_SELECT',
   EDITOR: 'EDITOR',
   LEVEL_INTRO: 'LEVEL_INTRO',
   PLAYING: 'PLAYING',

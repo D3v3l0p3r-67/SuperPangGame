@@ -172,6 +172,40 @@ body {
   justify-content: center;
 }
 
+#level-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vmin;
+  width: min(85vw, 340px);
+  max-height: 45vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.level-select-btn {
+  font-family: inherit;
+  font-size: clamp(10px, 2vmin, 14px);
+  background: var(--panel);
+  color: var(--text);
+  border: 2px solid var(--panel-border);
+  padding: 1vmin 2.4vmin;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.level-select-btn:hover:not(:disabled),
+.level-select-btn:focus-visible:not(:disabled) {
+  background: var(--panel-border);
+  outline: none;
+}
+
+.level-select-btn:disabled,
+.level-select-btn.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 #entry-name {
   font-family: inherit;
   font-size: clamp(16px, 4vmin, 28px);

@@ -15,16 +15,29 @@
 
     <div id="screen-menu" class="screen">
       <h1>BALLOON<br>BUSTER</h1>
-      <button id="btn-start" class="menu-btn">START GAME</button>
+      <button id="btn-start" class="menu-btn">START CAMPAIGN</button>
+      <button id="btn-start-level" class="menu-btn">START LEVEL</button>
       <button id="btn-editor" class="menu-btn">LEVEL EDITOR</button>
       <button id="btn-highscores" class="menu-btn">HIGH SCORES</button>
-      <button id="btn-fullscreen" class="menu-btn">FULLSCREEN</button>
+      <button id="btn-options" class="menu-btn">OPTIONS</button>
+      <p class="hint">Arrows/WASD move &middot; Space shoot &middot; P pause &middot; Shift+D debug</p>
+    </div>
+
+    <div id="screen-options" class="screen hidden">
+      <h2>OPTIONS</h2>
       <div id="settings-row">
         <label><input type="checkbox" id="chk-mute"> MUTE</label>
         <label>SFX <input type="range" id="rng-sfx" min="0" max="1" step="0.05"></label>
         <label>MUSIC <input type="range" id="rng-music" min="0" max="1" step="0.05"></label>
       </div>
-      <p class="hint">Arrows/WASD move &middot; Space shoot &middot; P pause &middot; Shift+D debug</p>
+      <button id="btn-options-fullscreen" class="menu-btn">FULLSCREEN</button>
+      <button id="btn-close-options" class="menu-btn">BACK</button>
+    </div>
+
+    <div id="screen-level-select" class="screen hidden">
+      <h2>START LEVEL</h2>
+      <div id="level-select-list"></div>
+      <button id="btn-close-level-select" class="menu-btn">BACK</button>
     </div>
 
     <div id="screen-pause" class="screen hidden">

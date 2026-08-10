@@ -88,7 +88,10 @@ Touch controls appear automatically on devices with a coarse pointer
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
 - 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
-  life, score multiplier, time freeze, shield.
+  life, score multiplier, time freeze, shield. A dropped power-up falls
+  until it either lands on an obstacle's top surface or reaches the
+  ground -- either way it can be collected by walking into it *or*
+  shooting it with the harpoon.
 - A shield absorbs one hit with no life lost and no interruption; without
   a shield, a hit costs a life and restarts the *current* level from
   scratch (score and remaining lives carry over). Zero lives ends the run.
@@ -96,9 +99,11 @@ Touch controls appear automatically on devices with a coarse pointer
   -- see "Swapping HUD graphics") always shows remaining level time, lives,
   and the current weapon (plus score, level, top score, and active timed
   effects in a small DOM overlay).
-- Score, lives, and a locally-persisted top-10 high score table
-  (`localStorage`, with a versioned schema for safe future upgrades).
-- Full menu flow: main menu, a graphic level-intro screen (see
+- Score, lives, a locally-persisted top-10 high score table, and per-level
+  unlock progress (`localStorage`, with a versioned schema for safe future
+  upgrades) -- see "Start Campaign vs. Start Level" below.
+- Full menu flow: main menu, options (mute/volume/fullscreen, split out
+  onto its own screen), level select, a graphic level-intro screen (see
   "Swapping intro graphics"), pause, game over, victory, high score
   entry/table, restart.
 - A graphic level-intro screen -- "LEVEL n", the level's name, then a
@@ -331,6 +336,25 @@ elements" above).
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static
 hosting can't list a folder's contents, so a 404 for an unused slot is
 expected. Raise `MAX_LEVEL_FILES` if the level count ever gets close to it.
+
+### Start Campaign vs. Start Level
+
+The main menu has two ways into `LEVELS`: **Start Campaign**
+(`GameScene.startNewGame()`) always begins at level 1; **Start Level**
+opens a level-select screen (built by `ui.js`'s `renderLevelSelect()`)
+listing every level, and jumps straight into whichever one you pick via
+`GameScene.startAtLevel(levelIndex)` -- same fresh score/lives reset as
+Start Campaign, just a different starting index. Both are ordinary
+(non-custom) runs, so either one can unlock further levels.
+
+A level only shows up as pickable once it's unlocked. Progress is tracked
+in `localStorage` (`storage.js`'s `loadProgress()`/`markLevelCleared()`,
+same versioned-schema pattern as high scores/settings) as a single
+`unlockedLevels` count -- level 1 is always unlocked; clearing level `n`
+(`GameScene.levelClear()`, skipped entirely for custom/editor levels)
+raises the count to at least `n + 2`, unlocking level `n + 1`. The
+level-select screen re-reads this every time it opens, so a level you
+just cleared is immediately pickable the next time you back out to it.
 
 ### Swapping graphics
 

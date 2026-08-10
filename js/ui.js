@@ -1,8 +1,11 @@
 import { GAME_STATES } from './constants.js';
 import { POWERUP_TYPES } from './elements.js';
+import { LEVELS } from './LevelManager.js';
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
+  [GAME_STATES.OPTIONS]: 'screen-options',
+  [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
   [GAME_STATES.HIGH_SCORE_ENTRY]: 'screen-high-score-entry',
@@ -24,10 +27,12 @@ const HUD_VISIBLE_STATES = new Set([
 const ELEMENT_IDS = [
   'powerup-indicators',
   'screen-menu',
+  'screen-options', 'screen-level-select', 'level-select-list',
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
   'touch-controls',
-  'btn-start', 'btn-editor', 'btn-highscores', 'btn-fullscreen', 'btn-fullscreen-pause',
+  'btn-start', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
+  'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
   'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -73,8 +78,15 @@ export class UI {
 
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
     this.el['btn-close-highscores'].addEventListener('click', () => this.game.goToMenu());
-    this.el['btn-fullscreen'].addEventListener('click', toggleFullscreen);
+
+    this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
+    this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
+    this.el['btn-options-fullscreen'].addEventListener('click', toggleFullscreen);
     this.el['btn-fullscreen-pause'].addEventListener('click', toggleFullscreen);
+
+    this.el['btn-start-level'].addEventListener('click', () => this.game.showLevelSelect());
+    this.el['btn-close-level-select'].addEventListener('click', () => this.game.goToMenu());
+
     this.el['btn-resume'].addEventListener('click', () => this.game.resume());
     this.el['btn-quit'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-menu'].addEventListener('click', () => this.game.goToMenu());
@@ -163,7 +175,31 @@ export class UI {
       setTimeout(() => this.el['entry-name'].focus(), 50);
     } else if (state === GAME_STATES.HIGH_SCORE_TABLE) {
       this.renderHighScores();
+    } else if (state === GAME_STATES.LEVEL_SELECT) {
+      this.renderLevelSelect();
     }
+  }
+
+  // Rebuilt every time the screen opens (not cached) -- cheap, and picks
+  // up a level just unlocked by clearing the one before it.
+  renderLevelSelect() {
+    const list = this.el['level-select-list'];
+    list.innerHTML = '';
+    const progress = this.storage.loadProgress();
+    LEVELS.forEach((def, i) => {
+      const unlocked = i < progress.unlockedLevels;
+      const btn = document.createElement('button');
+      btn.className = 'level-select-btn' + (unlocked ? '' : ' locked');
+      btn.textContent = unlocked ? `${i + 1}. ${def.name}` : `${i + 1}. ???`;
+      btn.disabled = !unlocked;
+      if (unlocked) {
+        btn.addEventListener('click', () => {
+          this.audio.resumeContext();
+          this.game.startAtLevel(i);
+        });
+      }
+      list.appendChild(btn);
+    });
   }
 
   renderHighScores() {
