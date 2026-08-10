@@ -317,7 +317,10 @@ export class GameScene extends Phaser.Scene {
     this.audio.stopMusic();
     this.lastOutcome = outcome;
     if (outcome === 'gameover') this.audio.play('gameover');
-    else this.audio.play('levelcomplete');
+    else {
+      this.audio.play('levelcomplete');
+      this.player.playVictoryAnim();
+    }
 
     if (storage.qualifiesForHighScore(this.score)) {
       this.state = GAME_STATES.HIGH_SCORE_ENTRY;

@@ -4,7 +4,7 @@ import { WEAPON_TYPES } from './config.js';
 import { LEVELS } from './LevelManager.js';
 import {
   ballTextureKey, ballTexturePath,
-  playerTextureKey, playerTexturePath, PLAYER_ANIM_FRAME_COUNTS,
+  PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   obstacleTextureKey, obstacleTexturePath,
   PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
@@ -37,11 +37,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(ballTextureKey(el.shape, el.size), ballTexturePath(el.shape, el.size));
     }
 
-    for (const [state, count] of Object.entries(PLAYER_ANIM_FRAME_COUNTS)) {
-      for (let frame = 1; frame <= count; frame++) {
-        this.load.image(playerTextureKey(state, frame), playerTexturePath(state, frame));
-      }
-    }
+    this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
 
     const tileNames = new Set(OBSTACLE_TYPE_KEYS.map((type) => OBSTACLE_TYPES[type].tileTexture));
     for (const name of tileNames) {
@@ -91,20 +87,18 @@ export class BootScene extends Phaser.Scene {
     this.scene.start('Game');
   }
 
-  // One Phaser animation per player state, built from the loaded frame
-  // images (see assets.js's PLAYER_ANIM_FRAME_COUNTS) -- Player.js just
-  // calls this.play('player-<state>'). idle/move loop; shot/dead play
-  // once and Player.js switches back to idle/move itself when they end
-  // (see Player.js's 'animationcomplete' handling).
+  // One Phaser animation per player state, built from frame indices within
+  // the one player spritesheet (see assets.js's PLAYER_ANIM_FRAMES) --
+  // Player.js just calls this.play('player-<state>'). idle/move loop;
+  // shot/victory/dead play once and Player.js switches back to idle/move
+  // itself when they end (see Player.js's 'animationcomplete' handling).
   buildPlayerAnimations() {
     const LOOPING = new Set(['idle', 'move']);
-    const FRAME_RATE = { idle: 1, move: 8, shot: 14, dead: 5 };
-    for (const [state, count] of Object.entries(PLAYER_ANIM_FRAME_COUNTS)) {
-      const frames = [];
-      for (let frame = 1; frame <= count; frame++) frames.push({ key: playerTextureKey(state, frame) });
+    const FRAME_RATE = { idle: 1, move: 8, shot: 14, victory: 1, dead: 1 };
+    for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {
       this.anims.create({
         key: `player-${state}`,
-        frames,
+        frames: frameIndices.map((frame) => ({ key: PLAYER_TEXTURE_KEY, frame })),
         frameRate: FRAME_RATE[state] ?? 8,
         repeat: LOOPING.has(state) ? -1 : 0,
       });

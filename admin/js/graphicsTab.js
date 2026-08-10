@@ -49,11 +49,7 @@ async function buildGraphicList() {
     }
   }
 
-  for (const [state, count] of Object.entries(assets.PLAYER_ANIM_FRAME_COUNTS)) {
-    for (let frame = 1; frame <= count; frame++) {
-      list.push({ label: `Player -- ${state} frame ${frame}`, path: assets.playerTexturePath(state, frame) });
-    }
-  }
+  list.push({ label: 'Player spritesheet (idle, shot, 4 walk, victory, dead -- see README)', path: assets.PLAYER_TEXTURE_PATH });
 
   const tileNames = new Set(elements.filter((item) => item.category === 'obstacle').map((item) => item.tileTexture));
   for (const name of tileNames) {

@@ -3,8 +3,8 @@
 // boot from elements/*.json).
 
 // spriteWidth/Height is the logical size the player sprite is drawn/
-// positioned at (matches the player_idle_1.webp etc. frames under
-// assets/player/); hitboxWidth/Height is the smaller Arcade collision box,
+// positioned at (matches each cell of the assets/player/player.png
+// spritesheet); hitboxWidth/Height is the smaller Arcade collision box,
 // centered horizontally and anchored to the bottom of that sprite (see
 // Player.js) -- every animation frame shares this one hitbox. P1 and P2
 // (when added) use the same dimensions.

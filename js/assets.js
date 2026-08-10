@@ -20,27 +20,27 @@ export function ballTexturePath(shape, size) {
   return `${BALL_TEXTURE_DIR}${ballTextureKey(shape, size)}.webp`;
 }
 
-// Player: one file per animation frame, each exactly PLAYER_CONFIG.
-// spriteWidth x spriteHeight (16x32). Left/right isn't a separate file --
-// Player.js mirrors the sprite horizontally (setFlipX) instead, so a
-// swapped-in frame only needs to face right.
-export const PLAYER_TEXTURE_DIR = 'assets/player/';
+// Player: a single spritesheet (one PNG, not one file per frame) of
+// PLAYER_CONFIG.spriteWidth x spriteHeight (16x32) cells stacked
+// vertically, in this fixed order: idle, shot, 4 walk frames, victory,
+// dead -- see PLAYER_ANIM_FRAMES below for which index is which, and
+// generate_player.js (referenced from the README's "Swapping graphics")
+// for how it's drawn. Every frame is authored facing LEFT; Player.js
+// mirrors it (setFlipX) for right-facing instead of needing a separate
+// left/right file.
+export const PLAYER_TEXTURE_KEY = 'player';
+export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
+export const PLAYER_FRAME = { frameWidth: 16, frameHeight: 32 };
 
-// state -> how many frames it has, in order (frame 1, 2, ...)
-export const PLAYER_ANIM_FRAME_COUNTS = {
-  idle: 1,
-  move: 2,
-  shot: 2,
-  dead: 3,
+// state -> its frame index (or indices, in play order) within the
+// spritesheet above.
+export const PLAYER_ANIM_FRAMES = {
+  idle: [0],
+  shot: [1],
+  move: [2, 3, 4, 5],
+  victory: [6],
+  dead: [7],
 };
-
-export function playerTextureKey(state, frame) {
-  return `player_${state}_${frame}`;
-}
-
-export function playerTexturePath(state, frame) {
-  return `${PLAYER_TEXTURE_DIR}${playerTextureKey(state, frame)}.webp`;
-}
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each

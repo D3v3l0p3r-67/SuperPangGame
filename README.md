@@ -157,7 +157,8 @@ assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
-  player/            player_<state>_<frame>.webp
+  player/            player.png, a single spritesheet (idle, shot, 4 walk,
+                      victory, dead) -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   powerups/          <powerup type>.webp
   backgrounds/       <name>.webp, one per distinct levels/*.json
@@ -208,9 +209,10 @@ js/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
   Player.js          Phaser.Physics.Arcade.Sprite: explicit per-frame
-                      velocity from input, shield outline, and 4 Phaser
-                      animations (idle/move/shot/dead, see assets.js) --
-                      facing is setFlipX, never a separate left/right asset
+                      velocity from input, shield outline, and 5 Phaser
+                      animations (idle/move/shot/victory/dead, see
+                      assets.js) -- facing is setFlipX, never a separate
+                      left/right asset
   Ball.js            Phaser.Physics.Arcade.Sprite: reads its one
                       BALL_ELEMENTS entry (shape+size) for every physical
                       parameter, deterministic landOnTop()/bounce methods,
@@ -409,12 +411,16 @@ dimensions:
   exactly 2x that element's `radius` square (8/16/24/32/48px for round
   sizes 1-5, 8/16/24px for hex sizes 1-3), used at native resolution with
   no runtime scaling -- that's also the ball's physics collision diameter.
-- **Player**: `assets/player/player_<state>_<frame>.webp`, each exactly
-  `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32) from `js/config.js`.
-  States and frame counts are `PLAYER_ANIM_FRAME_COUNTS` in `js/assets.js`
-  -- idle (1 frame), move (2, the walk cycle), shot (2, fired once per
-  shot), dead (3, played once per hit). Only right-facing frames are
-  needed; Player.js mirrors them for left via `setFlipX`.
+- **Player**: `assets/player/player.png`, a single spritesheet (not one
+  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32)
+  cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
+  `js/assets.js`): idle (1), shot
+  (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
+  played once when a run ends without a game over), dead (1, played once
+  per hit). Every frame is authored facing LEFT; Player.js mirrors it for
+  right via `setFlipX`, so swapping the sheet only needs left-facing (or,
+  for this game's straight-on chibi style, direction-neutral) art -- keep
+  the same 16x(32 x 8) total size and frame order.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 8x8px, tiled across whatever area a block (or the
