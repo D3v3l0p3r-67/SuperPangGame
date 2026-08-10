@@ -72,55 +72,11 @@ body {
   display: none !important;
 }
 
-/* HUD -- lives in the dedicated bar below the bordered playfield (see
-   constants.js HUD_H/PLAYFIELD_H and GameScene.drawBackground, which
-   paints the matching dark strip on the canvas itself). top is shifted
-   12px above the strip's actual (224/264 = 84.848%) start -- net of a
-   20px-up then an 8px-down request -- so it's (224-12)/264 = 80.303%;
-   height grows by the same 12px (40+12=52 -> 52/264 = 19.697%) so the
-   content isn't cramped into a shorter box than it's shifted by. Keep
-   in sync with constants.js HUD_H/PLAYFIELD_H/VIRTUAL_H if those ever
-   change. */
-#hud {
-  position: absolute;
-  top: 80.303%;
-  height: 19.697%;
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 2px;
-  padding: 0.6vmin 1.5vmin 0;
-  text-shadow: 2px 2px 0 #000;
-  pointer-events: none;
-  letter-spacing: 1px;
-}
-
-.hud-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5vmin;
-}
-
-.hud-row-primary {
-  font-size: clamp(10px, 2.4vmin, 18px);
-  color: var(--accent, #ffd23f);
-}
-
-.hud-row-secondary {
-  font-size: clamp(8px, 1.8vmin, 14px);
-  opacity: 0.85;
-}
-
-#hud-time {
-  font-variant-numeric: tabular-nums;
-}
-
-#hud-time.hud-time-low {
-  color: var(--danger, #e94560);
-}
-
+/* The always-visible stat bar (score/lives/time/weapon/...) is graphic
+   now -- see Hud.js, drawn in Phaser inside the HUD_H strip below the
+   bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.
+   drawBackground paints the matching dark strip on the canvas itself).
+   Only the powerup-timer chips below are still a DOM overlay. */
 #powerup-indicators {
   position: absolute;
   top: clamp(20px, 5vmin, 40px);
@@ -261,9 +217,9 @@ body {
   color: var(--accent);
 }
 
-/* Touch controls -- anchored just above the HUD bar (see #hud) rather
-   than the bottom of the whole canvas, since that bottom strip is now
-   the HUD. */
+/* Touch controls -- anchored just above the HUD bar (the HUD_H strip
+   Hud.js draws into, see constants.js) rather than the bottom of the
+   whole canvas, since that bottom strip is now the HUD. */
 #touch-controls {
   position: absolute;
   bottom: calc(15.152% + 1.5vmin);

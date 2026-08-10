@@ -9,6 +9,7 @@ import { createWeaponState, EffectManager } from './weapons.js';
 import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
+import { Hud } from './Hud.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
@@ -115,6 +116,7 @@ export class GameScene extends Phaser.Scene {
 
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
+    this.hud = new Hud(this);
     this.debug = new Debug(this);
     this.editor = new Editor(this);
   }
@@ -128,8 +130,8 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(hexColor(COLORS.groundEdge), 1);
     g.fillRect(0, GROUND_Y, VIRTUAL_W, 2);
     // Dedicated HUD bar below the bordered playfield (see constants.js
-    // HUD_H) -- the DOM #hud overlay is positioned to exactly cover this
-    // same strip, see style.css.
+    // HUD_H) -- Hud.js draws the actual stat graphics into this same
+    // strip (its container sits at y = PLAYFIELD_H).
     g.fillStyle(hexColor(COLORS.hudBg), 1);
     g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, this.game.config.height - PLAYFIELD_H);
     g.fillStyle(hexColor(COLORS.accent), 1);
@@ -383,6 +385,7 @@ export class GameScene extends Phaser.Scene {
     this.debug.render(this.debugGraphics);
     this.editor.render();
     this.ui.render();
+    this.hud.render();
   }
 
   readInput() {

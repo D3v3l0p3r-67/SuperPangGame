@@ -87,8 +87,10 @@ Touch controls appear automatically on devices with a coarse pointer
 - A shield absorbs one hit with no life lost and no interruption; without
   a shield, a hit costs a life and restarts the *current* level from
   scratch (score and remaining lives carry over). Zero lives ends the run.
-- HUD always shows remaining level time, lives, and the current weapon
-  (plus score, level, and active timed effects).
+- A graphic HUD (1-P, life icons, score, weapon socket, time/world/hi-score
+  -- see "Swapping HUD graphics") always shows remaining level time, lives,
+  and the current weapon (plus score, level, top score, and active timed
+  effects in a small DOM overlay).
 - Score, lives, and a locally-persisted top-10 high score table
   (`localStorage`, with a versioned schema for safe future upgrades).
 - Full menu flow: main menu, level intro, pause, game over, victory,
@@ -118,10 +120,13 @@ Useful while tuning levels or ball behavior:
 
 ```
 index.html          Phaser injects its own canvas into #game-container;
-                      DOM overlay for menus/HUD/touch controls sits on top
+                      DOM overlay for menus/powerup timers/touch controls
+                      sits on top -- the always-visible stat bar itself is
+                      drawn in Phaser, see js/Hud.js below
 style.css            All visual styling, responsive/touch layout
 assets/              Every graphic and sound in the game, as real files --
-                      see "Swapping graphics" / "Swapping sounds" below
+                      see "Swapping graphics" / "Swapping sounds" /
+                      "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
   player/            player_<state>_<frame>.webp
   obstacles/         wall.webp, crate.webp
@@ -129,6 +134,9 @@ assets/              Every graphic and sound in the game, as real files --
   projectile.webp, particle.webp
   audio/             audio.json (every sound's config) + one .ogg file per
                       sound named there -- see "Swapping sounds" below
+  hud/               Fixed labels, two digit spritesheets, the life icon,
+                      weapon socket frame, and weapon icon(s) -- see
+                      "Swapping HUD graphics" below
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
@@ -195,7 +203,11 @@ js/
                       never a filename/volume/loop flag
   input.js           Thin DOM bridge for the on-screen touch buttons only
                       (keyboard is native Phaser input, see GameScene)
-  ui.js              DOM menus/HUD/screens
+  Hud.js             The graphic status bar (see "Swapping HUD graphics")
+                      -- Phaser Images/digit spritesheets drawn into the
+                      HUD_H strip, entirely from loaded files, no drawn
+                      text
+  ui.js              DOM menus/screens/powerup-timer chips
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
@@ -391,3 +403,41 @@ with the same names to replace them, one for one, no other changes needed:
 (picking up a weapon-boosting power-up), and the two looping tracks
 `music01`/`music02` (`GameScene.loadLevel()` splits `LEVELS` into two
 halves, one track per half, so adding levels keeps both tracks in use).
+
+### Swapping HUD graphics
+
+The always-visible stat bar (score, lives, time, current weapon, world/
+level, top score) is drawn entirely from files under `assets/hud/` by
+`js/Hud.js`, inside the dedicated `HUD_H` strip below the playfield --
+nothing there is drawn text. `js/assets.js`'s `HUD_*` constants are the
+single place each file's texture key/path/frame size is defined (used by
+both `BootScene.js`, which loads them, and `Hud.js`, which displays them),
+same convention as every other graphic. To swap a piece, replace its file
+in place, keeping the same filename and pixel dimensions:
+
+- **Digits**: two spritesheets, `assets/hud/digits_large.webp` (used only
+  for the score, 12x18px per frame) and `assets/hud/digits_small.webp`
+  (used for time/world/hi, 8x12px per frame) -- each exactly 10 frames
+  side by side, frame index = the digit it shows (`0`-`9`). Every digit
+  and label image ships as plain white pixel art so `Hud.js` can
+  `setTint()` each usage independently (e.g. the time value turns red in
+  the last 10 seconds) -- swap in colored art instead and the tint just
+  multiplies over it, so keep replacements white/light if you want the
+  same tinting behavior.
+- **Fixed labels**: `assets/hud/hud_1p.webp`, `hud_time_label.webp`,
+  `hud_world_label.webp`, `hud_hi_label.webp` -- one static image each,
+  12px tall to match the small digit strip.
+- **Life icon**: `assets/hud/hud_life.webp` (10x10), drawn once per
+  remaining life (up to `Hud.js`'s `MAX_LIVES_ICONS`, currently 5).
+- **Weapon socket**: `assets/hud/hud_weapon_frame.webp` (22x22, always
+  shown) and one icon per `WEAPON_TYPES` key in `js/config.js` --
+  `assets/hud/weapon_<type>.webp` (14x14, e.g. `weapon_harpoon.webp`) --
+  named via `assets.js`'s `hudWeaponIconKey()`/`hudWeaponIconPath()`, same
+  per-key-file convention as obstacle tiles/power-up icons. Adding a
+  second weapon type later is just dropping in its icon file, once
+  `WEAPON_TYPES` actually has more than one entry to choose from.
+
+All 9 files currently under `assets/hud/` are placeholder pixel art
+(hand-authored bitmap glyphs and simple shapes, generated offline) rather
+than final art -- replace any of them with real graphics at the same
+filename/dimensions, no code change needed either way.

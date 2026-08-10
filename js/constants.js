@@ -7,7 +7,7 @@
 export const VIRTUAL_W = 384;
 // PLAYFIELD_H is the bordered play area (gameplay + floor strip), same as
 // the old fixed canvas height. HUD_H is a dedicated bar reserved below it
-// for the HUD (see GameScene.drawBackground/style.css #hud), matching the
+// for the HUD (see GameScene.drawBackground + Hud.js), matching the
 // reference layout instead of overlaying the HUD on top of gameplay.
 // VIRTUAL_H is the *total* canvas height passed to Phaser.
 export const PLAYFIELD_H = 224;
