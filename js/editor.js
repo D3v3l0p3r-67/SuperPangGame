@@ -1,5 +1,8 @@
 import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
+import { WEAPON_TYPES } from './config.js';
+import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
+import { LEVELS } from './LevelManager.js';
 import { Obstacle } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import * as storage from './storage.js';
@@ -15,6 +18,15 @@ const BRUSHES = [
 // same registry the debug spawn panel uses.
 function ballBrushes() {
   return BALL_ELEMENTS.map((el) => ({ id: `ball-${el.shape}-${el.size}`, label: `${el.shape[0].toUpperCase()}${el.size}` }));
+}
+
+// Every background name any loaded level actually uses, plus
+// DEFAULT_BACKGROUND itself (BootScene.js preloads exactly this same set --
+// see its own backgroundNames construction) -- there's no separate
+// registry file for backgrounds the way elements/obstacles/powerups have
+// one, since a background is just an image name a level points at.
+function backgroundNames() {
+  return [...new Set([DEFAULT_BACKGROUND, ...LEVELS.map((lvl) => lvl.background).filter(Boolean)])];
 }
 
 // Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that
@@ -64,6 +76,8 @@ export class Editor {
     this.dirX = 1; // next-placed ball's horizontal direction: 1 = right, -1 = left
     this.dirY = -1; // next-placed ball's vertical direction (hex only): -1 = up, 1 = down
     this.selectedPowerup = null; // next-placed crate/ball's guaranteed powerup drop, if any
+    this.background = DEFAULT_BACKGROUND;
+    this.weapon = 'harpoon';
     this.panelBuilt = false;
     this.cursorGraphics = scene.add.graphics();
     this.cursorGraphics.setDepth(50);
@@ -133,6 +147,44 @@ export class Editor {
     this.panelEl.appendChild(optionsRow);
     this.updateOptionLabels();
 
+    // Whole-level settings: background image and starting weapon. Unlike
+    // the per-placement options above, these apply to the level as a
+    // whole, so changing either takes effect immediately (background
+    // swaps the live preview via setLevelBackground; weapon just updates
+    // what buildDef() will save -- there's only one weapon type today, so
+    // nothing visibly changes yet, but a level editor authors this field
+    // exactly like background for whenever a second one exists).
+    const levelRow = document.createElement('div');
+    levelRow.className = 'debug-btn-row';
+
+    const backgroundLabel = document.createElement('label');
+    backgroundLabel.textContent = 'Background: ';
+    this.backgroundSelect = document.createElement('select');
+    for (const name of backgroundNames()) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      this.backgroundSelect.appendChild(opt);
+    }
+    this.backgroundSelect.onchange = () => this.setBackground(this.backgroundSelect.value);
+    backgroundLabel.appendChild(this.backgroundSelect);
+    levelRow.appendChild(backgroundLabel);
+
+    const weaponLabel = document.createElement('label');
+    weaponLabel.textContent = 'Weapon: ';
+    this.weaponSelect = document.createElement('select');
+    for (const [key, w] of Object.entries(WEAPON_TYPES)) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = w.label;
+      this.weaponSelect.appendChild(opt);
+    }
+    this.weaponSelect.onchange = () => { this.weapon = this.weaponSelect.value; };
+    weaponLabel.appendChild(this.weaponSelect);
+    levelRow.appendChild(weaponLabel);
+
+    this.panelEl.appendChild(levelRow);
+
     const actionRow = document.createElement('div');
     actionRow.className = 'debug-btn-row';
 
@@ -198,6 +250,16 @@ export class Editor {
     if (this.dirYBtn) this.dirYBtn.textContent = `Dir Y: ${this.dirY < 0 ? '↑' : '↓'}`;
   }
 
+  // Updates both the editor's own saved field and the live GameScene
+  // preview (the same Image loadLevel() points at during real gameplay --
+  // see GameScene.drawBackground/loadLevel), so picking a different
+  // background in the dropdown shows it immediately while editing.
+  setBackground(name) {
+    this.background = name;
+    if (this.backgroundSelect) this.backgroundSelect.value = name;
+    this.scene.backgroundImage.setTexture(backgroundTextureKey(name));
+  }
+
   setBrush(id) {
     this.brush = id;
     if (!this.brushButtons) return;
@@ -211,7 +273,15 @@ export class Editor {
     this.panelEl.classList.remove('hidden');
     const existing = storage.loadCustomLevel();
     this.clearAll();
-    if (existing) this.loadDef(existing);
+    if (existing) {
+      this.loadDef(existing);
+    } else {
+      // Resync the live preview with this.background/weapon (retained from
+      // the last editor session) -- whatever level was last played may
+      // have pointed scene.backgroundImage at a different texture since.
+      this.setBackground(this.background);
+      if (this.weaponSelect) this.weaponSelect.value = this.weapon;
+    }
   }
 
   disable() {
@@ -225,6 +295,9 @@ export class Editor {
   // individually instead of aborting or crashing the whole import.
   loadDef(def) {
     this.timeInput.value = String(def.timeLimitSec || 60);
+    this.setBackground(backgroundNames().includes(def.background) ? def.background : DEFAULT_BACKGROUND);
+    this.weapon = WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
+    if (this.weaponSelect) this.weaponSelect.value = this.weapon;
     for (const o of def.obstacles || []) {
       if (!OBSTACLE_TYPE_KEYS.includes(o.type)) continue;
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) continue;
@@ -406,7 +479,7 @@ export class Editor {
       return entry;
     });
     const timeLimitSec = Math.max(10, Math.min(300, parseInt(this.timeInput.value, 10) || 60));
-    return { id: 'custom', name: 'Custom Level', timeLimitSec, obstacles, balls };
+    return { id: 'custom', name: 'Custom Level', timeLimitSec, background: this.background, weapon: this.weapon, obstacles, balls };
   }
 
   save() {

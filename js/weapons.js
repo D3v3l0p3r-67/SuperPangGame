@@ -1,8 +1,12 @@
 import { WEAPON_TYPES } from './config.js';
 import { POWERUP_TYPES } from './elements.js';
 
-export function createWeaponState() {
-  const base = WEAPON_TYPES.harpoon;
+// weaponType names a WEAPON_TYPES key -- normally a level's own `weapon`
+// field (see LevelManager/GameScene.loadLevel), falling back to 'harpoon'
+// for anything unset/unrecognized (custom/editor levels before a weapon
+// is chosen, or an older level file predating this field).
+export function createWeaponState(weaponType = 'harpoon') {
+  const base = WEAPON_TYPES[weaponType] || WEAPON_TYPES.harpoon;
   return {
     maxActiveShots: base.baseMaxActiveShots,
     pierce: base.basePierce,

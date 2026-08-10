@@ -2,6 +2,8 @@
   "id": 1,
   "name": "Rooftop Start",
   "timeLimitSec": 90,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [],
   "balls": [
     {

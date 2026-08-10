@@ -1,18 +1,19 @@
 import { PLAYER_CONFIG } from './config.js';
 import { VIRTUAL_W, GROUND_Y } from './constants.js';
-import { playerTextureKey } from './assets.js';
+import { PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES, PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_ANIM_KEY } from './assets.js';
 
 // Arcade sprite. Movement stays explicit (velocity assigned every frame
 // from input, not left to generic physics forces) -- Phaser owns the
 // integration, collision, and world-bounds clamping, we own the numbers.
 // Facing is never a separate left/right asset -- setFlipX mirrors
 // whichever frame is currently showing, so every animation only needs to
-// be authored facing right (see assets.js/BootScene's player animations).
+// be authored facing LEFT (see assets.js/BootScene's player animations);
+// facing right is the mirrored (flipped) case.
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene) {
     const x = VIRTUAL_W / 2;
     const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
-    super(scene, x, y, playerTextureKey('idle', 1));
+    super(scene, x, y, PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES.idle[0]);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -34,18 +35,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
-    // While set ('shot' or 'dead'), update() leaves the current one-shot
-    // animation alone instead of overriding it with idle/move every
-    // frame; cleared automatically when that animation finishes.
+    // While set ('shot', 'victory', or 'dead'), update() leaves the
+    // current one-shot animation alone instead of overriding it with
+    // idle/move every frame; cleared automatically when that animation
+    // finishes.
     this.oneShotAnim = null;
     this.on('animationcomplete-player-shot', () => { this.oneShotAnim = null; });
+    this.on('animationcomplete-player-victory', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
 
-    this.shieldOutline = scene.add.rectangle(x, y, PLAYER_CONFIG.shieldSize, PLAYER_CONFIG.shieldSize);
-    this.shieldOutline.setStrokeStyle(1, 0xffd23f);
-    this.shieldOutline.setFillStyle();
-    this.shieldOutline.setVisible(false);
-    this.shieldOutline.setDepth(5);
+    // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
+    // instead of a drawn outline -- see update()/reset() for how it
+    // tracks the player's position/visibility.
+    this.shieldEffect = scene.add.sprite(x, y, PLAYER_SHIELD_TEXTURE_KEY);
+    this.shieldEffect.play(PLAYER_SHIELD_ANIM_KEY);
+    this.shieldEffect.setVisible(false);
+    this.shieldEffect.setDepth(5);
     this.setDepth(4);
 
     this.play('player-idle');
@@ -56,16 +61,25 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   reset() {
-    this.setPosition(VIRTUAL_W / 2, GROUND_Y - PLAYER_CONFIG.spriteHeight / 2);
+    const x = VIRTUAL_W / 2;
+    const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
+    this.setPosition(x, y);
     this.body.setVelocity(0, 0);
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
     this.setAlpha(1);
     this.facing = 1;
-    this.setFlipX(false);
+    this.setFlipX(this.facing > 0);
     this.oneShotAnim = null;
     this.play('player-idle');
+    // update() is the only other place this normally moves/shows -- and
+    // it doesn't run during LEVEL_INTRO (see GameScene.updatePlaying), so
+    // without this a shield still active right as a level ends would sit
+    // frozen at its old position/visible through the next level's intro
+    // instead of following the player's fresh spawn point.
+    this.shieldEffect.setPosition(x, y);
+    this.shieldEffect.setVisible(false);
   }
 
   // Plays once, holding update() off the idle/move animation until it
@@ -79,6 +93,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   playDeadAnim() {
     this.oneShotAnim = 'dead';
     this.play('player-dead', true);
+  }
+
+  // Plays once, same as playShotAnim -- see GameScene.finishRun.
+  playVictoryAnim() {
+    this.oneShotAnim = 'victory';
+    this.play('player-victory', true);
   }
 
   update(dt, inputState) {
@@ -100,10 +120,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (!this.oneShotAnim) {
       this.play(this.isMoving ? 'player-move' : 'player-idle', true);
     }
-    this.setFlipX(this.facing < 0);
+    // Frames are authored facing left (see the class comment above), so
+    // it's the RIGHT-facing case that needs the mirror now.
+    this.setFlipX(this.facing > 0);
 
-    this.shieldOutline.setPosition(this.x, this.y);
-    this.shieldOutline.setVisible(this.shielded);
+    this.shieldEffect.setPosition(this.x, this.y);
+    this.shieldEffect.setVisible(this.shielded);
   }
 
   // Returns true if a life should be lost (i.e. no shield absorbed the hit).

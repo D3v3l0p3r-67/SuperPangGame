@@ -47,7 +47,10 @@ restitution.
 
 A live build is deployed automatically to GitHub Pages on every push to
 `main`. Check the repository's **Settings → Pages** for the published URL
-(or the deployment step's output in the Actions tab).
+(or the deployment step's output in the Actions tab). The deploy
+workflow deliberately excludes `admin/` (see "Admin tool" below) --
+GitHub Pages can't execute PHP, so publishing it there would just serve
+its source as plain static text instead of running it.
 
 ## Run it locally
 
@@ -77,6 +80,12 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
+
+Holding Shoot fires once per press -- release and press again for another
+shot -- unless the `rapid_shot` power-up is active, which auto-fires the
+whole time it's held (see `GameScene.updatePlaying`'s `wasShooting`
+tracking). Either way, an actual shot still only leaves if under the
+active weapon's `maxActiveShots` (see `tryFire`).
 
 ## Features
 
@@ -114,7 +123,10 @@ Touch controls appear automatically on devices with a coarse pointer
 - Full menu flow: main menu, options (mute/volume/fullscreen, split out
   onto its own screen), level select, a graphic level-intro screen (see
   "Swapping intro graphics"), pause, game over, victory, high score
-  entry/table, restart.
+  entry/table, restart. Every screen's headings/buttons/labels are drawn
+  with the same bitmap font the HUD uses (`js/PixelText.js`, see "Swapping
+  intro graphics") rather than a separate vector CSS font, so the DOM
+  overlay and the in-canvas HUD read as one consistent look.
 - A graphic level-intro screen -- "LEVEL n", the level's name, then a
   blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
   from loaded images (`js/LevelIntro.js`), same as the HUD.
@@ -154,22 +166,31 @@ assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
-  player/            player_<state>_<frame>.webp
+  player/            player.png, a single spritesheet (idle, shot, 4 walk,
+                      victory, dead) + shield.webp, the looping shield
+                      effect -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   powerups/          <powerup type>.webp
+  backgrounds/       <name>.webp, one per distinct levels/*.json
+                      `background` field -- see "Swapping graphics" below
   projectile.webp, particle.webp
   audio/             audio.json (every sound's config) + one .ogg file per
                       sound named there -- see "Swapping sounds" below
   hud/               Fixed labels, two digit spritesheets, the life icon,
                       weapon socket frame, and weapon icon(s) -- see
                       "Swapping HUD graphics" below
-  intro/             font_alpha.webp, the level-intro screen's A-Z font
-                      spritesheet -- see "Swapping intro graphics" below
+  intro/             font_alpha.webp, the A-Z+digits font spritesheet
+                      the level-intro screen AND every DOM menu's text
+                      are drawn from -- see "Swapping intro graphics" below
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
 levels/              One level_NN.json per level, in level-editor Export
                       format -- see "Adding levels" below
+admin/               A separate, standalone site for editing graphics/
+                      sounds/elements/levels without touching code -- see
+                      "Admin tool" below. Not linked from the game itself;
+                      open admin/index.html directly.
 js/
   vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
   main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
@@ -198,13 +219,16 @@ js/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
   Player.js          Phaser.Physics.Arcade.Sprite: explicit per-frame
-                      velocity from input, shield outline, and 4 Phaser
-                      animations (idle/move/shot/dead, see assets.js) --
-                      facing is setFlipX, never a separate left/right asset
+                      velocity from input, the shield effect sprite, and
+                      5 Phaser animations (idle/move/shot/victory/dead,
+                      see assets.js) -- facing is setFlipX, never a
+                      separate left/right asset
   Ball.js            Phaser.Physics.Arcade.Sprite: reads its one
                       BALL_ELEMENTS entry (shape+size) for every physical
                       parameter, deterministic landOnTop()/bounce methods,
-                      split-children descriptors
+                      split-children descriptors; hex balls play a looping
+                      spin animation (setFrozen pauses/resumes it for
+                      time_freeze)
   Projectile.js      Phaser.Physics.Arcade.Sprite for the harpoon shot
   Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body,
                       representing one obstacle block; destructible via
@@ -235,10 +259,21 @@ js/
                       -- Phaser Images/digit spritesheets drawn into the
                       HUD_H strip, entirely from loaded files, no drawn
                       text
+  ScorePopup.js      The floating "+N" points readout a popped ball
+                      leaves behind (see "Swapping graphics"'s "Score
+                      popup") -- reuses the HUD's own digit spritesheet,
+                      tinted to the ball's color; GameScene owns the live
+                      instances (this.scorePopups)
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
                       from a loaded A-Z font, then blinking READY/GO!
-  ui.js              DOM menus/screens/powerup-timer chips
+  PixelText.js       The DOM equivalent of LevelIntro.js's text -- renders
+                      any string to a <canvas> from the same font_alpha
+                      .webp spritesheet, sized off the game canvas's own
+                      current scale (see "Swapping intro graphics")
+  ui.js              DOM menus/screens/powerup-timer chips -- every
+                      heading/button/score/list label goes through
+                      PixelText.js, not plain CSS text
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
@@ -262,7 +297,7 @@ resolved (no shared/derived values):
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
   "label": "Round 1", "hasGravity": true, "gravityAccel": 260,
-  "radius": 4, "speed": 40, "bounceVelocity": 221, "points": 800,
+  "radius": 4, "speed": 40, "bounceVelocity": 221, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -270,8 +305,13 @@ resolved (no shared/derived values):
 `bounceVelocity` and instead drifts at a constant diagonal speed,
 reflecting off walls/floor/ceiling/platforms. However many size entries a
 shape has *is* that shape's max size -- there's no separate cap to keep in
-sync. Needs an `assets/balls/ball_<shape>_<size>.webp` image at exactly
-`radius * 2` square (see "Swapping graphics").
+sync. `points` is what popping that exact ball awards (`GameScene.popBall`,
+scaled by `scoreMultiplier` if active) -- bigger balls are worth more
+(200/400/800/1600/3200 for sizes 1-5 today), shown as a floating "+N"
+readout (see "Swapping graphics"'s "Score popup" below). `color` also
+tints that readout. Needs an `assets/balls/ball_<shape>_<size>.webp` image
+at exactly `radius * 2` square (see "Swapping graphics") -- for `hasGravity:
+false` shapes this is instead a spin spritesheet, see below.
 
 **Obstacle** (`category: "obstacle"`) -- one file per obstacle type:
 ```json
@@ -328,6 +368,8 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "id": 11,
   "name": "My Level",
   "timeLimitSec": 80,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [{ "type": "crate", "x": 176, "y": 152, "w": 8, "h": 8, "powerup": "shield" }],
   "balls": [{ "shape": "hex", "size": 2, "x": 192, "y": 60, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
@@ -340,6 +382,18 @@ editor never produces this itself, but `LevelManager.js` still reads it,
 so it's still available for hand-edited files). `type`/`shape` values
 must match a `type`/`shape` from some loaded element (see "Adding
 elements" above).
+
+`background` names an `assets/backgrounds/<name>.webp` image (see
+"Swapping graphics" below) drawn behind the whole playfield; `weapon`
+names a `js/config.js` `WEAPON_TYPES` key the player starts the level
+with (currently only `"harpoon"` exists, so every level uses it, but the
+field is real and level-specific -- adding a second weapon type is purely
+a new `WEAPON_TYPES` entry plus an `assets/hud/weapon_<key>.webp` icon, no
+per-level plumbing needed). Both are optional and default to
+`"default"`/`"harpoon"` respectively if omitted, so older hand-written
+level files without them still load. The in-game **LEVEL EDITOR** has a
+**Background**/**Weapon** dropdown for both (top panel) -- picking a
+background updates the live preview immediately.
 
 `BootScene.js` probes `levels/level_01.json` up to `MAX_LEVEL_FILES` (see
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static
@@ -379,12 +433,44 @@ dimensions:
   exactly 2x that element's `radius` square (8/16/24/32/48px for round
   sizes 1-5, 8/16/24px for hex sizes 1-3), used at native resolution with
   no runtime scaling -- that's also the ball's physics collision diameter.
-- **Player**: `assets/player/player_<state>_<frame>.webp`, each exactly
-  `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32) from `js/config.js`.
-  States and frame counts are `PLAYER_ANIM_FRAME_COUNTS` in `js/assets.js`
-  -- idle (1 frame), move (2, the walk cycle), shot (2, fired once per
-  shot), dead (3, played once per hit). Only right-facing frames are
-  needed; Player.js mirrors them for left via `setFlipX`.
+  A shape with `hasGravity: false` (hex today) spins, so its file is
+  instead a `HEX_SPIN_FRAMES`-frame (3) spritesheet stacked vertically,
+  each frame that same square, one rotation phase spaced across the
+  shape's own rotational symmetry so the last frame loops back into the
+  first seamlessly (see `js/assets.js`'s `ballSpinAnimKey` and
+  `BootScene.js`'s `hexSpinFrameRate` for the fixed per-size playback
+  speed) -- a `hasGravity: true` shape (round today) never spins, so it
+  stays one plain static image.
+- **Ball pop effect**: `assets/balls/pop_<shape>_<size>.webp` -- one
+  `BALL_POP_FRAMES`-frame (2) spritesheet per ball element, played once
+  exactly where that ball popped (`GameScene.popBall`/`playBallPopEffect`)
+  in place of the game's generic burst particles. Each frame is
+  `POP_FRAME_SCALE` (1.6x) that ball's own diameter square, centered on
+  the ball, so the effect has room to expand past the ball's own edges.
+- **Score popup**: not a separate asset -- the floating "+N" points
+  readout a pop leaves behind (see `js/ScorePopup.js`) reuses the HUD's
+  own large score-digit spritesheet (`assets/hud/digits_large.webp`, see
+  "Swapping HUD graphics" below), tinted to the popped ball's `color`,
+  drawn at half that spritesheet's native size (so it doesn't dominate
+  over a small ball's pop effect). Appears 16px above the pop point --
+  clear of the pop effect above, which is centered right on the pop point
+  -- then over 300ms drifts up another 10px, grows slightly, and fades
+  out, all tuned in `js/ScorePopup.js`'s constants.
+- **Player**: `assets/player/player.png`, a single spritesheet (not one
+  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32)
+  cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
+  `js/assets.js`): idle (1), shot
+  (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
+  played once when a run ends without a game over), dead (1, played once
+  per hit). Every frame is authored facing LEFT; Player.js mirrors it for
+  right via `setFlipX`, so swapping the sheet only needs left-facing (or,
+  for this game's straight-on chibi style, direction-neutral) art -- keep
+  the same 16x(32 x 8) total size and frame order.
+- **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
+  -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (32) square
+  per frame, drawn centered on the player the whole time the `shield`
+  power-up is active (`Player.js`'s `shieldEffect`). Distinct from the
+  power-up's own pickup icon (`assets/powerups/shield.webp`, see below).
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 8x8px, tiled across whatever area a block (or the
@@ -395,6 +481,16 @@ dimensions:
   the active weapon's width) and `assets/particle.webp` (2x2, always
   tinted at runtime to whatever color a burst effect needs, so keep it
   plain white).
+- **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
+  distinct `background` value used across `levels/*.json` (see "Adding
+  levels"), exactly `VIRTUAL_W x GROUND_Y` (384x200 from `js/constants.js`)
+  -- covers the sky area behind obstacles/balls/player; the floor strip and
+  HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
+  `assets/backgrounds/default.webp` is the one every level ships with today
+  (a generated night sky/skyline, see below) and what the level editor
+  starts a new level pointed at -- adding a second background is dropping
+  a same-size file in this folder and setting some level's `background`
+  field (or the editor's dropdown) to its name, no code change.
 
 `GameScene.js`, `Ball.js`, `Player.js`, `Obstacle.js`, `Bonus.js`, and
 `LevelManager.js` all read `js/elements.js`'s registries and `js/assets.js`
@@ -511,7 +607,7 @@ All 9 files currently under `assets/hud/` are placeholder pixel art
 than final art -- replace any of them with real graphics at the same
 filename/dimensions, no code change needed either way.
 
-### Swapping intro graphics
+### Swapping intro graphics (and every DOM menu's text)
 
 The level-intro screen ("LEVEL n", the level's name, then "READY"/"GO!")
 is composed entirely by `js/LevelIntro.js` from
@@ -519,23 +615,175 @@ is composed entirely by `js/LevelIntro.js` from
 the level number) -- nothing there is drawn text either. Level names are
 arbitrary per-level text (see `levels/*.json`'s `name` field), unlike
 every other HUD-style label in this game, so instead of one baked image
-per fixed word, this is a real (if uppercase-only) font: a 28-frame
-monospaced spritesheet covering space, `A`-`Z`, and `!`, each frame a
-fixed 5x6px cell (see `assets.js`'s `INTRO_FONT_CHARS` for the exact frame
-order). `LevelIntro.js`'s `buildTextRow()` looks up each character's
-frame and lays the
+per fixed word, this is a real (if uppercase-only) font: a 40-frame
+monospaced spritesheet covering space, `A`-`Z`, `!`, `0`-`9`, `:`, and
+`.`, each frame a fixed 5x6px cell (see `assets.js`'s `INTRO_FONT_CHARS`
+for the exact frame order -- digits/punctuation were appended after the
+original letter set so existing frame indices never shifted). `LevelIntro
+.js`'s `buildTextRow()` looks up each character's frame and lays the
 images out left to right, so composing new fixed text (or a level name
 with different characters) needs no new art, only characters this font
 already covers -- extend `INTRO_FONT_CHARS`/the generation script's glyph
-table for anything else (accented letters, digits, punctuation, ...).
-Each row is drawn at its own `setScale()` (3 for "LEVEL"/"READY"/"GO!", 2
-for the level name) off the one base spritesheet, rather than baking
-separate image sizes, since Phaser's pixel-art nearest-neighbor scaling
-keeps any integer scale crisp.
+table for anything else (accented letters, more punctuation, ...). Each
+row is drawn at its own `setScale()` (3 for "LEVEL"/"READY"/"GO!", 2 for
+the level name) off the one base spritesheet, rather than baking separate
+image sizes, since Phaser's pixel-art nearest-neighbor scaling keeps any
+integer scale crisp.
 
-To swap the whole font's look, replace `assets/intro/font_alpha.webp`
-(same 140x6 dimensions, same 28 5x6px frames in the same order) with new
-art -- no code change needed. "READY" blinks for `LEVEL_INTRO_READY_SEC`
-(2s) then "GO!" holds solid for `LEVEL_INTRO_GO_SEC` (1s) -- both live in
-`constants.js`, shared with `GameScene.js`'s own countdown timer so the
-two never drift out of sync.
+**The same spritesheet is also the entire DOM menu system's font.**
+`js/PixelText.js` is the DOM equivalent of `LevelIntro.js`'s `buildTextRow
+()`: it loads `font_alpha.webp` as a plain `<img>` (outside Phaser
+entirely) and renders any string to a `<canvas class="pixel-text">`
+(`renderPixelText()`), or replaces an element's whole content with one
+(`setPixelText()`, which also sets `aria-label` to the original string,
+since a canvas has no text of its own for assistive tech to read). Every
+heading, button label, settings-row label, and dynamic score/list text
+across the main menu, options, level select, pause, game over, victory,
+and high-score screens goes through this -- see `ui.js`'s `STATIC_LABELS`
+table and its `renderLevelSelect()`/`renderHighScores()`/`setScreen()`.
+The two deliberate exceptions are the live-editable high-score initials
+`<input>` (nothing to render ahead of time) and the per-frame powerup-
+timer chips (rebuilt every frame; real CSS text is cheaper there than a
+fresh canvas 60 times a second) -- both stay plain styled CSS text
+instead, see `style.css`.
+
+Sizing is unified too: `PixelText.js`'s named tiers (`h1`/`h2`/`button`/
+`body`) are plain multipliers on top of the *actual* game canvas's
+current CSS size (read straight from the DOM, not re-derived from the
+viewport), so DOM text sits at the same visual scale as its Phaser
+counterparts and grows/shrinks in lockstep with the game canvas on
+resize/fullscreen -- a `ResizeObserver` on the canvas element (not a
+plain `window` resize listener, since Phaser's own Scale Manager can
+still be mid-layout on the very first paint) re-renders every live
+pixel-text element whenever that size actually changes.
+
+To swap the whole font's look (menus included), replace `assets/intro
+/font_alpha.webp` (same 200x6 dimensions, same 40 5x6px frames in the
+same order) with new art -- no code change needed. "READY" blinks for
+`LEVEL_INTRO_READY_SEC` (2s) then "GO!" holds solid for
+`LEVEL_INTRO_GO_SEC` (1s) -- both live in `constants.js`, shared with
+`GameScene.js`'s own countdown timer so the two never drift out of sync.
+
+## Admin tool
+
+`admin/` is a second, completely standalone site (its own login, its own
+CSS, not linked from the game) for editing the game's content --
+graphics, sounds, elements, levels -- without writing any code. It edits
+the very same files described above and reuses `js/assets.js`/
+`js/config.js` directly (both plain data modules, no Phaser dependency)
+so its file paths/naming can never drift out of sync with what the game
+actually loads. There's still no database -- but unlike the rest of this
+project, **the admin tool itself needs a PHP-capable host to run at
+all**, since real login and real server-side saves (see below) both need
+a server. The game proper is untouched by this and still needs nothing
+but static file hosting (GitHub Pages, any plain web server, or even
+`file://`).
+
+```
+admin/
+  index.php           Requires login (includes/auth.php), then renders
+                       the app shell (header, four tab buttons, four
+                       empty tab panels filled in by js/main.js) with a
+                       CSRF token embedded for js/fsSave.js to use
+  login.php            Login form (GET) + handler (POST) -- see "Login"
+                       below
+  logout.php            Destroys the session, redirects to login.php
+  save.php               The only thing any tab's Save button ultimately
+                       calls (via js/fsSave.js) -- see "Saving" below
+  includes/
+    config.php          PROJECT_ROOT + the save whitelist (allowed top-
+                       level dirs/extensions) save.php checks against
+    auth.php             Session bootstrap, login check/attempt, CSRF
+                       token issue/verify -- every one of the *.php pages
+                       above starts with `require_once` on this
+    .htaccess            Blocks direct requests into this folder on
+                       Apache hosts (defense in depth -- these files
+                       produce no output if requested directly anyway,
+                       see "Login" below)
+  style.css            A plain, readable admin-tool look (not the game's
+                       pixel font -- this page is dense with JSON text and
+                       forms, where a proportional font reads better)
+  js/
+    fsSave.js          The save abstraction every tab calls: POSTs to
+                       save.php first (see "Saving" below); if that fails
+                       for any reason, falls back to the File System
+                       Access API (if a local project folder is
+                       connected, see main.js), then to a browser
+                       download as a last resort -- same download pattern
+                       as js/editor.js's own Export button
+    util.js            Small shared helpers (fetch-relative-to-project-
+                       root JSON loading, DOM element builders)
+    graphicsTab.js      Lists every image the game loads (built from
+                       elements/*.json + js/assets.js, so it can't go
+                       stale) with a live preview and a file-replace +
+                       Save button per image
+    soundsTab.js        Lists every sound from assets/audio/audio.json --
+                       edit category/mode/volume/overlap/max-duration per
+                       sound (kept in memory, written back as one
+                       audio.json via a page-level Save button), or
+                       replace a sound's .ogg file directly
+    elementsTab.js       Raw-JSON editor, one card per elements/*.json file
+                       (see "Adding elements" above for the field
+                       reference), plus an "Add new element" form
+                       (per-category starting template) -- saving a new id
+                       also rewrites elements/index.json to match
+    levelsTab.js          Raw-JSON editor, one card per levels/level_NN.json
+                       (see "Adding levels" above), an "Add blank level"
+                       button, an "Import" file input for a level-editor
+                       Export straight from the game's own Level Editor,
+                       and a link to open that Level Editor
+    main.js             The "Choose project folder" button (File System
+                       Access API permission prompt, the fsSave.js
+                       fallback -- see above), and lazy per-tab loading
+                       (each tab only fetches its data the first time
+                       it's opened)
+```
+
+### Running it locally
+
+```
+php -S localhost:8000
+```
+from the project root, then open `http://localhost:8000/admin/`. Any
+real PHP host (Apache + mod_php, Nginx + PHP-FPM, ...) works the same
+way, pointed at the project root -- just make sure the web server's user
+can write to `elements/`, `levels/`, and `assets/` (that's what
+`save.php` actually needs; nothing needs write access to `admin/`
+itself).
+
+### Login
+
+Username `bos`, password stored as a bcrypt hash in `includes/auth.php`
+(`ADMIN_PASSWORD_HASH`, currently `newpass`) -- change the credential by
+generating a new hash (`php -r "echo password_hash('newpass',
+PASSWORD_DEFAULT);"`) and pasting the result in. `login.php` sets a real
+PHP session on success (`session_regenerate_id()`, `httponly` +
+`SameSite=Strict` cookie); `index.php` and `save.php` both call
+`requireLogin()`/check the session before doing anything. This is still
+a minimal, single-shared-account setup meant for one or two trusted
+admins -- there's no per-user accounts, no rate limiting/lockout, no
+password reset. Don't expose it beyond a small trusted group without
+adding something sturdier in front of it.
+
+### Saving
+
+Every Save button ultimately POSTs to `save.php` as
+`multipart/form-data`: a `path` field (project-root-relative, e.g.
+`elements/round-ball-1.json`), a `csrf` field (read from `index.php`'s
+embedded token), and the new content as a `file` upload (works
+identically for text -- elements/levels JSON, audio.json -- and binary --
+images -- content, both just become a Blob client-side). `save.php`
+rejects anything that isn't logged in, doesn't carry a valid CSRF token,
+or targets a path outside `elements/`, `levels/`, or `assets/`, or with
+an extension outside `.json`/`.webp`/`.png`/`.ogg` (see
+`includes/config.php`'s `ALLOWED_SAVE_DIRS`/`ALLOWED_SAVE_EXTENSIONS`) --
+that whitelist is also what stops the endpoint from ever being used to
+write a `.php` file somewhere the server would execute it, deliberately
+including `admin/` itself being outside the writable set. Path
+validation is one regex covering traversal (`..`), the directory
+whitelist, and the extension whitelist all at once, plus a second
+`realpath()`-based check that the resolved directory is still actually
+inside the project root before anything is written. If `save.php` is
+ever unreachable (wrong host, no PHP, misconfigured), `js/fsSave.js`
+falls back to the File System Access API / a download exactly like the
+tool's very first version did -- see `fsSave.js`'s own comments.

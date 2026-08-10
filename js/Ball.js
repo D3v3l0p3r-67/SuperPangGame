@@ -1,6 +1,6 @@
 import { MIN_BALL_SIZE } from './config.js';
 import { getBallElement, maxBallSize } from './elements.js';
-import { ballTextureKey } from './assets.js';
+import { ballTextureKey, ballSpinAnimKey } from './assets.js';
 
 // A ball is a (shape, size) pair. Every physical parameter -- radius,
 // speed, bounceVelocity, gravity, points, color -- is read straight from
@@ -71,6 +71,10 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     // Tracks which way the ball is currently headed horizontally,
     // independent of body.velocity.x -- see reassertHorizontal().
     this.hDir = Math.sign(this.body.velocity.x) || 1;
+
+    // Hex balls spin (see setFrozen below); round balls fall/land, they
+    // don't roll, so they stay on their single static frame.
+    if (this.shape === 'hex') this.play(ballSpinAnimKey(this.shape, this.size));
   }
 
   // Horizontal speed magnitude never changes over a round ball's flight
@@ -125,14 +129,14 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     this.body.setVelocityX(this.hDir * this.hSpeed);
   }
 
-  // Hex balls spin around their own axis as they fly, like a rolling
-  // wheel: angular speed derived from actual horizontal velocity / radius
-  // so bigger/slower balls turn slower and it visibly reverses on a
-  // horizontal bounce. Round balls don't spin (they fall/land, they don't
-  // roll). Never called while frozen -- see GameScene.updatePlaying.
-  spin(dt) {
-    if (this.hasGravity) return;
-    this.rotation += (this.body.velocity.x / this.radius) * dt;
+  // Pauses/resumes the hex spin animation started in the constructor
+  // while balls are frozen (see GameScene's ballsFrozen/time_freeze) --
+  // round balls never animate, so this is a no-op for them. Safe to call
+  // every frame regardless of whether frozen actually changed.
+  setFrozen(frozen) {
+    if (this.shape !== 'hex') return;
+    if (frozen) this.anims.pause();
+    else this.anims.resume();
   }
 
   // Descriptors for exactly two children one size smaller (one sent left,

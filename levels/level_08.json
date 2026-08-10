@@ -2,6 +2,8 @@
   "id": 8,
   "name": "Storm Deck",
   "timeLimitSec": 75,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [
     {
       "type": "platform",

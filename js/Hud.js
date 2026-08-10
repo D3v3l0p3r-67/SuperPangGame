@@ -81,6 +81,7 @@ export class Hud {
     this.container.add(this.weaponFrame);
     this.weaponIcon = scene.add.image(177, 20, assets.hudWeaponIconKey(Object.keys(WEAPON_TYPES)[0]));
     this.container.add(this.weaponIcon);
+    this.lastWeaponType = null;
 
     const ROW1_Y = 1;
     const ROW2_Y = 14;
@@ -115,6 +116,11 @@ export class Hud {
     const visible = VISIBLE_STATES.has(g.state);
     this.container.setVisible(visible);
     if (!visible) return;
+
+    if (g.weaponType !== this.lastWeaponType) {
+      this.lastWeaponType = g.weaponType;
+      this.weaponIcon.setTexture(assets.hudWeaponIconKey(g.weaponType));
+    }
 
     this.scoreRow.setValue(g.score);
     this.timeRow.setValue(g.remainingLevelTime);

@@ -1,0 +1,12 @@
+# Nothing in here is meant to be requested directly (auth.php/config.php
+# only ever run via `require_once` from the admin pages) -- block direct
+# access as defense in depth. Apache 2.4+; harmless no-op on hosts that
+# don't read .htaccess at all (they should disable it in the vhost
+# instead, but this doesn't hurt).
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order deny,allow
+  Deny from all
+</IfModule>

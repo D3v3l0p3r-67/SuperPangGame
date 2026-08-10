@@ -20,27 +20,71 @@ export function ballTexturePath(shape, size) {
   return `${BALL_TEXTURE_DIR}${ballTextureKey(shape, size)}.webp`;
 }
 
-// Player: one file per animation frame, each exactly PLAYER_CONFIG.
-// spriteWidth x spriteHeight (16x32). Left/right isn't a separate file --
-// Player.js mirrors the sprite horizontally (setFlipX) instead, so a
-// swapped-in frame only needs to face right.
-export const PLAYER_TEXTURE_DIR = 'assets/player/';
+// Hex balls spin (see Ball.js) -- unlike round balls (one static image per
+// size), a hex ball's own texture is a HEX_SPIN_FRAMES-frame spritesheet,
+// each frame one rotation phase spaced across a regular hexagon's 60°
+// rotational symmetry (0°, 20°, 40°) so frame 2 -> frame 0 loops
+// seamlessly. Still the exact same filename/naming/native-size convention
+// as ballTexturePath above (BootScene picks image-vs-spritesheet loading
+// per shape) -- only hex is animated this way today.
+export const HEX_SPIN_FRAMES = 3;
 
-// state -> how many frames it has, in order (frame 1, 2, ...)
-export const PLAYER_ANIM_FRAME_COUNTS = {
-  idle: 1,
-  move: 2,
-  shot: 2,
-  dead: 3,
+export function ballSpinAnimKey(shape, size) {
+  return `ball-spin-${shape}-${size}`;
+}
+
+// Pop effect: a BALL_POP_FRAMES-frame animation played exactly where a
+// ball popped (see GameScene.popBall), one image per (shape, size) pair
+// so a different burst can be authored per ball type/size. Each frame is
+// POP_FRAME_SCALE times that ball's own diameter square, centered on the
+// ball -- bigger than the ball itself so the burst has room to expand
+// past its edges within the frame.
+export const BALL_POP_FRAMES = 2;
+export const POP_FRAME_SCALE = 1.6;
+
+export function ballPopTextureKey(shape, size) {
+  return `ballpop_${shape}_${size}`;
+}
+
+export function ballPopTexturePath(shape, size) {
+  return `${BALL_TEXTURE_DIR}pop_${shape}_${size}.webp`;
+}
+
+export function ballPopAnimKey(shape, size) {
+  return `ball-pop-${shape}-${size}`;
+}
+
+// Player: a single spritesheet (one PNG, not one file per frame) of
+// PLAYER_CONFIG.spriteWidth x spriteHeight (16x32) cells stacked
+// vertically, in this fixed order: idle, shot, 4 walk frames, victory,
+// dead -- see PLAYER_ANIM_FRAMES below for which index is which (see the
+// README's "Swapping graphics" for the full frame reference). Every frame
+// is authored facing LEFT; Player.js mirrors it (setFlipX) for
+// right-facing instead of needing a separate left/right file.
+export const PLAYER_TEXTURE_KEY = 'player';
+export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
+export const PLAYER_FRAME = { frameWidth: 16, frameHeight: 32 };
+
+// state -> its frame index (or indices, in play order) within the
+// spritesheet above.
+export const PLAYER_ANIM_FRAMES = {
+  idle: [0],
+  shot: [1],
+  move: [2, 3, 4, 5],
+  victory: [6],
+  dead: [7],
 };
 
-export function playerTextureKey(state, frame) {
-  return `player_${state}_${frame}`;
-}
-
-export function playerTexturePath(state, frame) {
-  return `${PLAYER_TEXTURE_DIR}${playerTextureKey(state, frame)}.webp`;
-}
+// Shield power-up effect: a PLAYER_SHIELD_FRAMES-frame looping animation
+// drawn centered on the player while shielded (see Player.js's
+// shieldEffect, toggled by the `shield` power-up's player_shield
+// behavior -- elements.js's POWERUP_BEHAVIORS). One PLAYER_CONFIG.
+// shieldSize (32) square spritesheet, frames stacked vertically same as
+// the player's own sheet above.
+export const PLAYER_SHIELD_TEXTURE_KEY = 'player-shield';
+export const PLAYER_SHIELD_TEXTURE_PATH = 'assets/player/shield.webp';
+export const PLAYER_SHIELD_FRAMES = 3;
+export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each
@@ -81,9 +125,27 @@ export function powerupTexturePath(type) {
   return `${POWERUP_TEXTURE_DIR}${type}.webp`;
 }
 
+// Level backgrounds: one image per distinct levels/*.json `background`
+// name, covering the sky area behind the playfield (VIRTUAL_W x GROUND_Y,
+// see constants.js -- the ground/floor strip and HUD bar below it stay
+// solid color, drawn by GameScene.drawBackground). "default" is the one
+// every level and the level editor start out pointing at (see
+// DEFAULT_BACKGROUND) -- add a new name here and reference it from a
+// level's `background` field for a level-specific look.
+export const BACKGROUND_TEXTURE_DIR = 'assets/backgrounds/';
+export const DEFAULT_BACKGROUND = 'default';
+
+export function backgroundTextureKey(name) {
+  return `background_${name}`;
+}
+
+export function backgroundTexturePath(name) {
+  return `${BACKGROUND_TEXTURE_DIR}${name}.webp`;
+}
+
 // Levels: one JSON file per level under levels/, in the exact shape the
 // level editor's own Export button produces (see editor.js's buildDef) --
-// {id, name, timeLimitSec, obstacles, balls} -- so a new level is just a
+// {id, name, timeLimitSec, background, weapon, obstacles, balls} -- so a new level is just a
 // file dropped in this folder, no code change. Static hosting has no
 // directory listing, so LevelManager can't just "read the folder" --
 // instead ElementsScene probes level_01.json..level_<MAX_LEVEL_FILES>
@@ -178,14 +240,16 @@ export function hudWeaponIconPath(type) {
   return `${HUD_DIR}weapon_${type}.webp`;
 }
 
-// Level-intro screen (see LevelIntro.js): a monospaced spritesheet
-// covering space + A-Z + "!" (28 frames, INTRO_FONT_CHARS gives each
-// character's frame index), used to compose "LEVEL", the level name, and
-// "READY"/"GO!" at runtime -- unlike the HUD's fixed per-word label
-// images, level names are arbitrary per-level text (see levels/*.json),
-// so they need a real (if uppercase-only) font instead of a baked image.
-// The level number itself reuses the HUD's own large digit strip.
+// Level-intro screen (see LevelIntro.js) AND every DOM menu screen (see
+// js/PixelText.js): one monospaced spritesheet covering space + A-Z +
+// "!" + 0-9 + ":" + "." (40 frames, INTRO_FONT_CHARS gives each
+// character's frame index). Digits/punctuation were appended after the
+// original A-Z+!+space set so LevelIntro.js's existing frame indices
+// never shifted. Unlike the HUD's fixed per-word label images, level
+// names/menu text are arbitrary strings, so they need a real (if
+// uppercase-only) font instead of a baked image. The level number itself
+// still reuses the HUD's own large digit strip (see LevelIntro.js).
 export const INTRO_FONT_KEY = 'intro-font';
 export const INTRO_FONT_PATH = 'assets/intro/font_alpha.webp';
 export const INTRO_FONT_FRAME = { frameWidth: 5, frameHeight: 6 };
-export const INTRO_FONT_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ!';
+export const INTRO_FONT_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ!0123456789:.';

@@ -27,10 +27,25 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      # admin/ needs a real PHP host (see README.md's "Admin tool") --
+      # GitHub Pages can't execute PHP, so publishing it here would just
+      # serve its .php source as plain static text, including the login
+      # credential hash in includes/auth.php. Stage everything else into
+      # a directory outside the checkout (plain cp/rm, no extra tooling
+      # to depend on) rather than excluding in place, so this can't
+      # accidentally publish admin/ if the exclude ever silently stops
+      # matching.
+      - name: Prepare Pages artifact (excludes admin/, which requires PHP)
+        run: |
+          rm -rf /tmp/pages-site
+          mkdir -p /tmp/pages-site
+          cp -a . /tmp/pages-site/
+          rm -rf /tmp/pages-site/admin /tmp/pages-site/.git /tmp/pages-site/.github
+
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: /tmp/pages-site
 
       - name: Deploy to GitHub Pages
         id: deployment

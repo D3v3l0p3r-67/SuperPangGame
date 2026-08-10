@@ -109,24 +109,36 @@ body {
   padding: 4vmin 3vmin;
 }
 
+/* Every heading/button/score/list label is a <canvas> rendered by
+   js/PixelText.js from the same bitmap font (assets/intro/font_alpha
+   .webp) the HUD and level-intro screen draw with in Phaser -- so the
+   DOM menu chrome actually matches the in-canvas UI instead of looking
+   like a separate, smoother-fonted layer on top of it. image-rendering:
+   pixelated keeps its integer CSS-pixel scaling crisp, same as the game
+   canvas itself (see #game-container canvas above). */
+.pixel-text {
+  display: inline-block;
+  vertical-align: middle;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
 .screen h1 {
-  font-size: clamp(22px, 7vmin, 52px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6vmin;
   margin: 0 0 2vmin;
-  color: var(--accent);
-  text-shadow: 3px 3px 0 #000, 0 0 18px rgba(255, 210, 63, 0.4);
-  line-height: 1.15;
 }
 
 .screen h2 {
-  font-size: clamp(18px, 5vmin, 36px);
   margin: 0 0 1vmin;
-  color: var(--accent);
-  text-shadow: 3px 3px 0 #000;
 }
 
 .screen p {
-  font-size: clamp(11px, 2.4vmin, 18px);
   margin: 0;
+  min-height: 1em; /* holds its layout slot before the async-loaded pixel font first paints */
 }
 
 .screen .hint {
@@ -136,20 +148,21 @@ body {
 }
 
 .menu-btn {
-  font-family: inherit;
-  font-size: clamp(11px, 2.4vmin, 16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--panel);
-  color: var(--text);
   border: 2px solid var(--panel-border);
   padding: 1.2vmin 3vmin;
   min-width: 180px;
+  min-height: 1.6em;
   cursor: pointer;
-  letter-spacing: 1px;
 }
 
 .menu-btn:hover,
 .menu-btn:focus-visible {
   background: var(--panel-border);
+  border-width: 1px;
   outline: none;
 }
 
@@ -160,15 +173,14 @@ body {
 #settings-row {
   display: flex;
   flex-direction: column;
-  gap: 0.6vmin;
-  font-size: clamp(9px, 1.8vmin, 13px);
+  gap: 1vmin;
   margin-top: 1vmin;
 }
 
 #settings-row label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   justify-content: center;
 }
 
@@ -183,20 +195,19 @@ body {
 }
 
 .level-select-btn {
-  font-family: inherit;
-  font-size: clamp(10px, 2vmin, 14px);
+  display: flex;
+  align-items: center;
   background: var(--panel);
-  color: var(--text);
   border: 2px solid var(--panel-border);
   padding: 1vmin 2.4vmin;
   cursor: pointer;
-  letter-spacing: 0.5px;
   text-align: left;
 }
 
 .level-select-btn:hover:not(:disabled),
 .level-select-btn:focus-visible:not(:disabled) {
   background: var(--panel-border);
+  border-width: 1px;
   outline: none;
 }
 
@@ -206,6 +217,8 @@ body {
   cursor: not-allowed;
 }
 
+/* The only piece of menu text that stays native, non-pixel-font: it's
+   live-editable, so there's no static string for PixelText.js to render. */
 #entry-name {
   font-family: inherit;
   font-size: clamp(16px, 4vmin, 28px);
@@ -223,19 +236,15 @@ body {
   list-style: none;
   padding: 0;
   margin: 0 0 1vmin;
-  font-size: clamp(10px, 2.2vmin, 16px);
   width: min(80vw, 320px);
 }
 
 #high-score-list li {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.3vmin 0.6vmin;
   border-bottom: 1px dashed var(--panel-border);
-}
-
-#high-score-list li.new-entry {
-  color: var(--accent);
 }
 
 /* Touch controls -- anchored just above the HUD bar (the HUD_H strip

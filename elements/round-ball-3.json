@@ -9,7 +9,7 @@
   "radius": 12,
   "speed": 70,
   "bounceVelocity": 267,
-  "points": 200,
+  "points": 800,
   "color": "#ff6b6b",
   "highlight": "#ffb3b3"
 }

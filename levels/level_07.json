@@ -2,6 +2,8 @@
   "id": 7,
   "name": "Sky Bridge",
   "timeLimitSec": 80,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [
     {
       "type": "platform",
