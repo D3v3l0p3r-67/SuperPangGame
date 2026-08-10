@@ -704,13 +704,10 @@ admin/
                        pixel font -- this page is dense with JSON text and
                        forms, where a proportional font reads better)
   js/
-    fsSave.js          The save abstraction every tab calls: POSTs to
-                       save.php first (see "Saving" below); if that fails
-                       for any reason, falls back to the File System
-                       Access API (if a local project folder is
-                       connected, see main.js), then to a browser
-                       download as a last resort -- same download pattern
-                       as js/editor.js's own Export button
+    fsSave.js          The one function every tab's Save calls: POSTs to
+                       save.php (see "Saving" below). One destination, no
+                       fallback -- a save either lands on the server or
+                       throws with the server's own reason
     util.js            Small shared helpers (fetch-relative-to-project-
                        root JSON loading, DOM element builders)
     graphicsTab.js      Lists every image the game loads (built from
@@ -732,11 +729,8 @@ admin/
                        button, an "Import" file input for a level-editor
                        Export straight from the game's own Level Editor,
                        and a link to open that Level Editor
-    main.js             The "Choose project folder" button (File System
-                       Access API permission prompt, the fsSave.js
-                       fallback -- see above), and lazy per-tab loading
-                       (each tab only fetches its data the first time
-                       it's opened)
+    main.js             Tab switching + lazy per-tab loading (each tab
+                       only fetches its data the first time it's opened)
 ```
 
 ### Running it locally
@@ -783,7 +777,26 @@ including `admin/` itself being outside the writable set. Path
 validation is one regex covering traversal (`..`), the directory
 whitelist, and the extension whitelist all at once, plus a second
 `realpath()`-based check that the resolved directory is still actually
-inside the project root before anything is written. If `save.php` is
-ever unreachable (wrong host, no PHP, misconfigured), `js/fsSave.js`
-falls back to the File System Access API / a download exactly like the
-tool's very first version did -- see `fsSave.js`'s own comments.
+inside the project root before anything is written.
+
+**Where saves go is fixed in code** -- `PROJECT_ROOT` in
+`includes/config.php`, resolved from `admin/`'s own location. The admin
+is never asked to pick a folder, and there is no client-side fallback:
+an earlier version quietly downloaded the file instead whenever the
+server save failed, which made a failed save look exactly like a
+successful one. Now a save either lands on the server or the card says
+`Save failed: <the server's reason>`. `index.php` also checks up front
+that the web server user can actually write to `elements/`, `levels/`
+and `assets/`, and shows a red warning in the header if it can't --
+that's the one setup problem that would otherwise make every single
+Save fail identically.
+
+**If a change doesn't show up in the game**, the save almost certainly
+worked -- replacing an image or a sound leaves its URL unchanged, so a
+browser that already cached it keeps serving the old copy (the game
+loads its assets without any cache-busting query, deliberately, so real
+players get normal caching). Hard-refresh the game tab
+(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>); the graphics/sounds
+tabs say so in their own "Saved." message. The admin's own preview
+re-reads the written file from the server after each save, so what it
+shows is what's actually on disk.

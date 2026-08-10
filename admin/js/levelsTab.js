@@ -63,8 +63,8 @@ function buildLevelCard(n, data, fs) {
     saveBtn.disabled = true;
     status.textContent = 'Saving…';
     try {
-      const result = await fs.saveFile(assets.levelFilePath(n), `${JSON.stringify(parsed, null, 2)}\n`);
-      status.textContent = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into levels/${key}.json.`;
+      await fs.saveFile(assets.levelFilePath(n), `${JSON.stringify(parsed, null, 2)}\n`);
+      status.textContent = 'Saved.';
       title.textContent = `${key} -- ${parsed.name ?? ''}`;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;

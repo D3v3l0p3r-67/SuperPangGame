@@ -89,12 +89,12 @@ function buildElementCard(id, data, fs, currentIds, { isNew = false } = {}) {
     saveBtn.disabled = true;
     status.textContent = 'Saving…';
     try {
-      const result = await fs.saveFile(assets.elementFilePath(id), `${JSON.stringify(parsed, null, 2)}\n`);
-      let msg = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into elements/${id}.json.`;
+      await fs.saveFile(assets.elementFilePath(id), `${JSON.stringify(parsed, null, 2)}\n`);
+      let msg = 'Saved.';
       if (!currentIds.includes(id)) {
         currentIds.push(id);
-        const idxResult = await fs.saveFile(assets.ELEMENTS_INDEX_PATH, `${JSON.stringify(currentIds, null, 2)}\n`);
-        msg += idxResult.savedTo !== 'download' ? ' index.json updated too.' : ' Downloaded the updated index.json too -- copy it into elements/.';
+        await fs.saveFile(assets.ELEMENTS_INDEX_PATH, `${JSON.stringify(currentIds, null, 2)}\n`);
+        msg += ' index.json updated too.';
         title.textContent = id;
       }
       status.textContent = msg;
