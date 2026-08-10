@@ -1,6 +1,7 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES } from './config.js';
+import { LEVELS } from './LevelManager.js';
 import {
   ballTextureKey, ballTexturePath,
   playerTextureKey, playerTexturePath, PLAYER_ANIM_FRAME_COUNTS,
@@ -8,6 +9,7 @@ import {
   PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
+  backgroundTextureKey, backgroundTexturePath, DEFAULT_BACKGROUND,
   audioPath,
   HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME,
   HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME,
@@ -51,6 +53,14 @@ export class BootScene extends Phaser.Scene {
 
     for (const type of POWERUP_TYPE_KEYS) {
       this.load.image(powerupTextureKey(type), powerupTexturePath(type));
+    }
+
+    // DEFAULT_BACKGROUND is always loaded (the level editor's own starting
+    // background, before any level-specific one is chosen), plus every
+    // distinct `background` a loaded level actually names.
+    const backgroundNames = new Set([DEFAULT_BACKGROUND, ...LEVELS.map((lvl) => lvl.background).filter(Boolean)]);
+    for (const name of backgroundNames) {
+      this.load.image(backgroundTextureKey(name), backgroundTexturePath(name));
     }
 
     // AUDIO_CONFIG is already fully populated by ElementsScene (audio.json

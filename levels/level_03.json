@@ -2,6 +2,8 @@
   "id": 3,
   "name": "Market Square",
   "timeLimitSec": 90,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [
     {
       "type": "platform",

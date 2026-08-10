@@ -21,6 +21,24 @@ async function fetchElements() {
   return results.filter(Boolean);
 }
 
+// Every distinct `background` a levels/level_NN.json actually uses, same
+// probing convention levelsTab.js uses (no manifest, just try each slot up
+// to MAX_LEVEL_FILES and keep whichever load) -- plus DEFAULT_BACKGROUND
+// itself, since the level editor always starts pointed at it even before
+// any level names it.
+async function fetchBackgroundNames() {
+  const names = new Set([assets.DEFAULT_BACKGROUND]);
+  for (let n = 1; n <= assets.MAX_LEVEL_FILES; n++) {
+    try {
+      const level = await fetchJSON(assets.levelFilePath(n));
+      if (level.background) names.add(level.background);
+    } catch {
+      // No file at this slot -- expected past the last level.
+    }
+  }
+  return names;
+}
+
 async function buildGraphicList() {
   const elements = await fetchElements();
   const list = [];
@@ -64,6 +82,11 @@ async function buildGraphicList() {
   }
 
   list.push({ label: 'Menu/level-intro pixel font (A-Z, 0-9, !, :, .)', path: assets.INTRO_FONT_PATH });
+
+  const backgroundNames = await fetchBackgroundNames();
+  for (const name of backgroundNames) {
+    list.push({ label: `Level background -- ${name}`, path: assets.backgroundTexturePath(name) });
+  }
 
   return list;
 }

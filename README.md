@@ -160,6 +160,8 @@ assets/              Every graphic and sound in the game, as real files --
   player/            player_<state>_<frame>.webp
   obstacles/         wall.webp, crate.webp
   powerups/          <powerup type>.webp
+  backgrounds/       <name>.webp, one per distinct levels/*.json
+                      `background` field -- see "Swapping graphics" below
   projectile.webp, particle.webp
   audio/             audio.json (every sound's config) + one .ogg file per
                       sound named there -- see "Swapping sounds" below
@@ -342,6 +344,8 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "id": 11,
   "name": "My Level",
   "timeLimitSec": 80,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [{ "type": "crate", "x": 176, "y": 152, "w": 8, "h": 8, "powerup": "shield" }],
   "balls": [{ "shape": "hex", "size": 2, "x": 192, "y": 60, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
@@ -354,6 +358,18 @@ editor never produces this itself, but `LevelManager.js` still reads it,
 so it's still available for hand-edited files). `type`/`shape` values
 must match a `type`/`shape` from some loaded element (see "Adding
 elements" above).
+
+`background` names an `assets/backgrounds/<name>.webp` image (see
+"Swapping graphics" below) drawn behind the whole playfield; `weapon`
+names a `js/config.js` `WEAPON_TYPES` key the player starts the level
+with (currently only `"harpoon"` exists, so every level uses it, but the
+field is real and level-specific -- adding a second weapon type is purely
+a new `WEAPON_TYPES` entry plus an `assets/hud/weapon_<key>.webp` icon, no
+per-level plumbing needed). Both are optional and default to
+`"default"`/`"harpoon"` respectively if omitted, so older hand-written
+level files without them still load. The in-game **LEVEL EDITOR** has a
+**Background**/**Weapon** dropdown for both (top panel) -- picking a
+background updates the live preview immediately.
 
 `BootScene.js` probes `levels/level_01.json` up to `MAX_LEVEL_FILES` (see
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static
@@ -409,6 +425,16 @@ dimensions:
   the active weapon's width) and `assets/particle.webp` (2x2, always
   tinted at runtime to whatever color a burst effect needs, so keep it
   plain white).
+- **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
+  distinct `background` value used across `levels/*.json` (see "Adding
+  levels"), exactly `VIRTUAL_W x GROUND_Y` (384x200 from `js/constants.js`)
+  -- covers the sky area behind obstacles/balls/player; the floor strip and
+  HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
+  `assets/backgrounds/default.webp` is the one every level ships with today
+  (a generated night sky/skyline, see below) and what the level editor
+  starts a new level pointed at -- adding a second background is dropping
+  a same-size file in this folder and setting some level's `background`
+  field (or the editor's dropdown) to its name, no code change.
 
 `GameScene.js`, `Ball.js`, `Player.js`, `Obstacle.js`, `Bonus.js`, and
 `LevelManager.js` all read `js/elements.js`'s registries and `js/assets.js`

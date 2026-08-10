@@ -15,7 +15,7 @@ import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
-import { obstacleTextureKey, PARTICLE_TEXTURE_KEY } from './assets.js';
+import { obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
 
 const LEVEL_CLEAR_SEC = 1.6;
 const HIT_FREEZE_SEC = 2;
@@ -60,6 +60,7 @@ export class GameScene extends Phaser.Scene {
     this.lastOutcome = null;
     this.isCustomLevel = false;
     this.customLevelDef = null;
+    this.weaponType = 'harpoon';
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
@@ -124,9 +125,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawBackground() {
+    // Per-level background image (see setLevelBackground, called from
+    // loadLevel) covers the sky area a flat gradient fill used to occupy
+    // here; the floor strip and HUD bar below stay solid color on every
+    // level, drawn by the Graphics object below as before.
+    this.backgroundImage = this.add.image(0, 0, backgroundTextureKey(DEFAULT_BACKGROUND))
+      .setOrigin(0, 0)
+      .setDisplaySize(VIRTUAL_W, GROUND_Y)
+      .setDepth(0);
+
     const g = this.add.graphics();
-    g.fillGradientStyle(hexColor(COLORS.bgTop), hexColor(COLORS.bgTop), hexColor(COLORS.bgBottom), hexColor(COLORS.bgBottom), 1);
-    g.fillRect(0, 0, VIRTUAL_W, GROUND_Y);
     g.fillStyle(hexColor(COLORS.ground), 1);
     g.fillRect(0, GROUND_Y, VIRTUAL_W, PLAYFIELD_H - GROUND_Y);
     g.fillStyle(hexColor(COLORS.groundEdge), 1);
@@ -178,7 +186,7 @@ export class GameScene extends Phaser.Scene {
     const parts = [];
     if (this.effects.active.has('rapid_shot')) parts.push('RAPID');
     if (this.effects.active.has('wide_harpoon')) parts.push('WIDE');
-    parts.push('HARPOON');
+    parts.push(WEAPON_TYPES[this.weaponType].label.toUpperCase());
     return parts.join(' ');
   }
 
@@ -259,7 +267,9 @@ export class GameScene extends Phaser.Scene {
   loadLevel(idxOrDef) {
     const def = loadLevelData(this, idxOrDef);
     this.player.reset();
-    this.weaponState = createWeaponState();
+    this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
+    this.weaponState = createWeaponState(this.weaponType);
+    this.backgroundImage.setTexture(backgroundTextureKey(def.background || DEFAULT_BACKGROUND));
     this.effects.reset(this);
     this.levelTimer = 0;
     this.hurryUpPlayed = false;
@@ -464,7 +474,7 @@ export class GameScene extends Phaser.Scene {
   tryFire() {
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
-    const base = WEAPON_TYPES.harpoon;
+    const base = WEAPON_TYPES[this.weaponType];
     const width = base.width * this.weaponState.widthMultiplier;
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;

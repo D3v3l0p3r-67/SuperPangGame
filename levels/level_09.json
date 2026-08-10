@@ -2,6 +2,8 @@
   "id": 9,
   "name": "Lightning Spire",
   "timeLimitSec": 75,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [
     {
       "type": "platform",

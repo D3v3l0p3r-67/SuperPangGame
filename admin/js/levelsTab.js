@@ -87,7 +87,7 @@ function buildAddForm(list, fs, nextN) {
   wrap.append(el('p', { textContent: `Next free slot: ${key}.json` }));
   const addBtn = el('button', { textContent: 'Add blank level' });
   addBtn.addEventListener('click', () => {
-    const template = { id: nextN, name: 'New Level', timeLimitSec: 90, obstacles: [], balls: [] };
+    const template = { id: nextN, name: 'New Level', timeLimitSec: 90, background: assets.DEFAULT_BACKGROUND, weapon: 'harpoon', obstacles: [], balls: [] };
     list.appendChild(buildLevelCard(nextN, template, fs));
     wrap.remove();
   });

@@ -81,9 +81,27 @@ export function powerupTexturePath(type) {
   return `${POWERUP_TEXTURE_DIR}${type}.webp`;
 }
 
+// Level backgrounds: one image per distinct levels/*.json `background`
+// name, covering the sky area behind the playfield (VIRTUAL_W x GROUND_Y,
+// see constants.js -- the ground/floor strip and HUD bar below it stay
+// solid color, drawn by GameScene.drawBackground). "default" is the one
+// every level and the level editor start out pointing at (see
+// DEFAULT_BACKGROUND) -- add a new name here and reference it from a
+// level's `background` field for a level-specific look.
+export const BACKGROUND_TEXTURE_DIR = 'assets/backgrounds/';
+export const DEFAULT_BACKGROUND = 'default';
+
+export function backgroundTextureKey(name) {
+  return `background_${name}`;
+}
+
+export function backgroundTexturePath(name) {
+  return `${BACKGROUND_TEXTURE_DIR}${name}.webp`;
+}
+
 // Levels: one JSON file per level under levels/, in the exact shape the
 // level editor's own Export button produces (see editor.js's buildDef) --
-// {id, name, timeLimitSec, obstacles, balls} -- so a new level is just a
+// {id, name, timeLimitSec, background, weapon, obstacles, balls} -- so a new level is just a
 // file dropped in this folder, no code change. Static hosting has no
 // directory listing, so LevelManager can't just "read the folder" --
 // instead ElementsScene probes level_01.json..level_<MAX_LEVEL_FILES>

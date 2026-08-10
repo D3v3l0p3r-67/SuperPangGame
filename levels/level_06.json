@@ -2,6 +2,8 @@
   "id": 6,
   "name": "Iron Foundry",
   "timeLimitSec": 80,
+  "background": "default",
+  "weapon": "harpoon",
   "obstacles": [
     {
       "type": "platform",
