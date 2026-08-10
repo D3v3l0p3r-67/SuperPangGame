@@ -72,55 +72,11 @@ body {
   display: none !important;
 }
 
-/* HUD -- lives in the dedicated bar below the bordered playfield (see
-   constants.js HUD_H/PLAYFIELD_H and GameScene.drawBackground, which
-   paints the matching dark strip on the canvas itself). top is shifted
-   12px above the strip's actual (224/264 = 84.848%) start -- net of a
-   20px-up then an 8px-down request -- so it's (224-12)/264 = 80.303%;
-   height grows by the same 12px (40+12=52 -> 52/264 = 19.697%) so the
-   content isn't cramped into a shorter box than it's shifted by. Keep
-   in sync with constants.js HUD_H/PLAYFIELD_H/VIRTUAL_H if those ever
-   change. */
-#hud {
-  position: absolute;
-  top: 80.303%;
-  height: 19.697%;
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 2px;
-  padding: 0.6vmin 1.5vmin 0;
-  text-shadow: 2px 2px 0 #000;
-  pointer-events: none;
-  letter-spacing: 1px;
-}
-
-.hud-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1.5vmin;
-}
-
-.hud-row-primary {
-  font-size: clamp(10px, 2.4vmin, 18px);
-  color: var(--accent, #ffd23f);
-}
-
-.hud-row-secondary {
-  font-size: clamp(8px, 1.8vmin, 14px);
-  opacity: 0.85;
-}
-
-#hud-time {
-  font-variant-numeric: tabular-nums;
-}
-
-#hud-time.hud-time-low {
-  color: var(--danger, #e94560);
-}
-
+/* The always-visible stat bar (score/lives/time/weapon/...) is graphic
+   now -- see Hud.js, drawn in Phaser inside the HUD_H strip below the
+   bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.
+   drawBackground paints the matching dark strip on the canvas itself).
+   Only the powerup-timer chips below are still a DOM overlay. */
 #powerup-indicators {
   position: absolute;
   top: clamp(20px, 5vmin, 40px);
@@ -153,12 +109,6 @@ body {
   padding: 4vmin 3vmin;
 }
 
-/* Countdown screen: no dimming overlay, so the level is fully visible
-   (frozen -- see GameScene.startLevelIntro) behind the "3, 2, 1, GO!" text. */
-#screen-level-intro {
-  background: transparent;
-}
-
 .screen h1 {
   font-size: clamp(22px, 7vmin, 52px);
   margin: 0 0 2vmin;
@@ -177,13 +127,6 @@ body {
 .screen p {
   font-size: clamp(11px, 2.4vmin, 18px);
   margin: 0;
-}
-
-.countdown {
-  font-size: clamp(30px, 9vmin, 64px) !important;
-  color: var(--accent);
-  text-shadow: 3px 3px 0 #000, 0 0 18px rgba(255, 210, 63, 0.4);
-  margin-top: 1.5vmin !important;
 }
 
 .screen .hint {
@@ -229,6 +172,40 @@ body {
   justify-content: center;
 }
 
+#level-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vmin;
+  width: min(85vw, 340px);
+  max-height: 45vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.level-select-btn {
+  font-family: inherit;
+  font-size: clamp(10px, 2vmin, 14px);
+  background: var(--panel);
+  color: var(--text);
+  border: 2px solid var(--panel-border);
+  padding: 1vmin 2.4vmin;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.level-select-btn:hover:not(:disabled),
+.level-select-btn:focus-visible:not(:disabled) {
+  background: var(--panel-border);
+  outline: none;
+}
+
+.level-select-btn:disabled,
+.level-select-btn.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 #entry-name {
   font-family: inherit;
   font-size: clamp(16px, 4vmin, 28px);
@@ -261,9 +238,9 @@ body {
   color: var(--accent);
 }
 
-/* Touch controls -- anchored just above the HUD bar (see #hud) rather
-   than the bottom of the whole canvas, since that bottom strip is now
-   the HUD. */
+/* Touch controls -- anchored just above the HUD bar (the HUD_H strip
+   Hud.js draws into, see constants.js) rather than the bottom of the
+   whole canvas, since that bottom strip is now the HUD. */
 #touch-controls {
   position: absolute;
   bottom: calc(15.152% + 1.5vmin);

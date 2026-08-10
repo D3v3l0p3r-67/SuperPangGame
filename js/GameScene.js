@@ -1,4 +1,4 @@
-import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
 import { POWERUP_TYPE_KEYS } from './elements.js';
 import { Player } from './Player.js';
@@ -9,16 +9,14 @@ import { createWeaponState, EffectManager } from './weapons.js';
 import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
+import { Hud } from './Hud.js';
+import { LevelIntro } from './LevelIntro.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
 import { obstacleTextureKey, PARTICLE_TEXTURE_KEY } from './assets.js';
 
-// 1s each for "3", "2", "1", then a shorter "GO!" beat before play starts.
-const LEVEL_INTRO_COUNT_SEC = 3;
-const LEVEL_INTRO_GO_SEC = 0.6;
-const LEVEL_INTRO_SEC = LEVEL_INTRO_COUNT_SEC + LEVEL_INTRO_GO_SEC;
 const LEVEL_CLEAR_SEC = 1.6;
 const HIT_FREEZE_SEC = 2;
 
@@ -100,6 +98,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.projectiles, this.obstacles, this.onProjectileHitObstacle, null, this);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
+    this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);
+    // A dropped power-up can land on an obstacle instead of falling all
+    // the way to the ground -- see onPowerupHitObstacle/Bonus.js.
+    this.physics.add.collider(this.powerups, this.obstacles, this.onPowerupHitObstacle, null, this);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys({ w: 'W', a: 'A', d: 'D', space: 'SPACE', p: 'P', esc: 'ESC' });
@@ -115,6 +117,8 @@ export class GameScene extends Phaser.Scene {
 
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
+    this.hud = new Hud(this);
+    this.levelIntro = new LevelIntro(this);
     this.debug = new Debug(this);
     this.editor = new Editor(this);
   }
@@ -128,8 +132,8 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(hexColor(COLORS.groundEdge), 1);
     g.fillRect(0, GROUND_Y, VIRTUAL_W, 2);
     // Dedicated HUD bar below the bordered playfield (see constants.js
-    // HUD_H) -- the DOM #hud overlay is positioned to exactly cover this
-    // same strip, see style.css.
+    // HUD_H) -- Hud.js draws the actual stat graphics into this same
+    // strip (its container sits at y = PLAYFIELD_H).
     g.fillStyle(hexColor(COLORS.hudBg), 1);
     g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, this.game.config.height - PLAYFIELD_H);
     g.fillStyle(hexColor(COLORS.accent), 1);
@@ -170,14 +174,6 @@ export class GameScene extends Phaser.Scene {
     return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
   }
 
-  // "3", "2", "1" for one second each, then "GO!" for the final beat --
-  // stateTimer counts down from LEVEL_INTRO_SEC to 0 during LEVEL_INTRO.
-  get introCountdownLabel() {
-    if (this.state !== GAME_STATES.LEVEL_INTRO) return '';
-    const countTime = this.stateTimer - LEVEL_INTRO_GO_SEC;
-    return countTime > 0 ? String(Math.ceil(countTime)) : 'GO!';
-  }
-
   get weaponLabel() {
     const parts = [];
     if (this.effects.active.has('rapid_shot')) parts.push('RAPID');
@@ -187,9 +183,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   startNewGame() {
+    this.startAtLevel(0);
+  }
+
+  // Entry point for the menu's Start Level screen -- identical setup to
+  // startNewGame(), just at an arbitrary (already-unlocked, see
+  // storage.isLevelUnlocked) level index instead of always 0.
+  startAtLevel(levelIndex) {
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
-    this.levelIndex = 0;
+    this.levelIndex = levelIndex;
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
     this.justSubmittedEntry = null;
@@ -260,12 +263,12 @@ export class GameScene extends Phaser.Scene {
     this.effects.reset(this);
     this.levelTimer = 0;
     this.hurryUpPlayed = false;
+    this.hurryMusicPlayed = false;
     // Editor/custom levels and the first half of LEVELS play music01, the
-    // rest play music02 -- playMusic() itself is a no-op if that track is
-    // already the one playing (e.g. two music01 levels back to back, or
-    // restarting the current level), so loops never duplicate or overlap.
-    const musicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
-    this.audio.playMusic(musicName);
+    // rest play music02 -- stored, not started yet: music only actually
+    // starts once the balls do (LEVEL_INTRO -> PLAYING, see update()),
+    // never during the frozen "READY"/"GO!" countdown.
+    this.pendingMusicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
     return def;
   }
 
@@ -292,6 +295,9 @@ export class GameScene extends Phaser.Scene {
       const remaining = Math.max(0, def.timeLimitSec - this.levelTimer);
       this.score += Math.round(remaining * 10);
     }
+    // Custom/editor levels aren't part of LEVELS and never unlock anything.
+    if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
+    this.audio.stopMusic();
     this.audio.play('levelcomplete');
     this.state = GAME_STATES.LEVEL_CLEAR;
     this.stateTimer = LEVEL_CLEAR_SEC;
@@ -318,6 +324,14 @@ export class GameScene extends Phaser.Scene {
   showHighScores() {
     this.justSubmittedEntry = null;
     this.state = GAME_STATES.HIGH_SCORE_TABLE;
+  }
+
+  showOptions() {
+    this.state = GAME_STATES.OPTIONS;
+  }
+
+  showLevelSelect() {
+    this.state = GAME_STATES.LEVEL_SELECT;
   }
 
   submitHighScore(name) {
@@ -360,6 +374,9 @@ export class GameScene extends Phaser.Scene {
         if (this.stateTimer <= 0) {
           this.physics.resume();
           this.state = GAME_STATES.PLAYING;
+          // Music starts exactly when the balls do, never during the
+          // frozen countdown -- see loadLevel()'s pendingMusicName.
+          this.audio.playMusic(this.pendingMusicName);
         }
         break;
       case GAME_STATES.PLAYING:
@@ -383,6 +400,8 @@ export class GameScene extends Phaser.Scene {
     this.debug.render(this.debugGraphics);
     this.editor.render();
     this.ui.render();
+    this.hud.render();
+    this.levelIntro.render();
   }
 
   readInput() {
@@ -397,6 +416,23 @@ export class GameScene extends Phaser.Scene {
     this.elapsedMs += dt * 1000;
     this.levelTimer += dt;
     this.effects.update(this, this.elapsedMs);
+
+    // Running out of time is exactly the same hit as a ball touching the
+    // player (see onTimeUp/hitPlayer) -- checked every frame the clock
+    // stays expired, same as an overlapping ball would keep re-triggering
+    // onPlayerHitBall, so shield/invulnerability behave identically.
+    if (this.currentLevelDef?.timeLimitSec && this.levelTimer >= this.currentLevelDef.timeLimitSec) {
+      this.onTimeUp();
+      if (this.state !== GAME_STATES.PLAYING) return; // hitPlayer() may have frozen/ended the run
+    }
+
+    // 15s left: switch the background music itself to the more urgent
+    // loop (independent of the short one-shot ping below, at its own
+    // later/shorter threshold).
+    if (!this.hurryMusicPlayed && this.currentLevelDef?.timeLimitSec && this.remainingLevelTime > 0 && this.remainingLevelTime <= 15) {
+      this.audio.playMusic('music_hurry');
+      this.hurryMusicPlayed = true;
+    }
 
     if (!this.hurryUpPlayed && this.currentLevelDef?.timeLimitSec && this.remainingLevelTime > 0 && this.remainingLevelTime <= 10) {
       this.audio.play('hurryup');
@@ -495,29 +531,45 @@ export class GameScene extends Phaser.Scene {
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
     if (go instanceof Ball) {
-      if (down) go.landOnTop();
-      if (up) go.bounceOffBottom();
-      if (left) go.bounceOffLeft();
-      if (right) go.bounceOffRight();
+      // Exactly one axis changes DIRECTION per bounce -- a corner hit
+      // (e.g. down AND left both true at once) picks vertical over
+      // horizontal rather than flipping both. Arcade still zeroes both
+      // axes' velocity while resolving a corner collision though (see
+      // Ball.js), so the horizontal axis -- even though it isn't
+      // supposed to change direction here -- has to be explicitly
+      // reasserted or the ball is left motionless on it.
+      if (down) {
+        go.landOnTop();
+        if (left || right) go.reassertHorizontal();
+      } else if (up) {
+        go.bounceOffBottom();
+        if (left || right) go.reassertHorizontal();
+      } else if (left) {
+        go.bounceOffLeft();
+      } else if (right) {
+        go.bounceOffRight();
+      }
     } else if (go instanceof Projectile) {
       if (up) go.destroy();
     }
   }
 
   onBallHitObstacle(ballGO, obstacleGO) {
-    // Vertical and horizontal contact are independent, not else-if-chained
-    // together: a corner hit can have both touching.down (or up) AND
-    // touching.left (or right) true at once. Chaining all four as one
-    // else-if only fired the vertical bounce and silently skipped the
-    // horizontal one -- since Arcade Physics (bounce 0, see Ball.js)
-    // already zeroed vx as part of resolving that same collision, the
-    // ball was left drifting with zero horizontal speed, bouncing
-    // straight up and down like it was stuck on a rail.
+    // Same rule (and same Arcade-zeroes-both-axes caveat) as
+    // onWorldBounds above -- vertical wins on a corner hit (touching.
+    // down/up AND touching.left/right both true at once).
     const body = ballGO.body;
-    if (body.touching.down) ballGO.landOnTop();
-    else if (body.touching.up) ballGO.bounceOffBottom();
-    if (body.touching.left) ballGO.bounceOffLeft();
-    else if (body.touching.right) ballGO.bounceOffRight();
+    if (body.touching.down) {
+      ballGO.landOnTop();
+      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
+    } else if (body.touching.up) {
+      ballGO.bounceOffBottom();
+      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
+    } else if (body.touching.left) {
+      ballGO.bounceOffLeft();
+    } else if (body.touching.right) {
+      ballGO.bounceOffRight();
+    }
   }
 
   onProjectileHitObstacle(projGO, obstacleGO) {
@@ -546,7 +598,20 @@ export class GameScene extends Phaser.Scene {
   onPlayerHitBall(playerGO, ballGO) {
     if (this.state !== GAME_STATES.PLAYING || !ballGO.active) return;
     if (this.ballsFrozen) return; // time_freeze: frozen balls can't hurt the player
+    this.hitPlayer();
+  }
 
+  // Running out of time counts as exactly the same hit as a ball touching
+  // the player -- shield absorbs it the same way, otherwise it costs a
+  // life and freezes the same way (see updatePlaying's timeLimitSec
+  // check). Kept as its own entry point (rather than folding into
+  // onPlayerHitBall) since there's no ball/overlap involved.
+  onTimeUp() {
+    if (this.state !== GAME_STATES.PLAYING) return;
+    this.hitPlayer();
+  }
+
+  hitPlayer() {
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();
     if (!lostLife && hadShield) {
@@ -555,6 +620,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (lostLife) {
+      this.audio.stopMusic();
       this.audio.play('playerlifeloose');
       this.lives -= 1;
       this.player.playDeadAnim();
@@ -573,8 +639,27 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
   }
 
+  // Landed on top of an obstacle instead of the ground -- stop it there
+  // (Bonus.update's own floorY snap only ever fires if it never hits
+  // anything on the way down). Only the vertical case matters: a bonus
+  // has no horizontal velocity, so it can't arrive at a side face.
+  onPowerupHitObstacle(bonusGO, obstacleGO) {
+    if (bonusGO.body.touching.down) bonusGO.body.setVelocityY(0);
+  }
+
   onPlayerCollectPowerup(playerGO, bonusGO) {
     if (!bonusGO.active) return;
+    this.collectPowerup(bonusGO);
+  }
+
+  // Shooting a dropped power-up collects it too, same as walking into it.
+  onProjectileHitPowerup(projGO, bonusGO) {
+    if (!projGO.active || !bonusGO.active) return;
+    this.collectPowerup(bonusGO);
+    if (projGO.registerHit()) projGO.destroy();
+  }
+
+  collectPowerup(bonusGO) {
     this.effects.apply(bonusGO.type, this, this.elapsedMs);
     this.audio.play(bonusGO.def.pickupSound);
     this.spawnBurst(bonusGO.x, bonusGO.y, bonusGO.def.color, 8, true);

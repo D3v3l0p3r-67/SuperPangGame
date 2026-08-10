@@ -67,6 +67,10 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.body.setVelocityY(this.speed * Math.SQRT1_2 * randomSign());
     }
+
+    // Tracks which way the ball is currently headed horizontally,
+    // independent of body.velocity.x -- see reassertHorizontal().
+    this.hDir = Math.sign(this.body.velocity.x) || 1;
   }
 
   // Horizontal speed magnitude never changes over a round ball's flight
@@ -101,11 +105,24 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
   }
 
   bounceOffLeft() {
+    this.hDir = 1;
     this.body.setVelocityX(this.hSpeed);
   }
 
   bounceOffRight() {
+    this.hDir = -1;
     this.body.setVelocityX(-this.hSpeed);
+  }
+
+  // Reapplies the ball's current horizontal direction unchanged (never
+  // flips it) -- for a corner hit, where the vertical bounce above "wins"
+  // (see GameScene.onWorldBounds/onBallHitObstacle) and horizontal isn't
+  // supposed to change direction, but Arcade still zeroes vx as part of
+  // resolving that same collision. Without this, the ball would be left
+  // motionless on the horizontal axis instead of continuing the way it
+  // was already going.
+  reassertHorizontal() {
+    this.body.setVelocityX(this.hDir * this.hSpeed);
   }
 
   // Hex balls spin around their own axis as they fly, like a rolling

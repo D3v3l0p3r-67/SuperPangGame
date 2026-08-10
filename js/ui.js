@@ -1,9 +1,11 @@
 import { GAME_STATES } from './constants.js';
 import { POWERUP_TYPES } from './elements.js';
+import { LEVELS } from './LevelManager.js';
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
-  [GAME_STATES.LEVEL_INTRO]: 'screen-level-intro',
+  [GAME_STATES.OPTIONS]: 'screen-options',
+  [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
   [GAME_STATES.HIGH_SCORE_ENTRY]: 'screen-high-score-entry',
@@ -11,6 +13,9 @@ const SCREEN_IDS = {
   [GAME_STATES.VICTORY]: 'screen-victory',
 };
 
+// The always-visible stat bar and the level-intro screen are graphic now
+// (see Hud.js / LevelIntro.js, drawn in Phaser) -- this set is only used
+// here to show/hide the DOM powerup-timer chips, which stay in-play only.
 const HUD_VISIBLE_STATES = new Set([
   GAME_STATES.PLAYING,
   GAME_STATES.PAUSED,
@@ -20,12 +25,14 @@ const HUD_VISIBLE_STATES = new Set([
 ]);
 
 const ELEMENT_IDS = [
-  'hud', 'hud-score', 'hud-highscore', 'hud-level', 'hud-lives', 'hud-time', 'hud-weapon', 'powerup-indicators',
-  'screen-menu', 'screen-level-intro', 'level-intro-title', 'level-intro-name', 'level-intro-countdown',
+  'powerup-indicators',
+  'screen-menu',
+  'screen-options', 'screen-level-select', 'level-select-list',
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
   'touch-controls',
-  'btn-start', 'btn-editor', 'btn-highscores', 'btn-fullscreen', 'btn-fullscreen-pause',
+  'btn-start', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
+  'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
   'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -52,11 +59,6 @@ export class UI {
 
     this.bindEvents();
     this.applySettingsToControls();
-    this.topHighScore = this.getTopHighScore();
-  }
-
-  getTopHighScore() {
-    return this.storage.loadHighScores()[0]?.score ?? 0;
   }
 
   bindEvents() {
@@ -76,8 +78,15 @@ export class UI {
 
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
     this.el['btn-close-highscores'].addEventListener('click', () => this.game.goToMenu());
-    this.el['btn-fullscreen'].addEventListener('click', toggleFullscreen);
+
+    this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
+    this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
+    this.el['btn-options-fullscreen'].addEventListener('click', toggleFullscreen);
     this.el['btn-fullscreen-pause'].addEventListener('click', toggleFullscreen);
+
+    this.el['btn-start-level'].addEventListener('click', () => this.game.showLevelSelect());
+    this.el['btn-close-level-select'].addEventListener('click', () => this.game.goToMenu());
+
     this.el['btn-resume'].addEventListener('click', () => this.game.resume());
     this.el['btn-quit'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-menu'].addEventListener('click', () => this.game.goToMenu());
@@ -127,25 +136,11 @@ export class UI {
     if (g.state !== this.lastState) {
       this.setScreen(g.state);
       this.lastState = g.state;
-      this.topHighScore = this.getTopHighScore(); // cheap re-read on state changes only
-    }
-
-    if (g.state === GAME_STATES.LEVEL_INTRO) {
-      this.el['level-intro-countdown'].textContent = g.introCountdownLabel;
     }
 
     if (HUD_VISIBLE_STATES.has(g.state)) {
-      this.el.hud.classList.remove('hidden');
-      this.el['hud-score'].textContent = `SCORE ${g.score}`;
-      this.el['hud-highscore'].textContent = `HI ${Math.max(this.topHighScore, g.score)}`;
-      this.el['hud-level'].textContent = `LEVEL ${g.levelIndex + 1}`;
-      this.el['hud-lives'].textContent = `LIVES ${g.lives}`;
-      this.el['hud-time'].textContent = `TIME ${g.remainingLevelTime}`;
-      this.el['hud-time'].classList.toggle('hud-time-low', g.remainingLevelTime <= 10);
-      this.el['hud-weapon'].textContent = g.weaponLabel;
       this.renderPowerupIndicators();
     } else {
-      this.el.hud.classList.add('hidden');
       this.el['powerup-indicators'].innerHTML = '';
     }
   }
@@ -170,10 +165,7 @@ export class UI {
     if (!id) return;
     this.el[id].classList.remove('hidden');
 
-    if (state === GAME_STATES.LEVEL_INTRO) {
-      this.el['level-intro-title'].textContent = `LEVEL ${this.game.levelIndex + 1}`;
-      this.el['level-intro-name'].textContent = this.game.currentLevelDef?.name ?? '';
-    } else if (state === GAME_STATES.GAME_OVER) {
+    if (state === GAME_STATES.GAME_OVER) {
       this.el['final-score'].textContent = `FINAL SCORE: ${this.game.score}`;
     } else if (state === GAME_STATES.VICTORY) {
       this.el['victory-score'].textContent = `SCORE: ${this.game.score}`;
@@ -183,7 +175,31 @@ export class UI {
       setTimeout(() => this.el['entry-name'].focus(), 50);
     } else if (state === GAME_STATES.HIGH_SCORE_TABLE) {
       this.renderHighScores();
+    } else if (state === GAME_STATES.LEVEL_SELECT) {
+      this.renderLevelSelect();
     }
+  }
+
+  // Rebuilt every time the screen opens (not cached) -- cheap, and picks
+  // up a level just unlocked by clearing the one before it.
+  renderLevelSelect() {
+    const list = this.el['level-select-list'];
+    list.innerHTML = '';
+    const progress = this.storage.loadProgress();
+    LEVELS.forEach((def, i) => {
+      const unlocked = i < progress.unlockedLevels;
+      const btn = document.createElement('button');
+      btn.className = 'level-select-btn' + (unlocked ? '' : ' locked');
+      btn.textContent = unlocked ? `${i + 1}. ${def.name}` : `${i + 1}. ???`;
+      btn.disabled = !unlocked;
+      if (unlocked) {
+        btn.addEventListener('click', () => {
+          this.audio.resumeContext();
+          this.game.startAtLevel(i);
+        });
+      }
+      list.appendChild(btn);
+    });
   }
 
   renderHighScores() {

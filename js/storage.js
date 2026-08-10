@@ -4,12 +4,18 @@ const KEYS = {
   highscores: STORAGE_PREFIX + 'highscores',
   settings: STORAGE_PREFIX + 'settings',
   customLevel: STORAGE_PREFIX + 'customLevel',
+  progress: STORAGE_PREFIX + 'progress',
 };
 
 const MAX_HIGH_SCORES = 10;
 
 const DEFAULT_SETTINGS = { schemaVersion: SCHEMA_VERSION, muted: false, sfxVolume: 0.8, musicVolume: 0.6 };
 const DEFAULT_HIGH_SCORES = { schemaVersion: SCHEMA_VERSION, entries: [] };
+// unlockedLevels is a count, not an index: 1 means only LEVELS[0] is
+// playable from Start Level, 2 means LEVELS[0..1], etc. -- level 1 is
+// always unlocked, everything else opens up as the level before it is
+// cleared (see GameScene.levelClear's markLevelCleared call).
+const DEFAULT_PROGRESS = { schemaVersion: SCHEMA_VERSION, unlockedLevels: 1 };
 
 // Add an entry here (keyed by the version a payload is migrating FROM) when
 // the schema changes in the future, e.g. migrations[1] = (data) => ({...}).
@@ -77,6 +83,27 @@ export function saveCustomLevel(def) {
 export function loadCustomLevel() {
   const parsed = safeParse(readRaw(KEYS.customLevel));
   return parsed && parsed.def ? parsed.def : null;
+}
+
+export function loadProgress() {
+  const parsed = safeParse(readRaw(KEYS.progress));
+  const migrated = migrate(parsed, DEFAULT_PROGRESS);
+  return { ...DEFAULT_PROGRESS, ...migrated };
+}
+
+// Called once a (non-custom) level is actually cleared -- unlocks the
+// next one, if it isn't already. Safe to call repeatedly / out of order
+// (e.g. replaying an already-cleared level from Start Level): it only
+// ever raises unlockedLevels, never lowers it.
+export function markLevelCleared(levelIndex) {
+  const progress = loadProgress();
+  const unlockedLevels = Math.max(progress.unlockedLevels, levelIndex + 2);
+  writeRaw(KEYS.progress, JSON.stringify({ schemaVersion: SCHEMA_VERSION, unlockedLevels }));
+  return unlockedLevels;
+}
+
+export function isLevelUnlocked(levelIndex) {
+  return levelIndex < loadProgress().unlockedLevels;
 }
 
 export function loadHighScores() {

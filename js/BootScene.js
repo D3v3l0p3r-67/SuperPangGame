@@ -1,5 +1,6 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
+import { WEAPON_TYPES } from './config.js';
 import {
   ballTextureKey, ballTexturePath,
   playerTextureKey, playerTexturePath, PLAYER_ANIM_FRAME_COUNTS,
@@ -8,6 +9,13 @@ import {
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
   audioPath,
+  HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME,
+  HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME,
+  HUD_1P_KEY, HUD_1P_PATH, HUD_TIME_LABEL_KEY, HUD_TIME_LABEL_PATH,
+  HUD_WORLD_LABEL_KEY, HUD_WORLD_LABEL_PATH, HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH,
+  HUD_LIFE_KEY, HUD_LIFE_PATH, HUD_WEAPON_FRAME_KEY, HUD_WEAPON_FRAME_PATH,
+  hudWeaponIconKey, hudWeaponIconPath,
+  INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME,
 } from './assets.js';
 
 // Runs after ElementsScene, which has already populated BALL_ELEMENTS/
@@ -52,6 +60,20 @@ export class BootScene extends Phaser.Scene {
     for (const [name, cfg] of Object.entries(AUDIO_CONFIG)) {
       this.load.audio(name, audioPath(cfg.file));
     }
+
+    this.load.spritesheet(HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME);
+    this.load.spritesheet(HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME);
+    this.load.image(HUD_1P_KEY, HUD_1P_PATH);
+    this.load.image(HUD_TIME_LABEL_KEY, HUD_TIME_LABEL_PATH);
+    this.load.image(HUD_WORLD_LABEL_KEY, HUD_WORLD_LABEL_PATH);
+    this.load.image(HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH);
+    this.load.image(HUD_LIFE_KEY, HUD_LIFE_PATH);
+    this.load.image(HUD_WEAPON_FRAME_KEY, HUD_WEAPON_FRAME_PATH);
+    for (const type of Object.keys(WEAPON_TYPES)) {
+      this.load.image(hudWeaponIconKey(type), hudWeaponIconPath(type));
+    }
+
+    this.load.spritesheet(INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME);
   }
 
   create() {

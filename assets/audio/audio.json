@@ -15,5 +15,6 @@
   "superpang": { "file": "superpang.ogg", "category": "ui", "volume": 0.9, "mode": "once", "overlap": false },
   "weaponhold": { "file": "weaponhold.ogg", "category": "sfx", "volume": 0.75, "mode": "once", "overlap": false },
   "music01": { "file": "music01.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
-  "music02": { "file": "music02.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false }
+  "music02": { "file": "music02.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_hurry": { "file": "music_hurry.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false }
 }

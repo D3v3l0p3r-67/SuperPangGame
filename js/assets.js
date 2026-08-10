@@ -138,3 +138,54 @@ export const AUDIO_CONFIG_KEY = 'audio-config';
 export function audioPath(file) {
   return `${AUDIO_DIR}${file}`;
 }
+
+// HUD: the graphic status bar (see Hud.js) -- fixed labels, two digit
+// spritesheets (one glyph size for the score, a smaller one shared by
+// time/world/hi), the life icon, the weapon socket frame, and one icon
+// per WEAPON_TYPES key. Every piece is plain white/native-color pixel art
+// so Hud.js can setTint() each usage independently -- swapping any file
+// (same name/dimensions) needs no code change.
+export const HUD_DIR = 'assets/hud/';
+
+export const HUD_DIGITS_LARGE_KEY = 'hud-digits-large';
+export const HUD_DIGITS_LARGE_PATH = `${HUD_DIR}digits_large.webp`;
+export const HUD_DIGITS_LARGE_FRAME = { frameWidth: 12, frameHeight: 18 }; // score
+
+export const HUD_DIGITS_SMALL_KEY = 'hud-digits-small';
+export const HUD_DIGITS_SMALL_PATH = `${HUD_DIR}digits_small.webp`;
+export const HUD_DIGITS_SMALL_FRAME = { frameWidth: 8, frameHeight: 12 }; // time / world / hi
+
+export const HUD_1P_KEY = 'hud-1p';
+export const HUD_1P_PATH = `${HUD_DIR}hud_1p.webp`;
+export const HUD_TIME_LABEL_KEY = 'hud-time-label';
+export const HUD_TIME_LABEL_PATH = `${HUD_DIR}hud_time_label.webp`;
+export const HUD_WORLD_LABEL_KEY = 'hud-world-label';
+export const HUD_WORLD_LABEL_PATH = `${HUD_DIR}hud_world_label.webp`;
+export const HUD_HI_LABEL_KEY = 'hud-hi-label';
+export const HUD_HI_LABEL_PATH = `${HUD_DIR}hud_hi_label.webp`;
+
+export const HUD_LIFE_KEY = 'hud-life';
+export const HUD_LIFE_PATH = `${HUD_DIR}hud_life.webp`;
+
+export const HUD_WEAPON_FRAME_KEY = 'hud-weapon-frame';
+export const HUD_WEAPON_FRAME_PATH = `${HUD_DIR}hud_weapon_frame.webp`;
+
+export function hudWeaponIconKey(type) {
+  return `hud-weapon-${type}`;
+}
+
+export function hudWeaponIconPath(type) {
+  return `${HUD_DIR}weapon_${type}.webp`;
+}
+
+// Level-intro screen (see LevelIntro.js): a monospaced spritesheet
+// covering space + A-Z + "!" (28 frames, INTRO_FONT_CHARS gives each
+// character's frame index), used to compose "LEVEL", the level name, and
+// "READY"/"GO!" at runtime -- unlike the HUD's fixed per-word label
+// images, level names are arbitrary per-level text (see levels/*.json),
+// so they need a real (if uppercase-only) font instead of a baked image.
+// The level number itself reuses the HUD's own large digit strip.
+export const INTRO_FONT_KEY = 'intro-font';
+export const INTRO_FONT_PATH = 'assets/intro/font_alpha.webp';
+export const INTRO_FONT_FRAME = { frameWidth: 5, frameHeight: 6 };
+export const INTRO_FONT_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ!';

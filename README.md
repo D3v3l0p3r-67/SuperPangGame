@@ -18,12 +18,22 @@ always takes it from a resting center 4px off the ground up to a peak
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
-that's actually shot, leaving the rest of the shape intact.
+that's actually shot, leaving the rest of the shape intact. A single
+bounce only ever changes the *direction* of one axis of a ball's velocity
+-- a corner hit (a vertical and a horizontal surface both touched in the
+same collision) resolves as a vertical bounce, never both axes reversing
+at once (see GameScene.js's `onWorldBounds`/`onBallHitObstacle`). Arcade
+Physics still zeroes *both* axes' velocity while separating a corner
+collision though, so the non-bouncing horizontal axis is explicitly
+reasserted to its unchanged direction afterwards (`Ball.reassertHorizontal
+()`, tracked via `Ball.hDir`) rather than being left at zero -- without
+that, a ball could get stuck bouncing in place on one spot forever.
 
-All graphics are original pixel art, loaded from `.webp` files under
-`assets/` (see "Swapping graphics" below), and all sound effects and music
-are synthesized at runtime with the Web Audio API. No copied assets of any
-kind — nothing from the original games is reused.
+All graphics and sound are original: pixel art loaded from `.webp` files
+under `assets/` (see "Swapping graphics" / "Swapping HUD graphics" below)
+and `.ogg` sound loaded through a central `AudioManager` (see "Swapping /
+adding sounds"). No copied assets of any kind — nothing from the original
+games is reused.
 
 Built on **Phaser 3** (Arcade Physics), vendored locally in
 `js/vendor/phaser.min.js` so the game still runs with no build step and no
@@ -83,20 +93,38 @@ Touch controls appear automatically on devices with a coarse pointer
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
 - 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
-  life, score multiplier, time freeze, shield.
+  life, score multiplier, time freeze, shield. A dropped power-up falls
+  until it either lands on an obstacle's top surface or reaches the
+  ground -- either way it can be collected by walking into it *or*
+  shooting it with the harpoon.
 - A shield absorbs one hit with no life lost and no interruption; without
   a shield, a hit costs a life and restarts the *current* level from
   scratch (score and remaining lives carry over). Zero lives ends the run.
-- HUD always shows remaining level time, lives, and the current weapon
-  (plus score, level, and active timed effects).
-- Score, lives, and a locally-persisted top-10 high score table
-  (`localStorage`, with a versioned schema for safe future upgrades).
-- Full menu flow: main menu, level intro, pause, game over, victory,
-  high score entry/table, restart.
-- 17 sounds (sfx, ui, and 2 looping music tracks) driven entirely by
+  Running out of time on a timed level (`GameScene.onTimeUp()`) is exactly
+  the same hit -- same shield absorption, same life loss/restart, checked
+  every frame the clock stays expired the same way an overlapping ball
+  would keep re-triggering a hit.
+- A graphic HUD (1-P, life icons, score, weapon socket, time/world/hi-score
+  -- see "Swapping HUD graphics") always shows remaining level time, lives,
+  and the current weapon (plus score, level, top score, and active timed
+  effects in a small DOM overlay).
+- Score, lives, a locally-persisted top-10 high score table, and per-level
+  unlock progress (`localStorage`, with a versioned schema for safe future
+  upgrades) -- see "Start Campaign vs. Start Level" below.
+- Full menu flow: main menu, options (mute/volume/fullscreen, split out
+  onto its own screen), level select, a graphic level-intro screen (see
+  "Swapping intro graphics"), pause, game over, victory, high score
+  entry/table, restart.
+- A graphic level-intro screen -- "LEVEL n", the level's name, then a
+  blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
+  from loaded images (`js/LevelIntro.js`), same as the HUD.
+- 18 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
   `assets/audio/audio.json` through a central `AudioManager` -- see
-  "Swapping / adding sounds". Music never overlaps itself, doesn't
-  duplicate on level restart, and mute/`musicVolume`/`sfxVolume` are
+  "Swapping / adding sounds". Music starts exactly when the balls do
+  (right as "GO!" ends), switches to a more urgent loop with 15s left on
+  the level clock, and stops (for the level-complete/life-lost jingle) the
+  instant either happens -- never overlapping itself, and never
+  duplicating a loop on level restart. Mute/`musicVolume`/`sfxVolume` are
   global settings persisted the same way as high scores.
 
 ## Debug mode
@@ -118,10 +146,13 @@ Useful while tuning levels or ball behavior:
 
 ```
 index.html          Phaser injects its own canvas into #game-container;
-                      DOM overlay for menus/HUD/touch controls sits on top
+                      DOM overlay for menus/powerup timers/touch controls
+                      sits on top -- the always-visible stat bar itself is
+                      drawn in Phaser, see js/Hud.js below
 style.css            All visual styling, responsive/touch layout
 assets/              Every graphic and sound in the game, as real files --
-                      see "Swapping graphics" / "Swapping sounds" below
+                      see "Swapping graphics" / "Swapping sounds" /
+                      "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
   player/            player_<state>_<frame>.webp
   obstacles/         wall.webp, crate.webp
@@ -129,6 +160,11 @@ assets/              Every graphic and sound in the game, as real files --
   projectile.webp, particle.webp
   audio/             audio.json (every sound's config) + one .ogg file per
                       sound named there -- see "Swapping sounds" below
+  hud/               Fixed labels, two digit spritesheets, the life icon,
+                      weapon socket frame, and weapon icon(s) -- see
+                      "Swapping HUD graphics" below
+  intro/             font_alpha.webp, the level-intro screen's A-Z font
+                      spritesheet -- see "Swapping intro graphics" below
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
@@ -195,7 +231,14 @@ js/
                       never a filename/volume/loop flag
   input.js           Thin DOM bridge for the on-screen touch buttons only
                       (keyboard is native Phaser input, see GameScene)
-  ui.js              DOM menus/HUD/screens
+  Hud.js             The graphic status bar (see "Swapping HUD graphics")
+                      -- Phaser Images/digit spritesheets drawn into the
+                      HUD_H strip, entirely from loaded files, no drawn
+                      text
+  LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
+                      graphics") -- "LEVEL n" + the level's name composed
+                      from a loaded A-Z font, then blinking READY/GO!
+  ui.js              DOM menus/screens/powerup-timer chips
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
@@ -303,6 +346,25 @@ elements" above).
 hosting can't list a folder's contents, so a 404 for an unused slot is
 expected. Raise `MAX_LEVEL_FILES` if the level count ever gets close to it.
 
+### Start Campaign vs. Start Level
+
+The main menu has two ways into `LEVELS`: **Start Campaign**
+(`GameScene.startNewGame()`) always begins at level 1; **Start Level**
+opens a level-select screen (built by `ui.js`'s `renderLevelSelect()`)
+listing every level, and jumps straight into whichever one you pick via
+`GameScene.startAtLevel(levelIndex)` -- same fresh score/lives reset as
+Start Campaign, just a different starting index. Both are ordinary
+(non-custom) runs, so either one can unlock further levels.
+
+A level only shows up as pickable once it's unlocked. Progress is tracked
+in `localStorage` (`storage.js`'s `loadProgress()`/`markLevelCleared()`,
+same versioned-schema pattern as high scores/settings) as a single
+`unlockedLevels` count -- level 1 is always unlocked; clearing level `n`
+(`GameScene.levelClear()`, skipped entirely for custom/editor levels)
+raises the count to at least `n + 2`, unlocking level `n + 1`. The
+level-select screen re-reads this every time it opens, so a level you
+just cleared is immediately pickable the next time you back out to it.
+
 ### Swapping graphics
 
 Every graphic is a real image file, not code, specifically so it can be
@@ -372,22 +434,108 @@ Each entry in `audio.json` looks like:
 `AudioManager` guarantees, regardless of what individual sounds do:
 **music** is always a singleton (`playMusic()` stops whatever track was
 playing before starting a new one, and is a no-op if the requested track is
-already playing -- so a level restart with the same music group never
+already playing -- so re-requesting the track that's already playing never
 duplicates the loop or briefly overlaps two tracks); mute
 (`audio.setMuted()`) and the two volume sliders (`audio.setSfxVolume()` /
 `audio.setMusicVolume()`) apply globally and update the currently-playing
 music track live; short sfx/ui sounds overlap or not purely based on their
 own `overlap` flag.
 
-The 17 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
+Background music itself follows a small state machine in `GameScene.js`,
+all built from that same `playMusic()`/`stopMusic()` pair: `loadLevel()`
+only *picks* the level's track (`music01` for the first half of `LEVELS`,
+`music02` for the rest) without starting it, so the level-intro's "READY"/
+"GO!" stays silent; the LEVEL_INTRO -> PLAYING transition (right as "GO!"
+ends) is what actually calls `playMusic()`, so the music starts exactly
+when the balls do. From there, `updatePlaying()` switches to the more
+urgent `music_hurry` loop the moment 15s are left on a timed level's clock
+(a one-time flag reset per `loadLevel()`, same pattern as the older
+`hurryup` one-shot ping at 10s), and both `levelClear()` and a life-losing
+hit in `onPlayerHitBall()` call `stopMusic()` right before playing their
+own jingle (`levelcomplete` / `playerlifeloose`) -- so completing a level
+or losing a life always cuts the music first. Every one of those paths
+funnels back through the same LEVEL_INTRO -> PLAYING start, so a restarted
+or advanced level always begins silent-then-music, never two tracks
+overlapping.
+
+The 18 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
 tones/noise bursts generated offline (see the synthesis style used
 elsewhere in this file) rather than original audio -- drop in real files
 with the same names to replace them, one for one, no other changes needed:
 `weaponshoot`, `weaponshootm` (a boosted/rapid shot), `balldestroy`,
 `walldestroy`, `playerlifeloose`, `playerlifeget`, `itempick`,
 `itemscorerpick` (fruit/bonus-score pickups), `itemshieldget`,
-`itemshieldloose` (shield absorbs a hit), `hurryup` (low time remaining),
-`gameover`, `levelcomplete`, `superpang` (run-start jingle), `weaponhold`
-(picking up a weapon-boosting power-up), and the two looping tracks
-`music01`/`music02` (`GameScene.loadLevel()` splits `LEVELS` into two
-halves, one track per half, so adding levels keeps both tracks in use).
+`itemshieldloose` (shield absorbs a hit), `hurryup` (a short low-time
+ping, independent of the `music_hurry` track switch above), `gameover`,
+`levelcomplete`, `superpang` (run-start jingle), `weaponhold` (picking up
+a weapon-boosting power-up), and the three looping tracks `music01` /
+`music02` (`GameScene.loadLevel()` splits `LEVELS` into two halves, one
+track per half, so adding levels keeps both tracks in use) and
+`music_hurry` (the last 15s of a timed level).
+
+### Swapping HUD graphics
+
+The always-visible stat bar (score, lives, time, current weapon, world/
+level, top score) is drawn entirely from files under `assets/hud/` by
+`js/Hud.js`, inside the dedicated `HUD_H` strip below the playfield --
+nothing there is drawn text. `js/assets.js`'s `HUD_*` constants are the
+single place each file's texture key/path/frame size is defined (used by
+both `BootScene.js`, which loads them, and `Hud.js`, which displays them),
+same convention as every other graphic. To swap a piece, replace its file
+in place, keeping the same filename and pixel dimensions:
+
+- **Digits**: two spritesheets, `assets/hud/digits_large.webp` (used only
+  for the score, 12x18px per frame) and `assets/hud/digits_small.webp`
+  (used for time/world/hi, 8x12px per frame) -- each exactly 10 frames
+  side by side, frame index = the digit it shows (`0`-`9`). Every digit
+  and label image ships as plain white pixel art so `Hud.js` can
+  `setTint()` each usage independently (e.g. the time value turns red in
+  the last 10 seconds) -- swap in colored art instead and the tint just
+  multiplies over it, so keep replacements white/light if you want the
+  same tinting behavior.
+- **Fixed labels**: `assets/hud/hud_1p.webp`, `hud_time_label.webp`,
+  `hud_world_label.webp`, `hud_hi_label.webp` -- one static image each,
+  12px tall to match the small digit strip.
+- **Life icon**: `assets/hud/hud_life.webp` (10x10), drawn once per
+  remaining life (up to `Hud.js`'s `MAX_LIVES_ICONS`, currently 5).
+- **Weapon socket**: `assets/hud/hud_weapon_frame.webp` (22x22, always
+  shown) and one icon per `WEAPON_TYPES` key in `js/config.js` --
+  `assets/hud/weapon_<type>.webp` (14x14, e.g. `weapon_harpoon.webp`) --
+  named via `assets.js`'s `hudWeaponIconKey()`/`hudWeaponIconPath()`, same
+  per-key-file convention as obstacle tiles/power-up icons. Adding a
+  second weapon type later is just dropping in its icon file, once
+  `WEAPON_TYPES` actually has more than one entry to choose from.
+
+All 9 files currently under `assets/hud/` are placeholder pixel art
+(hand-authored bitmap glyphs and simple shapes, generated offline) rather
+than final art -- replace any of them with real graphics at the same
+filename/dimensions, no code change needed either way.
+
+### Swapping intro graphics
+
+The level-intro screen ("LEVEL n", the level's name, then "READY"/"GO!")
+is composed entirely by `js/LevelIntro.js` from
+`assets/intro/font_alpha.webp` plus the HUD's own large digit strip (for
+the level number) -- nothing there is drawn text either. Level names are
+arbitrary per-level text (see `levels/*.json`'s `name` field), unlike
+every other HUD-style label in this game, so instead of one baked image
+per fixed word, this is a real (if uppercase-only) font: a 28-frame
+monospaced spritesheet covering space, `A`-`Z`, and `!`, each frame a
+fixed 5x6px cell (see `assets.js`'s `INTRO_FONT_CHARS` for the exact frame
+order). `LevelIntro.js`'s `buildTextRow()` looks up each character's
+frame and lays the
+images out left to right, so composing new fixed text (or a level name
+with different characters) needs no new art, only characters this font
+already covers -- extend `INTRO_FONT_CHARS`/the generation script's glyph
+table for anything else (accented letters, digits, punctuation, ...).
+Each row is drawn at its own `setScale()` (3 for "LEVEL"/"READY"/"GO!", 2
+for the level name) off the one base spritesheet, rather than baking
+separate image sizes, since Phaser's pixel-art nearest-neighbor scaling
+keeps any integer scale crisp.
+
+To swap the whole font's look, replace `assets/intro/font_alpha.webp`
+(same 140x6 dimensions, same 28 5x6px frames in the same order) with new
+art -- no code change needed. "READY" blinks for `LEVEL_INTRO_READY_SEC`
+(2s) then "GO!" holds solid for `LEVEL_INTRO_GO_SEC` (1s) -- both live in
+`constants.js`, shared with `GameScene.js`'s own countdown timer so the
+two never drift out of sync.

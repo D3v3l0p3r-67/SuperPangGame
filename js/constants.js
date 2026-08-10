@@ -7,7 +7,7 @@
 export const VIRTUAL_W = 384;
 // PLAYFIELD_H is the bordered play area (gameplay + floor strip), same as
 // the old fixed canvas height. HUD_H is a dedicated bar reserved below it
-// for the HUD (see GameScene.drawBackground/style.css #hud), matching the
+// for the HUD (see GameScene.drawBackground + Hud.js), matching the
 // reference layout instead of overlaying the HUD on top of gameplay.
 // VIRTUAL_H is the *total* canvas height passed to Phaser.
 export const PLAYFIELD_H = 224;
@@ -28,6 +28,13 @@ export const OBSTACLE_BLOCK_SIZE = 8;
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;
 
+// Level-intro timing, shared between GameScene (which counts stateTimer
+// down through it) and LevelIntro.js (which reads it back to know
+// whether to show blinking READY or solid GO!).
+export const LEVEL_INTRO_READY_SEC = 2;
+export const LEVEL_INTRO_GO_SEC = 1;
+export const LEVEL_INTRO_SEC = LEVEL_INTRO_READY_SEC + LEVEL_INTRO_GO_SEC;
+
 export const COLORS = {
   bgTop: '#0b0e2a',
   bgBottom: '#1c1042',
@@ -45,6 +52,8 @@ export const COLORS = {
 export const GAME_STATES = Object.freeze({
   BOOT: 'BOOT',
   MENU: 'MENU',
+  OPTIONS: 'OPTIONS',
+  LEVEL_SELECT: 'LEVEL_SELECT',
   EDITOR: 'EDITOR',
   LEVEL_INTRO: 'LEVEL_INTRO',
   PLAYING: 'PLAYING',
