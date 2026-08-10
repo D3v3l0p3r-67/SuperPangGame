@@ -5,11 +5,7 @@
 // MAX_LEVEL_FILES) rather than an index file, so this tab probes the
 // same way instead of reading a manifest.
 import * as assets from '../../js/assets.js';
-import { fetchJSON, statusParagraph, labeled } from './util.js';
-
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
+import { el, fetchJSON, labeled, statusParagraph } from './util.js';
 
 export async function initLevelsTab(panel, fs) {
   panel.innerHTML = '<p>Loading levels…</p>';

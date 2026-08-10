@@ -6,11 +6,7 @@
 // already independent in AUDIO_CONFIG (a file path vs its playback
 // settings).
 import * as assets from '../../js/assets.js';
-import { fetchJSON, rootUrl, labeled, statusParagraph } from './util.js';
-
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
+import { el, fetchJSON, labeled, rootUrl, statusParagraph } from './util.js';
 
 export async function initSoundsTab(panel, fs) {
   panel.innerHTML = '<p>Loading audio.json…</p>';

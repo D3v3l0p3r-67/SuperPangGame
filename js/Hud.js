@@ -2,10 +2,7 @@ import { PLAYFIELD_H, GAME_STATES, COLORS } from './constants.js';
 import { WEAPON_TYPES } from './config.js';
 import * as assets from './assets.js';
 import * as storage from './storage.js';
-
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
-}
+import { hexColor } from './colors.js';
 
 const ACCENT = hexColor(COLORS.accent);
 const DANGER = hexColor(COLORS.danger);

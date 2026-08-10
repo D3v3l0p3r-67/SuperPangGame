@@ -1,9 +1,6 @@
 import { OBSTACLE_TYPES } from './elements.js';
 import { obstacleTextureKey } from './assets.js';
-
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
-}
+import { hexColor } from './colors.js';
 
 // A single rectangular block balls collide with from any side, via a
 // static Arcade body. LevelManager decomposes each level-authored

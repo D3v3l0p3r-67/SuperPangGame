@@ -5,11 +5,7 @@
 // (see levelsTab.js) since both are already meant to be hand-editable
 // files (see the root README's "Adding elements"/"Adding levels").
 import * as assets from '../../js/assets.js';
-import { fetchJSON, statusParagraph, labeled } from './util.js';
-
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
+import { el, fetchJSON, labeled, statusParagraph } from './util.js';
 
 // One starting point per category, matching registerElement()'s expected
 // fields (see ../js/elements.js) -- filled in with the new id and left

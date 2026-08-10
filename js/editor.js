@@ -13,6 +13,41 @@ const BRUSHES = [
   { id: 'erase', label: 'Erase' },
 ];
 
+// The editor panel is plain DOM (same markup/CSS as the debug panel, see
+// style.css's .debug-btn-row) built entirely in buildPanel() below -- these
+// two cover every button and dropdown it needs.
+function makeButton(label, onClick, title) {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  if (title) btn.title = title;
+  btn.onclick = onClick;
+  return btn;
+}
+
+// `entries` is a list of [value, label] pairs, in the order they should
+// appear -- the caller builds that list, including any leading "none"
+// entry (see the powerup dropdown, whose empty value means "no drop").
+function makeSelect(entries, onChange) {
+  const select = document.createElement('select');
+  for (const [value, label] of entries) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    select.appendChild(opt);
+  }
+  select.onchange = onChange;
+  return select;
+}
+
+// A <label> with its text and the control it labels, matching the
+// "Text: <control>" shape every labelled row in the panel uses.
+function labelled(text, control) {
+  const label = document.createElement('label');
+  label.textContent = text;
+  label.appendChild(control);
+  return label;
+}
+
 // Builds the brush list for balls straight from BALL_ELEMENTS, so a new
 // elements/<shape>-ball-<size>.json shows up as a brush automatically --
 // same registry the debug spawn panel uses.
@@ -95,10 +130,7 @@ export class Editor {
     brushRow.className = 'debug-btn-row';
     this.brushButtons = {};
     for (const brush of [...BRUSHES.slice(0, 2), ...ballBrushes(), BRUSHES[2]]) {
-      const btn = document.createElement('button');
-      btn.textContent = brush.label;
-      btn.title = brush.id;
-      btn.onclick = () => this.setBrush(brush.id);
+      const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.id);
       brushRow.appendChild(btn);
       this.brushButtons[brush.id] = btn;
     }
@@ -111,38 +143,25 @@ export class Editor {
     const optionsRow = document.createElement('div');
     optionsRow.className = 'debug-btn-row';
 
-    this.dirXBtn = document.createElement('button');
-    this.dirXBtn.title = 'Ball direction (horizontal)';
-    this.dirXBtn.onclick = () => {
+    // Both direction buttons get their label from updateOptionLabels()
+    // below (it renders the current arrow), not here.
+    this.dirXBtn = makeButton('', () => {
       this.dirX *= -1;
       this.updateOptionLabels();
-    };
+    }, 'Ball direction (horizontal)');
     optionsRow.appendChild(this.dirXBtn);
 
-    this.dirYBtn = document.createElement('button');
-    this.dirYBtn.title = 'Ball direction (vertical) -- hex balls only, round balls always start falling';
-    this.dirYBtn.onclick = () => {
+    this.dirYBtn = makeButton('', () => {
       this.dirY *= -1;
       this.updateOptionLabels();
-    };
+    }, 'Ball direction (vertical) -- hex balls only, round balls always start falling');
     optionsRow.appendChild(this.dirYBtn);
 
-    const powerupLabel = document.createElement('label');
-    powerupLabel.textContent = 'On break/pop: ';
-    this.powerupSelect = document.createElement('select');
-    const noneOpt = document.createElement('option');
-    noneOpt.value = '';
-    noneOpt.textContent = 'No powerup';
-    this.powerupSelect.appendChild(noneOpt);
-    for (const key of POWERUP_TYPE_KEYS) {
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = POWERUP_TYPES[key].label;
-      this.powerupSelect.appendChild(opt);
-    }
-    this.powerupSelect.onchange = () => { this.selectedPowerup = this.powerupSelect.value || null; };
-    powerupLabel.appendChild(this.powerupSelect);
-    optionsRow.appendChild(powerupLabel);
+    this.powerupSelect = makeSelect(
+      [['', 'No powerup'], ...POWERUP_TYPE_KEYS.map((key) => [key, POWERUP_TYPES[key].label])],
+      () => { this.selectedPowerup = this.powerupSelect.value || null; },
+    );
+    optionsRow.appendChild(labelled('On break/pop: ', this.powerupSelect));
 
     this.panelEl.appendChild(optionsRow);
     this.updateOptionLabels();
@@ -157,67 +176,37 @@ export class Editor {
     const levelRow = document.createElement('div');
     levelRow.className = 'debug-btn-row';
 
-    const backgroundLabel = document.createElement('label');
-    backgroundLabel.textContent = 'Background: ';
-    this.backgroundSelect = document.createElement('select');
-    for (const name of backgroundNames()) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      this.backgroundSelect.appendChild(opt);
-    }
-    this.backgroundSelect.onchange = () => this.setBackground(this.backgroundSelect.value);
-    backgroundLabel.appendChild(this.backgroundSelect);
-    levelRow.appendChild(backgroundLabel);
+    this.backgroundSelect = makeSelect(
+      backgroundNames().map((name) => [name, name]),
+      () => this.setBackground(this.backgroundSelect.value),
+    );
+    levelRow.appendChild(labelled('Background: ', this.backgroundSelect));
 
-    const weaponLabel = document.createElement('label');
-    weaponLabel.textContent = 'Weapon: ';
-    this.weaponSelect = document.createElement('select');
-    for (const [key, w] of Object.entries(WEAPON_TYPES)) {
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = w.label;
-      this.weaponSelect.appendChild(opt);
-    }
-    this.weaponSelect.onchange = () => { this.weapon = this.weaponSelect.value; };
-    weaponLabel.appendChild(this.weaponSelect);
-    levelRow.appendChild(weaponLabel);
+    this.weaponSelect = makeSelect(
+      Object.entries(WEAPON_TYPES).map(([key, w]) => [key, w.label]),
+      () => { this.weapon = this.weaponSelect.value; },
+    );
+    levelRow.appendChild(labelled('Weapon: ', this.weaponSelect));
 
     this.panelEl.appendChild(levelRow);
 
     const actionRow = document.createElement('div');
     actionRow.className = 'debug-btn-row';
 
-    const timeLabel = document.createElement('label');
-    timeLabel.textContent = 'Time ';
     this.timeInput = document.createElement('input');
     this.timeInput.type = 'number';
     this.timeInput.min = '10';
     this.timeInput.max = '300';
     this.timeInput.value = '60';
     this.timeInput.style.width = '48px';
-    timeLabel.appendChild(this.timeInput);
-    actionRow.appendChild(timeLabel);
+    actionRow.appendChild(labelled('Time ', this.timeInput));
 
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = 'Clear all';
-    clearBtn.onclick = () => this.clearAll();
-    actionRow.appendChild(clearBtn);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    saveBtn.onclick = () => this.save();
-    actionRow.appendChild(saveBtn);
-
-    const exportBtn = document.createElement('button');
-    exportBtn.textContent = 'Export';
-    exportBtn.onclick = () => this.exportJSON();
-    actionRow.appendChild(exportBtn);
-
-    const importBtn = document.createElement('button');
-    importBtn.textContent = 'Import';
-    importBtn.onclick = () => this.importFileInput.click();
-    actionRow.appendChild(importBtn);
+    actionRow.append(
+      makeButton('Clear all', () => this.clearAll()),
+      makeButton('Save', () => this.save()),
+      makeButton('Export', () => this.exportJSON()),
+      makeButton('Import', () => this.importFileInput.click()),
+    );
 
     this.importFileInput = document.createElement('input');
     this.importFileInput.type = 'file';
@@ -226,15 +215,10 @@ export class Editor {
     this.importFileInput.onchange = (e) => this.importJSON(e);
     actionRow.appendChild(this.importFileInput);
 
-    const playBtn = document.createElement('button');
-    playBtn.textContent = 'Play';
-    playBtn.onclick = () => this.play();
-    actionRow.appendChild(playBtn);
-
-    const backBtn = document.createElement('button');
-    backBtn.textContent = 'Menu';
-    backBtn.onclick = () => this.scene.exitEditor();
-    actionRow.appendChild(backBtn);
+    actionRow.append(
+      makeButton('Play', () => this.play()),
+      makeButton('Menu', () => this.scene.exitEditor()),
+    );
 
     this.panelEl.appendChild(actionRow);
 

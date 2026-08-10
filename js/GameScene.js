@@ -20,12 +20,33 @@ import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
 } from './assets.js';
+import { hexColor } from './colors.js';
 
 const LEVEL_CLEAR_SEC = 1.6;
 const HIT_FREEZE_SEC = 2;
 
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
+// One ball bounce, resolved from whichever set of contact flags the
+// caller has -- the world-bounds event's own arguments, or an obstacle
+// collision's body.touching (see the two call sites below).
+//
+// Exactly one axis changes DIRECTION per bounce: a corner hit (e.g. down
+// AND left both true at once) picks vertical over horizontal rather than
+// flipping both. Arcade still zeroes BOTH axes' velocity while resolving
+// that corner collision though (see Ball.js), so the horizontal axis --
+// even though it isn't supposed to change direction here -- has to be
+// explicitly reasserted, or the ball is left motionless on it.
+function resolveBallBounce(ball, { up, down, left, right }) {
+  if (down) {
+    ball.landOnTop();
+    if (left || right) ball.reassertHorizontal();
+  } else if (up) {
+    ball.bounceOffBottom();
+    if (left || right) ball.reassertHorizontal();
+  } else if (left) {
+    ball.bounceOffLeft();
+  } else if (right) {
+    ball.bounceOffRight();
+  }
 }
 
 // The whole game lives in this one Scene. Phaser owns the loop (update()
@@ -198,52 +219,58 @@ export class GameScene extends Phaser.Scene {
     return parts.join(' ');
   }
 
-  startNewGame() {
-    this.startAtLevel(0);
+  // Empties every entity group, destroying the members rather than just
+  // removing them from the group -- shared by the editor entry/exit
+  // paths here and by LevelManager's own level (re)load.
+  clearEntities() {
+    this.obstacles.clear(true, true);
+    this.balls.clear(true, true);
+    this.projectiles.clear(true, true);
+    this.powerups.clear(true, true);
   }
 
-  // Entry point for the menu's Start Level screen -- identical setup to
-  // startNewGame(), just at an arbitrary (already-unlocked, see
-  // storage.isLevelUnlocked) level index instead of always 0.
-  startAtLevel(levelIndex) {
+  // Shared fresh-run setup behind all three entry points below: what a
+  // new run resets (score, lives, multiplier, effects, ...) is identical
+  // for every one of them, only WHICH level definition gets loaded
+  // differs. `customDef` is the editor's own level object, or null for an
+  // ordinary run through LEVELS -- everything else (currentLevelDef,
+  // advanceLevel, levelClear's unlock bookkeeping) branches on the
+  // isCustomLevel flag it sets here.
+  beginRun(levelIndex, customDef) {
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = levelIndex;
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
     this.justSubmittedEntry = null;
-    this.isCustomLevel = false;
-    this.customLevelDef = null;
+    this.isCustomLevel = customDef !== null;
+    this.customLevelDef = customDef;
     this.effects.reset(this);
     this.audio.play('superpang');
-    this.loadLevel(this.levelIndex);
+    this.loadLevel(customDef ?? levelIndex);
     this.startLevelIntro();
   }
 
-  // Level editor entry point: same setup as startNewGame(), but plays a
-  // single editor-authored level (loadLevel/currentLevelDef/advanceLevel
-  // all branch on isCustomLevel to use it instead of indexing LEVELS).
+  startNewGame() {
+    this.beginRun(0, null);
+  }
+
+  // Entry point for the menu's Start Level screen -- identical setup to
+  // startNewGame(), just at an arbitrary (already-unlocked, see
+  // storage.isLevelUnlocked) level index instead of always 0.
+  startAtLevel(levelIndex) {
+    this.beginRun(levelIndex, null);
+  }
+
+  // Level editor entry point: same setup again, but playing a single
+  // editor-authored level instead of indexing into LEVELS.
   startCustomLevel(def) {
-    this.score = 0;
-    this.lives = PLAYER_CONFIG.startLives;
-    this.levelIndex = 0;
-    this.scoreMultiplier = 1;
-    this.ballsFrozen = false;
-    this.justSubmittedEntry = null;
-    this.isCustomLevel = true;
-    this.customLevelDef = def;
-    this.effects.reset(this);
-    this.audio.play('superpang');
-    this.loadLevel(def);
-    this.startLevelIntro();
+    this.beginRun(0, def);
   }
 
   enterEditor() {
     this.audio.stopMusic();
-    this.obstacles.clear(true, true);
-    this.balls.clear(true, true);
-    this.projectiles.clear(true, true);
-    this.powerups.clear(true, true);
+    this.clearEntities();
     this.state = GAME_STATES.EDITOR;
     this.physics.pause();
     this.editor.enable();
@@ -251,8 +278,7 @@ export class GameScene extends Phaser.Scene {
 
   exitEditor() {
     this.editor.disable();
-    this.obstacles.clear(true, true);
-    this.balls.clear(true, true);
+    this.clearEntities();
     this.goToMenu();
   }
 
@@ -581,46 +607,15 @@ export class GameScene extends Phaser.Scene {
 
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
-    if (go instanceof Ball) {
-      // Exactly one axis changes DIRECTION per bounce -- a corner hit
-      // (e.g. down AND left both true at once) picks vertical over
-      // horizontal rather than flipping both. Arcade still zeroes both
-      // axes' velocity while resolving a corner collision though (see
-      // Ball.js), so the horizontal axis -- even though it isn't
-      // supposed to change direction here -- has to be explicitly
-      // reasserted or the ball is left motionless on it.
-      if (down) {
-        go.landOnTop();
-        if (left || right) go.reassertHorizontal();
-      } else if (up) {
-        go.bounceOffBottom();
-        if (left || right) go.reassertHorizontal();
-      } else if (left) {
-        go.bounceOffLeft();
-      } else if (right) {
-        go.bounceOffRight();
-      }
-    } else if (go instanceof Projectile) {
-      if (up) go.destroy();
-    }
+    if (go instanceof Ball) resolveBallBounce(go, { up, down, left, right });
+    else if (go instanceof Projectile && up) go.destroy();
   }
 
-  onBallHitObstacle(ballGO, obstacleGO) {
-    // Same rule (and same Arcade-zeroes-both-axes caveat) as
-    // onWorldBounds above -- vertical wins on a corner hit (touching.
-    // down/up AND touching.left/right both true at once).
-    const body = ballGO.body;
-    if (body.touching.down) {
-      ballGO.landOnTop();
-      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
-    } else if (body.touching.up) {
-      ballGO.bounceOffBottom();
-      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
-    } else if (body.touching.left) {
-      ballGO.bounceOffLeft();
-    } else if (body.touching.right) {
-      ballGO.bounceOffRight();
-    }
+  // Arcade's body.touching exposes the same up/down/left/right contact
+  // flags the world-bounds event passes as arguments, so both bounce
+  // sites resolve through the one helper above.
+  onBallHitObstacle(ballGO) {
+    resolveBallBounce(ballGO, ballGO.body.touching);
   }
 
   onProjectileHitObstacle(projGO, obstacleGO) {

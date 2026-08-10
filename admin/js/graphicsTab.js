@@ -6,7 +6,7 @@
 // drift out of sync with what the game actually loads.
 import * as assets from '../../js/assets.js';
 import { WEAPON_TYPES } from '../../js/config.js';
-import { fetchJSON, rootUrl, statusParagraph } from './util.js';
+import { el, fetchJSON, rootUrl, statusParagraph } from './util.js';
 
 async function fetchElements() {
   const ids = await fetchJSON(assets.ELEMENTS_INDEX_PATH);
@@ -108,10 +108,6 @@ export async function initGraphicsTab(panel, fs) {
   grid.className = 'graphics-grid';
   panel.appendChild(grid);
   for (const item of list) grid.appendChild(buildGraphicCard(item, fs));
-}
-
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
 }
 
 function buildGraphicCard({ label, path }, fs) {

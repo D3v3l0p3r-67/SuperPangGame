@@ -1,9 +1,6 @@
 import { VIRTUAL_W, GAME_STATES, COLORS, LEVEL_INTRO_GO_SEC } from './constants.js';
 import * as assets from './assets.js';
-
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
-}
+import { hexColor } from './colors.js';
 
 const ACCENT = hexColor(COLORS.accent);
 const CHAR_ADVANCE = assets.INTRO_FONT_FRAME.frameWidth + 1; // 1px gap between glyphs, pre-scale
