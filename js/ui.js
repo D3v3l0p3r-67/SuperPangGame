@@ -3,7 +3,6 @@ import { POWERUP_TYPES } from './elements.js';
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
-  [GAME_STATES.LEVEL_INTRO]: 'screen-level-intro',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
   [GAME_STATES.HIGH_SCORE_ENTRY]: 'screen-high-score-entry',
@@ -11,9 +10,9 @@ const SCREEN_IDS = {
   [GAME_STATES.VICTORY]: 'screen-victory',
 };
 
-// The always-visible stat bar itself is graphic now (see Hud.js, drawn in
-// Phaser inside the HUD_H strip) -- this set is only used here to show/
-// hide the DOM powerup-timer chips, which stay in-play only.
+// The always-visible stat bar and the level-intro screen are graphic now
+// (see Hud.js / LevelIntro.js, drawn in Phaser) -- this set is only used
+// here to show/hide the DOM powerup-timer chips, which stay in-play only.
 const HUD_VISIBLE_STATES = new Set([
   GAME_STATES.PLAYING,
   GAME_STATES.PAUSED,
@@ -24,7 +23,7 @@ const HUD_VISIBLE_STATES = new Set([
 
 const ELEMENT_IDS = [
   'powerup-indicators',
-  'screen-menu', 'screen-level-intro', 'level-intro-title', 'level-intro-name', 'level-intro-countdown',
+  'screen-menu',
   'screen-pause', 'screen-game-over', 'final-score', 'screen-victory', 'victory-score',
   'screen-high-score-entry', 'entry-score', 'entry-name', 'screen-high-scores', 'high-score-list',
   'touch-controls',
@@ -127,10 +126,6 @@ export class UI {
       this.lastState = g.state;
     }
 
-    if (g.state === GAME_STATES.LEVEL_INTRO) {
-      this.el['level-intro-countdown'].textContent = g.introCountdownLabel;
-    }
-
     if (HUD_VISIBLE_STATES.has(g.state)) {
       this.renderPowerupIndicators();
     } else {
@@ -158,10 +153,7 @@ export class UI {
     if (!id) return;
     this.el[id].classList.remove('hidden');
 
-    if (state === GAME_STATES.LEVEL_INTRO) {
-      this.el['level-intro-title'].textContent = `LEVEL ${this.game.levelIndex + 1}`;
-      this.el['level-intro-name'].textContent = this.game.currentLevelDef?.name ?? '';
-    } else if (state === GAME_STATES.GAME_OVER) {
+    if (state === GAME_STATES.GAME_OVER) {
       this.el['final-score'].textContent = `FINAL SCORE: ${this.game.score}`;
     } else if (state === GAME_STATES.VICTORY) {
       this.el['victory-score'].textContent = `SCORE: ${this.game.score}`;

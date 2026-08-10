@@ -1,4 +1,4 @@
-import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
 import { POWERUP_TYPE_KEYS } from './elements.js';
 import { Player } from './Player.js';
@@ -10,16 +10,13 @@ import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
+import { LevelIntro } from './LevelIntro.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import * as storage from './storage.js';
 import { obstacleTextureKey, PARTICLE_TEXTURE_KEY } from './assets.js';
 
-// 1s each for "3", "2", "1", then a shorter "GO!" beat before play starts.
-const LEVEL_INTRO_COUNT_SEC = 3;
-const LEVEL_INTRO_GO_SEC = 0.6;
-const LEVEL_INTRO_SEC = LEVEL_INTRO_COUNT_SEC + LEVEL_INTRO_GO_SEC;
 const LEVEL_CLEAR_SEC = 1.6;
 const HIT_FREEZE_SEC = 2;
 
@@ -117,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
     this.hud = new Hud(this);
+    this.levelIntro = new LevelIntro(this);
     this.debug = new Debug(this);
     this.editor = new Editor(this);
   }
@@ -170,14 +168,6 @@ export class GameScene extends Phaser.Scene {
     const def = this.currentLevelDef;
     if (!def || !def.timeLimitSec) return 0;
     return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
-  }
-
-  // "3", "2", "1" for one second each, then "GO!" for the final beat --
-  // stateTimer counts down from LEVEL_INTRO_SEC to 0 during LEVEL_INTRO.
-  get introCountdownLabel() {
-    if (this.state !== GAME_STATES.LEVEL_INTRO) return '';
-    const countTime = this.stateTimer - LEVEL_INTRO_GO_SEC;
-    return countTime > 0 ? String(Math.ceil(countTime)) : 'GO!';
   }
 
   get weaponLabel() {
@@ -262,12 +252,12 @@ export class GameScene extends Phaser.Scene {
     this.effects.reset(this);
     this.levelTimer = 0;
     this.hurryUpPlayed = false;
+    this.hurryMusicPlayed = false;
     // Editor/custom levels and the first half of LEVELS play music01, the
-    // rest play music02 -- playMusic() itself is a no-op if that track is
-    // already the one playing (e.g. two music01 levels back to back, or
-    // restarting the current level), so loops never duplicate or overlap.
-    const musicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
-    this.audio.playMusic(musicName);
+    // rest play music02 -- stored, not started yet: music only actually
+    // starts once the balls do (LEVEL_INTRO -> PLAYING, see update()),
+    // never during the frozen "READY"/"GO!" countdown.
+    this.pendingMusicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
     return def;
   }
 
@@ -294,6 +284,7 @@ export class GameScene extends Phaser.Scene {
       const remaining = Math.max(0, def.timeLimitSec - this.levelTimer);
       this.score += Math.round(remaining * 10);
     }
+    this.audio.stopMusic();
     this.audio.play('levelcomplete');
     this.state = GAME_STATES.LEVEL_CLEAR;
     this.stateTimer = LEVEL_CLEAR_SEC;
@@ -362,6 +353,9 @@ export class GameScene extends Phaser.Scene {
         if (this.stateTimer <= 0) {
           this.physics.resume();
           this.state = GAME_STATES.PLAYING;
+          // Music starts exactly when the balls do, never during the
+          // frozen countdown -- see loadLevel()'s pendingMusicName.
+          this.audio.playMusic(this.pendingMusicName);
         }
         break;
       case GAME_STATES.PLAYING:
@@ -386,6 +380,7 @@ export class GameScene extends Phaser.Scene {
     this.editor.render();
     this.ui.render();
     this.hud.render();
+    this.levelIntro.render();
   }
 
   readInput() {
@@ -400,6 +395,14 @@ export class GameScene extends Phaser.Scene {
     this.elapsedMs += dt * 1000;
     this.levelTimer += dt;
     this.effects.update(this, this.elapsedMs);
+
+    // 15s left: switch the background music itself to the more urgent
+    // loop (independent of the short one-shot ping below, at its own
+    // later/shorter threshold).
+    if (!this.hurryMusicPlayed && this.currentLevelDef?.timeLimitSec && this.remainingLevelTime > 0 && this.remainingLevelTime <= 15) {
+      this.audio.playMusic('music_hurry');
+      this.hurryMusicPlayed = true;
+    }
 
     if (!this.hurryUpPlayed && this.currentLevelDef?.timeLimitSec && this.remainingLevelTime > 0 && this.remainingLevelTime <= 10) {
       this.audio.play('hurryup');
@@ -498,28 +501,27 @@ export class GameScene extends Phaser.Scene {
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
     if (go instanceof Ball) {
+      // Exactly one axis changes per bounce -- a corner hit (e.g. down AND
+      // left both true at once) picks vertical over horizontal rather than
+      // flipping both, so the ball's direction only ever changes in one
+      // dimension at a time.
       if (down) go.landOnTop();
-      if (up) go.bounceOffBottom();
-      if (left) go.bounceOffLeft();
-      if (right) go.bounceOffRight();
+      else if (up) go.bounceOffBottom();
+      else if (left) go.bounceOffLeft();
+      else if (right) go.bounceOffRight();
     } else if (go instanceof Projectile) {
       if (up) go.destroy();
     }
   }
 
   onBallHitObstacle(ballGO, obstacleGO) {
-    // Vertical and horizontal contact are independent, not else-if-chained
-    // together: a corner hit can have both touching.down (or up) AND
-    // touching.left (or right) true at once. Chaining all four as one
-    // else-if only fired the vertical bounce and silently skipped the
-    // horizontal one -- since Arcade Physics (bounce 0, see Ball.js)
-    // already zeroed vx as part of resolving that same collision, the
-    // ball was left drifting with zero horizontal speed, bouncing
-    // straight up and down like it was stuck on a rail.
+    // Exactly one axis changes per bounce, same rule as onWorldBounds --
+    // vertical wins on a corner hit (touching.down/up AND touching.left/
+    // right both true at once), never both in the same collision.
     const body = ballGO.body;
     if (body.touching.down) ballGO.landOnTop();
     else if (body.touching.up) ballGO.bounceOffBottom();
-    if (body.touching.left) ballGO.bounceOffLeft();
+    else if (body.touching.left) ballGO.bounceOffLeft();
     else if (body.touching.right) ballGO.bounceOffRight();
   }
 
@@ -558,6 +560,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (lostLife) {
+      this.audio.stopMusic();
       this.audio.play('playerlifeloose');
       this.lives -= 1;
       this.player.playDeadAnim();

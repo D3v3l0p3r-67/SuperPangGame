@@ -18,12 +18,17 @@ always takes it from a resting center 4px off the ground up to a peak
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
-that's actually shot, leaving the rest of the shape intact.
+that's actually shot, leaving the rest of the shape intact. A single
+bounce only ever changes one axis of a ball's velocity -- a corner hit (a
+vertical and a horizontal surface both touched in the same collision)
+resolves as a vertical bounce, never both axes at once (see GameScene.js's
+`onWorldBounds`/`onBallHitObstacle`).
 
-All graphics are original pixel art, loaded from `.webp` files under
-`assets/` (see "Swapping graphics" below), and all sound effects and music
-are synthesized at runtime with the Web Audio API. No copied assets of any
-kind — nothing from the original games is reused.
+All graphics and sound are original: pixel art loaded from `.webp` files
+under `assets/` (see "Swapping graphics" / "Swapping HUD graphics" below)
+and `.ogg` sound loaded through a central `AudioManager` (see "Swapping /
+adding sounds"). No copied assets of any kind — nothing from the original
+games is reused.
 
 Built on **Phaser 3** (Arcade Physics), vendored locally in
 `js/vendor/phaser.min.js` so the game still runs with no build step and no
@@ -93,12 +98,19 @@ Touch controls appear automatically on devices with a coarse pointer
   effects in a small DOM overlay).
 - Score, lives, and a locally-persisted top-10 high score table
   (`localStorage`, with a versioned schema for safe future upgrades).
-- Full menu flow: main menu, level intro, pause, game over, victory,
-  high score entry/table, restart.
-- 17 sounds (sfx, ui, and 2 looping music tracks) driven entirely by
+- Full menu flow: main menu, a graphic level-intro screen (see
+  "Swapping intro graphics"), pause, game over, victory, high score
+  entry/table, restart.
+- A graphic level-intro screen -- "LEVEL n", the level's name, then a
+  blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
+  from loaded images (`js/LevelIntro.js`), same as the HUD.
+- 18 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
   `assets/audio/audio.json` through a central `AudioManager` -- see
-  "Swapping / adding sounds". Music never overlaps itself, doesn't
-  duplicate on level restart, and mute/`musicVolume`/`sfxVolume` are
+  "Swapping / adding sounds". Music starts exactly when the balls do
+  (right as "GO!" ends), switches to a more urgent loop with 15s left on
+  the level clock, and stops (for the level-complete/life-lost jingle) the
+  instant either happens -- never overlapping itself, and never
+  duplicating a loop on level restart. Mute/`musicVolume`/`sfxVolume` are
   global settings persisted the same way as high scores.
 
 ## Debug mode
@@ -137,6 +149,8 @@ assets/              Every graphic and sound in the game, as real files --
   hud/               Fixed labels, two digit spritesheets, the life icon,
                       weapon socket frame, and weapon icon(s) -- see
                       "Swapping HUD graphics" below
+  intro/             font_alpha.webp, the level-intro screen's A-Z font
+                      spritesheet -- see "Swapping intro graphics" below
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
@@ -207,6 +221,9 @@ js/
                       -- Phaser Images/digit spritesheets drawn into the
                       HUD_H strip, entirely from loaded files, no drawn
                       text
+  LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
+                      graphics") -- "LEVEL n" + the level's name composed
+                      from a loaded A-Z font, then blinking READY/GO!
   ui.js              DOM menus/screens/powerup-timer chips
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
@@ -384,25 +401,44 @@ Each entry in `audio.json` looks like:
 `AudioManager` guarantees, regardless of what individual sounds do:
 **music** is always a singleton (`playMusic()` stops whatever track was
 playing before starting a new one, and is a no-op if the requested track is
-already playing -- so a level restart with the same music group never
+already playing -- so re-requesting the track that's already playing never
 duplicates the loop or briefly overlaps two tracks); mute
 (`audio.setMuted()`) and the two volume sliders (`audio.setSfxVolume()` /
 `audio.setMusicVolume()`) apply globally and update the currently-playing
 music track live; short sfx/ui sounds overlap or not purely based on their
 own `overlap` flag.
 
-The 17 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
+Background music itself follows a small state machine in `GameScene.js`,
+all built from that same `playMusic()`/`stopMusic()` pair: `loadLevel()`
+only *picks* the level's track (`music01` for the first half of `LEVELS`,
+`music02` for the rest) without starting it, so the level-intro's "READY"/
+"GO!" stays silent; the LEVEL_INTRO -> PLAYING transition (right as "GO!"
+ends) is what actually calls `playMusic()`, so the music starts exactly
+when the balls do. From there, `updatePlaying()` switches to the more
+urgent `music_hurry` loop the moment 15s are left on a timed level's clock
+(a one-time flag reset per `loadLevel()`, same pattern as the older
+`hurryup` one-shot ping at 10s), and both `levelClear()` and a life-losing
+hit in `onPlayerHitBall()` call `stopMusic()` right before playing their
+own jingle (`levelcomplete` / `playerlifeloose`) -- so completing a level
+or losing a life always cuts the music first. Every one of those paths
+funnels back through the same LEVEL_INTRO -> PLAYING start, so a restarted
+or advanced level always begins silent-then-music, never two tracks
+overlapping.
+
+The 18 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
 tones/noise bursts generated offline (see the synthesis style used
 elsewhere in this file) rather than original audio -- drop in real files
 with the same names to replace them, one for one, no other changes needed:
 `weaponshoot`, `weaponshootm` (a boosted/rapid shot), `balldestroy`,
 `walldestroy`, `playerlifeloose`, `playerlifeget`, `itempick`,
 `itemscorerpick` (fruit/bonus-score pickups), `itemshieldget`,
-`itemshieldloose` (shield absorbs a hit), `hurryup` (low time remaining),
-`gameover`, `levelcomplete`, `superpang` (run-start jingle), `weaponhold`
-(picking up a weapon-boosting power-up), and the two looping tracks
-`music01`/`music02` (`GameScene.loadLevel()` splits `LEVELS` into two
-halves, one track per half, so adding levels keeps both tracks in use).
+`itemshieldloose` (shield absorbs a hit), `hurryup` (a short low-time
+ping, independent of the `music_hurry` track switch above), `gameover`,
+`levelcomplete`, `superpang` (run-start jingle), `weaponhold` (picking up
+a weapon-boosting power-up), and the three looping tracks `music01` /
+`music02` (`GameScene.loadLevel()` splits `LEVELS` into two halves, one
+track per half, so adding levels keeps both tracks in use) and
+`music_hurry` (the last 15s of a timed level).
 
 ### Swapping HUD graphics
 
@@ -441,3 +477,32 @@ All 9 files currently under `assets/hud/` are placeholder pixel art
 (hand-authored bitmap glyphs and simple shapes, generated offline) rather
 than final art -- replace any of them with real graphics at the same
 filename/dimensions, no code change needed either way.
+
+### Swapping intro graphics
+
+The level-intro screen ("LEVEL n", the level's name, then "READY"/"GO!")
+is composed entirely by `js/LevelIntro.js` from
+`assets/intro/font_alpha.webp` plus the HUD's own large digit strip (for
+the level number) -- nothing there is drawn text either. Level names are
+arbitrary per-level text (see `levels/*.json`'s `name` field), unlike
+every other HUD-style label in this game, so instead of one baked image
+per fixed word, this is a real (if uppercase-only) font: a 28-frame
+monospaced spritesheet covering space, `A`-`Z`, and `!`, each frame a
+fixed 5x6px cell (see `assets.js`'s `INTRO_FONT_CHARS` for the exact frame
+order). `LevelIntro.js`'s `buildTextRow()` looks up each character's
+frame and lays the
+images out left to right, so composing new fixed text (or a level name
+with different characters) needs no new art, only characters this font
+already covers -- extend `INTRO_FONT_CHARS`/the generation script's glyph
+table for anything else (accented letters, digits, punctuation, ...).
+Each row is drawn at its own `setScale()` (3 for "LEVEL"/"READY"/"GO!", 2
+for the level name) off the one base spritesheet, rather than baking
+separate image sizes, since Phaser's pixel-art nearest-neighbor scaling
+keeps any integer scale crisp.
+
+To swap the whole font's look, replace `assets/intro/font_alpha.webp`
+(same 140x6 dimensions, same 28 5x6px frames in the same order) with new
+art -- no code change needed. "READY" blinks for `LEVEL_INTRO_READY_SEC`
+(2s) then "GO!" holds solid for `LEVEL_INTRO_GO_SEC` (1s) -- both live in
+`constants.js`, shared with `GameScene.js`'s own countdown timer so the
+two never drift out of sync.

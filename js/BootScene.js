@@ -15,6 +15,7 @@ import {
   HUD_WORLD_LABEL_KEY, HUD_WORLD_LABEL_PATH, HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH,
   HUD_LIFE_KEY, HUD_LIFE_PATH, HUD_WEAPON_FRAME_KEY, HUD_WEAPON_FRAME_PATH,
   hudWeaponIconKey, hudWeaponIconPath,
+  INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME,
 } from './assets.js';
 
 // Runs after ElementsScene, which has already populated BALL_ELEMENTS/
@@ -71,6 +72,8 @@ export class BootScene extends Phaser.Scene {
     for (const type of Object.keys(WEAPON_TYPES)) {
       this.load.image(hudWeaponIconKey(type), hudWeaponIconPath(type));
     }
+
+    this.load.spritesheet(INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME);
   }
 
   create() {

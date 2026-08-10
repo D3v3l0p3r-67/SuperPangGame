@@ -177,3 +177,15 @@ export function hudWeaponIconKey(type) {
 export function hudWeaponIconPath(type) {
   return `${HUD_DIR}weapon_${type}.webp`;
 }
+
+// Level-intro screen (see LevelIntro.js): a monospaced spritesheet
+// covering space + A-Z + "!" (28 frames, INTRO_FONT_CHARS gives each
+// character's frame index), used to compose "LEVEL", the level name, and
+// "READY"/"GO!" at runtime -- unlike the HUD's fixed per-word label
+// images, level names are arbitrary per-level text (see levels/*.json),
+// so they need a real (if uppercase-only) font instead of a baked image.
+// The level number itself reuses the HUD's own large digit strip.
+export const INTRO_FONT_KEY = 'intro-font';
+export const INTRO_FONT_PATH = 'assets/intro/font_alpha.webp';
+export const INTRO_FONT_FRAME = { frameWidth: 5, frameHeight: 6 };
+export const INTRO_FONT_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ!';
