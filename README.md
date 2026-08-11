@@ -15,7 +15,7 @@ bounce identically no matter how they got there -- a landing always resets
 vertical speed to that size's standard bounce velocity rather than
 reflecting whatever speed it fell in at (size 1's bounce, for example,
 always takes it from a resting center 8px off the ground up to a peak
-96px higher). Levels can also contain obstacles built from 16x16 blocks
+334px higher). Levels can also contain obstacles built from 16x16 blocks
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
@@ -323,7 +323,7 @@ resolved (no shared/derived values):
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
   "label": "Round 1", "hasGravity": true, "gravityAccel": 520,
-  "radius": 8, "speed": 80, "bounceVelocity": 442, "points": 200,
+  "radius": 8, "speed": 80, "bounceVelocity": 589, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -396,8 +396,8 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "timeLimitSec": 80,
   "background": "default",
   "weapon": "harpoon",
-  "obstacles": [{ "type": "crate", "x": 176, "y": 152, "w": 8, "h": 8, "powerup": "shield" }],
-  "balls": [{ "shape": "hex", "size": 2, "x": 192, "y": 60, "vx": 45, "vy": -45, "powerup": "extra_life" }]
+  "obstacles": [{ "type": "crate", "x": 368, "y": 288, "w": 16, "h": 16, "powerup": "shield" }],
+  "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
 `powerup` on an obstacle or ball is optional -- when set, that exact
