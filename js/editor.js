@@ -294,6 +294,16 @@ export class Editor {
     this.cursorGraphics.clear();
   }
 
+  // Re-shows the editor's panel after the pause menu hid it with disable()
+  // (see GameScene.pauseFromEditor/returnToEditor). Deliberately NOT
+  // enable(): that reloads the last SAVED level from storage, which would
+  // throw away every edit made since -- whereas disable() only ever hides
+  // UI, so the scene still holds the exact in-progress layout and simply
+  // showing the panel again resumes editing it untouched.
+  reshowPanel() {
+    if (this.panelEl) this.panelEl.classList.remove('hidden');
+  }
+
   // Also the entry point for imported JSON files (see importJSON), which
   // may be hand-edited or from an older/foreign export -- so every field
   // is validated rather than trusted, and invalid entries are skipped

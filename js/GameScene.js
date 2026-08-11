@@ -87,6 +87,7 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = false;
     this.customLevelDef = null;
     this.isPanicMode = false;
+    this.pausedFromEditor = false;
     this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
@@ -300,9 +301,43 @@ export class GameScene extends Phaser.Scene {
   enterEditor() {
     this.audio.stopMusic();
     this.clearEntities();
+    // Editing isn't a run of anything -- clear both run-mode flags so a
+    // playtest that came before (which set isCustomLevel, see beginRun)
+    // can't leave the pause menu offering run-only actions like RESTART
+    // LEVEL while what's actually on screen is the editor.
+    this.isCustomLevel = false;
+    this.isPanicMode = false;
+    this.pausedFromEditor = false;
     this.state = GAME_STATES.EDITOR;
     this.physics.pause();
     this.editor.enable();
+  }
+
+  // Escape while editing opens the same pause menu gameplay uses (it did
+  // nothing at all before), with a LEVEL EDITOR entry back to editing --
+  // see ui.js's setScreen. The editor's panel is hidden while the menu is
+  // up so the two aren't stacked on screen at once; disable() only hides
+  // UI, so the level being edited stays in the scene untouched, unsaved
+  // edits included (see Editor.reshowPanel).
+  pauseFromEditor() {
+    this.editor.disable();
+    this.pausedFromEditor = true;
+    this.pause();
+  }
+
+  // Back to editing from the pause menu, by either route: resuming an
+  // editor session Escape interrupted (the level is still in the scene, so
+  // just show the panel again), or leaving a playtest of an editor level
+  // (which replaced the scene's contents, so the editor has to reload the
+  // level it saved to storage on Play -- what enterEditor does).
+  returnToEditor() {
+    if (this.pausedFromEditor) {
+      this.pausedFromEditor = false;
+      this.editor.reshowPanel();
+      this.state = GAME_STATES.EDITOR;
+      return; // physics stays paused, exactly as enterEditor leaves it
+    }
+    this.enterEditor();
   }
 
   exitEditor() {
@@ -414,6 +449,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   goToMenu() {
+    // Quitting straight from an Escape-in-the-editor pause has to finish
+    // that exit properly -- pauseFromEditor only hid the panel, so the
+    // level being edited is still sitting in the scene and would otherwise
+    // stay visible behind the main menu.
+    if (this.pausedFromEditor) {
+      this.pausedFromEditor = false;
+      this.clearEntities();
+    }
     this.audio.stopMusic();
     this.state = GAME_STATES.MENU;
   }
@@ -444,6 +487,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   resumeFromPause() {
+    // Resuming a pause that came from the editor means going back to
+    // editing, not starting to play whatever level was loaded before.
+    if (this.pausedFromEditor) {
+      this.returnToEditor();
+      return;
+    }
     this.physics.resume();
     this.audio.resumeMusic();
     this.state = GAME_STATES.PLAYING;
@@ -459,7 +508,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePauseKey() {
-    if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) this.togglePause();
+    if (this.state === GAME_STATES.EDITOR) this.pauseFromEditor();
+    else if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) this.togglePause();
   }
 
   update(time, delta) {

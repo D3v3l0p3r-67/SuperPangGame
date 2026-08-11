@@ -31,7 +31,7 @@ const ELEMENT_IDS = [
   'touch-controls',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
-  'btn-resume', 'btn-pause-restart', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
+  'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
 
@@ -69,6 +69,7 @@ const STATIC_LABELS = [
   ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
   ['btn-pause-restart', 'RESTART LEVEL', 'button', COLORS.text],
+  ['btn-pause-editor', 'LEVEL EDITOR', 'button', COLORS.text],
   ['btn-quit', 'QUIT TO MENU', 'button', COLORS.text],
   ['btn-restart', 'PLAY AGAIN', 'button', COLORS.text],
   ['btn-menu', 'MAIN MENU', 'button', COLORS.text],
@@ -168,6 +169,7 @@ export class UI {
 
     this.el['btn-resume'].addEventListener('click', () => this.game.resume());
     this.el['btn-pause-restart'].addEventListener('click', () => this.game.restartLevel());
+    this.el['btn-pause-editor'].addEventListener('click', () => this.game.returnToEditor());
     this.el['btn-quit'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-menu'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-victory-menu'].addEventListener('click', () => this.game.goToMenu());
@@ -285,6 +287,12 @@ export class UI {
       // the difficulty ramp over without spending a life) -- not a general
       // "restart" offered mid-campaign.
       this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.isPanicMode);
+      // Back to editing -- offered whenever this pause came from the
+      // editor at all: either Escape pressed while actually editing (
+      // pausedFromEditor) or Escape during a playtest of an editor level
+      // (isCustomLevel), which is exactly when "return to the editor" is
+      // a place you can meaningfully go back to.
+      this.el['btn-pause-editor'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.pausedFromEditor);
     } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {
