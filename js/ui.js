@@ -2,6 +2,7 @@ import { GAME_STATES, COLORS } from './constants.js';
 import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom } from './DisplayZoom.js';
+import { isMobileDevice } from './input.js';
 
 // zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
 // bindEvents/updateZoomButtons below).
@@ -259,10 +260,52 @@ export class UI {
     this.game.submitHighScore(raw || 'AAA');
   }
 
+  // Phones only (see input.js's isMobileDevice) -- this used to key off
+  // `(pointer: coarse)`, which also matches touchscreen laptops and
+  // desktops with a touch monitor, where a keyboard is right there and
+  // the overlay is just clutter sitting on top of the playfield.
   showTouchControlsIfNeeded() {
-    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
-      this.el['touch-controls'].classList.remove('hidden');
-    }
+    if (isMobileDevice()) this.el['touch-controls'].classList.remove('hidden');
+  }
+
+  // On a phone the browser's own chrome eats a lot of an already small
+  // screen, so landscape (the orientation this game is actually shaped
+  // for -- the playfield is 800x500) goes fullscreen by default.
+  //
+  // It can't simply be requested on load: the Fullscreen API only honours
+  // a request made during a user gesture, so this arms one-shot gesture
+  // listeners instead and fires on whatever the player touches first. The
+  // same arming re-runs on every rotation into landscape, so turning the
+  // phone sideways mid-session still gets there on the next touch, and
+  // any rejected request is swallowed rather than surfacing as an
+  // unhandled promise (a request can still be refused, e.g. if the
+  // gesture doesn't qualify).
+  setupMobileFullscreen() {
+    if (!isMobileDevice()) return;
+
+    const isLandscape = () => (window.matchMedia
+      ? window.matchMedia('(orientation: landscape)').matches
+      : window.innerWidth > window.innerHeight);
+
+    const request = () => {
+      if (!isLandscape() || document.fullscreenElement) return;
+      const container = document.getElementById('game-container');
+      const requestFs = container.requestFullscreen || container.webkitRequestFullscreen || container.msRequestFullscreen;
+      try {
+        Promise.resolve(requestFs?.call(container)).catch(() => {});
+      } catch {
+        /* refused -- the manual Fullscreen button in Options/pause still works */
+      }
+    };
+
+    const armOnce = () => {
+      document.addEventListener('pointerdown', request, { once: true, capture: true });
+      document.addEventListener('keydown', request, { once: true, capture: true });
+    };
+
+    armOnce();
+    window.addEventListener('orientationchange', armOnce);
+    window.matchMedia?.('(orientation: landscape)').addEventListener?.('change', armOnce);
   }
 
   render() {

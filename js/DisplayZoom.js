@@ -33,3 +33,19 @@ export function setZoom(zoom) {
   storage.saveSettings({ zoom });
   applyZoom(zoom);
 }
+
+// The fixed zoom levels above assume a window with room for at least 1x
+// (VIRTUAL_W x VIRTUAL_H = 800x500). A phone in landscape is typically
+// shorter than 500 CSS px, so 1x overflows the screen -- and since the
+// touch controls are positioned against the canvas (see style.css), they
+// go off the screen with it, putting the pause button out of reach
+// entirely. Picks the largest level that actually fits the viewport,
+// falling back to the smallest when even that doesn't.
+//
+// Deliberately not persisted (unlike setZoom): this is a fit-to-screen
+// answer for the device currently in hand, not a preference, so it must
+// never overwrite a zoom the player picked in Options on desktop.
+export function fittedZoom() {
+  const fits = ZOOM_LEVELS.filter((z) => VIRTUAL_W * z <= window.innerWidth && VIRTUAL_H * z <= window.innerHeight);
+  return fits.length ? Math.max(...fits) : Math.min(...ZOOM_LEVELS);
+}

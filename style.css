@@ -299,30 +299,22 @@ body {
   border-bottom: 1px dashed var(--panel-border);
 }
 
-/* Touch controls -- anchored just above the HUD bar (the HUD_H strip
-   Hud.js draws into, see constants.js) rather than the bottom of the
-   whole canvas, since that bottom strip is now the HUD. The percentage
-   is HUD_H / VIRTUAL_H (80 / 500) -- update it to match if either ever
-   changes. */
+/* Touch controls (phones only -- see ui.js's showTouchControlsIfNeeded).
+   Three fixed anchors rather than one flex row: the movement joystick
+   bottom-left, the shoot button bottom-right (both sitting just above
+   the HUD_H strip Hud.js draws into, hence the 16% = HUD_H / VIRTUAL_H
+   offset -- update it to match if either constant ever changes), and
+   pause tucked into the top-right corner, well away from both thumbs so
+   it can't be hit mid-game by accident. */
 #touch-controls {
   position: absolute;
-  bottom: calc(16% + 1.5cqmin);
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 0 2cqmin;
-  pointer-events: none;
-}
-
-.touch-group {
-  display: flex;
-  gap: 2.5cqmin;
+  inset: 0;
   pointer-events: none;
 }
 
 .touch-btn {
   pointer-events: auto;
+  position: absolute;
   width: clamp(44px, 13cqmin, 72px);
   height: clamp(44px, 13cqmin, 72px);
   border-radius: 50%;
@@ -338,17 +330,55 @@ body {
 
 .touch-btn-primary {
   background: rgba(233, 69, 96, 0.75);
+  right: 3cqmin;
+  bottom: calc(16% + 1.5cqmin);
 }
 
 .touch-btn-small {
   width: clamp(32px, 8cqmin, 48px);
   height: clamp(32px, 8cqmin, 48px);
   font-size: clamp(11px, 2.6cqmin, 16px);
-  align-self: flex-end;
+  top: 2cqmin;
+  right: 2cqmin;
 }
 
 .touch-btn:active {
   transform: scale(0.92);
+}
+
+/* Movement joystick: a fixed base ring with a knob that follows the
+   thumb (see input.js's joystick handling, which is what actually turns
+   horizontal deflection into the same left/right flags the arrow keys
+   set). Only the horizontal axis is read -- the player can't move
+   vertically -- but the knob tracks both so it still feels like a stick
+   rather than fighting the thumb. */
+#touch-joystick {
+  pointer-events: auto;
+  position: absolute;
+  left: 3cqmin;
+  bottom: calc(16% + 1.5cqmin);
+  width: clamp(84px, 24cqmin, 132px);
+  height: clamp(84px, 24cqmin, 132px);
+  border-radius: 50%;
+  background: rgba(28, 16, 66, 0.55);
+  border: 2px solid var(--panel-border);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+#touch-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 42%;
+  margin-left: -21%;
+  margin-top: -21%;
+  border-radius: 50%;
+  background: rgba(244, 241, 222, 0.55);
+  border: 2px solid var(--panel-border);
+  /* Centred by default; input.js translates it as the thumb moves. */
+  transform: translate(0, 0);
 }
 
 /* Debug panel (left) and level editor panel (right) -- siblings in

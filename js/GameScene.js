@@ -158,6 +158,7 @@ export class GameScene extends Phaser.Scene {
 
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
+    this.ui.setupMobileFullscreen();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
     this.debug = new Debug(this);
@@ -632,6 +633,15 @@ export class GameScene extends Phaser.Scene {
     }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
 
+    // Laser beams grow upward from the muzzle they were fired at until
+    // something stops them -- a ball/obstacle overlap (handled by the
+    // collision callbacks) or the ceiling, which updateBeam reports by
+    // returning false. Iterated over a copy since destroy() mutates the
+    // group's own child list mid-loop.
+    for (const proj of [...this.projectiles.getChildren()]) {
+      if (!proj.updateBeam(dt)) proj.destroy();
+    }
+
     for (let i = this.scorePopups.length - 1; i >= 0; i--) {
       const popup = this.scorePopups[i];
       popup.update(dt);
@@ -829,10 +839,12 @@ export class GameScene extends Phaser.Scene {
 
   // -- Collision handlers -------------------------------------------------
 
+  // Only balls reach here now: the laser beam doesn't move (it grows in
+  // place, see Projectile.js), so it never collides with the world bounds
+  // -- reaching the ceiling is length-capped in updateBeam instead.
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
     if (go instanceof Ball) resolveBallBounce(go, { up, down, left, right });
-    else if (go instanceof Projectile && up) go.destroy();
   }
 
   // Arcade's body.touching exposes the same up/down/left/right contact
