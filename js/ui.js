@@ -98,6 +98,18 @@ export class UI {
     this.el = {};
     for (const id of ELEMENT_IDS) this.el[id] = document.getElementById(id);
 
+    // Browsers only let a genuine user-activation gesture (click/tap/
+    // keydown) unlock WebAudio -- a hover is never sufficient, no matter
+    // how bindMenuSfx() below calls resumeContext() on mouseover, so
+    // nothing plays on hover until *some* qualifying gesture has happened
+    // anywhere on the page, however unrelated to an actual menu button.
+    // Listened for once, as early and broadly as possible (document-wide,
+    // capture phase -- not scoped to #ui-layer or to buttons at all), so
+    // audio unlocks the instant the very first click/tap/key happens
+    // rather than only once the user happens to click a specific button.
+    document.addEventListener('pointerdown', () => this.audio.resumeContext(), { once: true, capture: true });
+    document.addEventListener('keydown', () => this.audio.resumeContext(), { once: true, capture: true });
+
     this.bindEvents();
     this.bindMenuSfx();
     this.applySettingsToControls();
