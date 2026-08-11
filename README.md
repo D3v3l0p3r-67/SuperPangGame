@@ -138,10 +138,12 @@ seam between the canvas and the page behind it.
   the same hit -- same shield absorption, same life loss/restart, checked
   every frame the clock stays expired the same way an overlapping ball
   would keep re-triggering a hit.
-- A graphic HUD (1-P, life icons, score, weapon socket, time/world/hi-score
-  -- see "Swapping HUD graphics") always shows remaining level time, lives,
-  and the current weapon (plus score, level, top score, and active timed
-  effects in a small DOM overlay).
+- A graphic HUD (1-P, life icons, score, weapon socket, time/level/hi-score,
+  active power-up icons + countdowns -- see "Swapping HUD graphics")
+  always shows remaining level time, lives, score, level, top score, and
+  every currently active power-up -- entirely drawn in Phaser, no DOM
+  overlay for any of it. Picking up `rapid_shot`/`wide_harpoon` swaps the
+  weapon socket's own icon to match for as long as it's active.
 - Score, lives, a locally-persisted top-10 high score table, and per-level
   unlock progress (`localStorage`, with a versioned schema for safe future
   upgrades) -- see "Start Campaign vs. Start Level" below.
@@ -183,9 +185,10 @@ Useful while tuning levels or ball behavior:
 
 ```
 index.html          Phaser injects its own canvas into #game-container;
-                      DOM overlay for menus/powerup timers/touch controls
-                      sits on top -- the always-visible stat bar itself is
-                      drawn in Phaser, see js/Hud.js below
+                      DOM overlay for menus/touch controls sits on top --
+                      the always-visible stat bar (including active
+                      power-up timers) is drawn in Phaser, see js/Hud.js
+                      below
 style.css            All visual styling, responsive/touch layout
 assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
@@ -297,9 +300,8 @@ js/
                       any string to a <canvas> from the same font_alpha
                       .webp spritesheet, sized off the game canvas's own
                       current scale (see "Swapping intro graphics")
-  ui.js              DOM menus/screens/powerup-timer chips -- every
-                      heading/button/score/list label goes through
-                      PixelText.js, not plain CSS text
+  ui.js              DOM menus/screens -- every heading/button/score/list
+                      label goes through PixelText.js, not plain CSS text
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
@@ -599,8 +601,9 @@ track per half, so adding levels keeps both tracks in use) and
 
 ### Swapping HUD graphics
 
-The always-visible stat bar (score, lives, time, current weapon, world/
-level, top score) is drawn entirely from files under `assets/hud/` by
+The always-visible stat bar (score, lives, time, current weapon, level,
+top score, active power-up timers) is drawn entirely from files under
+`assets/hud/` by
 `js/Hud.js`, inside the dedicated `HUD_H` strip below the playfield --
 nothing there is drawn text. `js/assets.js`'s `HUD_*` constants are the
 single place each file's texture key/path/frame size is defined (used by
@@ -633,7 +636,16 @@ in place, keeping the same filename and pixel dimensions:
   height), so the two can be swapped independently as long as the icon
   stays smaller than the frame. Adding a second weapon type later is just
   dropping in its icon file, once `WEAPON_TYPES` actually has more than
-  one entry to choose from.
+  one entry to choose from. While `rapid_shot` or `wide_harpoon` is
+  active, the socket shows that power-up's own icon (from
+  `assets/powerups/`, see "Adding elements" below) instead, reverting to
+  the plain weapon icon once it expires.
+- **Active power-up row**: no separate art of its own -- reuses each
+  power-up's existing `assets/powerups/<type>.webp` icon plus the small
+  digit strip for a whole-seconds countdown, one pooled slot per
+  currently-active `EffectManager` entry (`Hud.js`'s `powerupSlots`, up
+  to `MAX_POWERUP_SLOTS`). Sits in the HUD bar's own spare vertical room
+  below the rest of the layout -- entirely in Phaser, not a DOM overlay.
 
 All 9 files currently under `assets/hud/` are placeholder pixel art
 (hand-authored bitmap glyphs and simple shapes, generated offline) rather

@@ -134,12 +134,12 @@ export class Debug {
     levelRow.append(levelInput, jumpBtn);
     wrap.appendChild(levelRow);
 
-    // -- 8x8 alignment grid (also toggled with the G key)
+    // -- 16x16 alignment grid (also toggled with the G key)
     this.addSectionLabel(wrap, 'Grid');
     const gridRow = document.createElement('div');
     gridRow.className = 'debug-btn-row';
     const gridBtn = document.createElement('button');
-    gridBtn.textContent = 'Toggle 8x8 grid';
+    gridBtn.textContent = 'Toggle 16x16 grid';
     gridBtn.onclick = () => {
       this.showGrid = !this.showGrid;
     };

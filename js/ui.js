@@ -1,5 +1,4 @@
 import { GAME_STATES, COLORS } from './constants.js';
-import { POWERUP_TYPES } from './elements.js';
 import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom } from './DisplayZoom.js';
@@ -19,19 +18,7 @@ const SCREEN_IDS = {
   [GAME_STATES.VICTORY]: 'screen-victory',
 };
 
-// The always-visible stat bar and the level-intro screen are graphic now
-// (see Hud.js / LevelIntro.js, drawn in Phaser) -- this set is only used
-// here to show/hide the DOM powerup-timer chips, which stay in-play only.
-const HUD_VISIBLE_STATES = new Set([
-  GAME_STATES.PLAYING,
-  GAME_STATES.PAUSED,
-  GAME_STATES.LEVEL_INTRO,
-  GAME_STATES.LEVEL_CLEAR,
-  GAME_STATES.HIT_FREEZE,
-]);
-
 const ELEMENT_IDS = [
-  'powerup-indicators',
   'screen-menu', 'game-title-line1', 'game-title-line2',
   'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
   'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x',
@@ -117,8 +104,7 @@ export class UI {
   // Every static heading/button/settings-row label goes through the same
   // bitmap font the HUD/level-intro screen use (see PixelText.js), so
   // this menu chrome actually looks like it belongs to the same game --
-  // only genuinely dynamic per-frame text (the powerup-timer chips) and
-  // the live-editable initials input stay plain CSS text.
+  // only the live-editable initials input stays plain CSS text.
   setupPixelLabels() {
     for (const [id, text, tier, color] of STATIC_LABELS) {
       setPixelText(this.el[id], text, tier, color);
@@ -220,26 +206,6 @@ export class UI {
     if (g.state !== this.lastState) {
       this.setScreen(g.state);
       this.lastState = g.state;
-    }
-
-    if (HUD_VISIBLE_STATES.has(g.state)) {
-      this.renderPowerupIndicators();
-    } else {
-      this.el['powerup-indicators'].innerHTML = '';
-    }
-  }
-
-  renderPowerupIndicators() {
-    const container = this.el['powerup-indicators'];
-    container.innerHTML = '';
-    for (const [type, expiresAt] of this.game.effects.active) {
-      const def = POWERUP_TYPES[type];
-      const remaining = Math.max(0, (expiresAt - this.game.elapsedMs) / 1000);
-      const chip = document.createElement('div');
-      chip.className = 'powerup-chip';
-      chip.style.borderColor = def.color;
-      chip.textContent = `${def.label} ${remaining.toFixed(1)}s`;
-      container.appendChild(chip);
     }
   }
 

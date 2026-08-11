@@ -88,28 +88,11 @@ body {
   display: none !important;
 }
 
-/* The always-visible stat bar (score/lives/time/weapon/...) is graphic
-   now -- see Hud.js, drawn in Phaser inside the HUD_H strip below the
-   bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.
+/* The always-visible stat bar (score/lives/time/weapon/powerup timers/...)
+   is graphic -- see Hud.js, drawn in Phaser inside the HUD_H strip below
+   the bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.
    drawBackground paints the matching dark strip on the canvas itself).
-   Only the powerup-timer chips below are still a DOM overlay. */
-#powerup-indicators {
-  position: absolute;
-  top: clamp(20px, 5cqmin, 40px);
-  left: 1.5cqmin;
-  display: flex;
-  gap: 4px;
-  pointer-events: none;
-}
-
-.powerup-chip {
-  font-size: clamp(7px, 1.6cqmin, 12px);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--panel-border);
-  padding: 2px 5px;
-  border-radius: 3px;
-  text-shadow: 1px 1px 0 #000;
-}
+   No DOM overlay is needed for any of it any more. */
 
 /* Screens (menu, pause, game over, etc.) */
 .screen {
