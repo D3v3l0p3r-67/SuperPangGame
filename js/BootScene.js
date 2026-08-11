@@ -16,7 +16,7 @@ import {
   HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME,
   HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME,
   HUD_1P_KEY, HUD_1P_PATH, HUD_TIME_LABEL_KEY, HUD_TIME_LABEL_PATH,
-  HUD_WORLD_LABEL_KEY, HUD_WORLD_LABEL_PATH, HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH,
+  HUD_LEVEL_LABEL_KEY, HUD_LEVEL_LABEL_PATH, HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH,
   HUD_LIFE_KEY, HUD_LIFE_PATH, HUD_WEAPON_FRAME_KEY, HUD_WEAPON_FRAME_PATH,
   hudWeaponIconKey, hudWeaponIconPath,
   INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME,
@@ -27,9 +27,10 @@ import {
 // rotation transform -- bigger/slower balls turn slower -- before that
 // became visibly blurry/aliased on this game's tiny pixel-art hexagons at
 // arbitrary rotation angles), converted from radians/sec to frames/sec
-// for a HEX_SPIN_FRAMES-frame-per-rotation cycle, then sped up another 1/2
-// (SPIN_SPEED_MULTIPLIER) on top of that physically-derived rate.
-const SPIN_SPEED_MULTIPLIER = 1.5;
+// for a HEX_SPIN_FRAMES-frame-per-rotation cycle, then sped up on top of
+// that physically-derived rate (SPIN_SPEED_MULTIPLIER: 1.5x, then a
+// further 30% on top of that -- 1.5 * 1.3 = 1.95).
+const SPIN_SPEED_MULTIPLIER = 1.95;
 
 function hexSpinFrameRate(speed, radius) {
   const hSpeed = speed * Math.SQRT1_2;
@@ -98,7 +99,7 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME);
     this.load.image(HUD_1P_KEY, HUD_1P_PATH);
     this.load.image(HUD_TIME_LABEL_KEY, HUD_TIME_LABEL_PATH);
-    this.load.image(HUD_WORLD_LABEL_KEY, HUD_WORLD_LABEL_PATH);
+    this.load.image(HUD_LEVEL_LABEL_KEY, HUD_LEVEL_LABEL_PATH);
     this.load.image(HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH);
     this.load.image(HUD_LIFE_KEY, HUD_LIFE_PATH);
     this.load.image(HUD_WEAPON_FRAME_KEY, HUD_WEAPON_FRAME_PATH);

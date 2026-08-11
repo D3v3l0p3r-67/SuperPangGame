@@ -9,10 +9,13 @@
 <script src="js/vendor/phaser.min.js"></script>
 </head>
 <body>
-<div id="game-container">
-  <div id="ui-layer">
-    <div id="powerup-indicators"></div>
-
+<div id="game-shell">
+  <div id="tool-bar">
+    <div id="editor-panel" class="hidden"></div>
+    <div id="debug-panel" class="hidden"></div>
+  </div>
+  <div id="game-container">
+    <div id="ui-layer">
     <div id="screen-menu" class="screen">
       <h1 id="game-title"><div id="game-title-line1"></div><div id="game-title-line2"></div></h1>
       <button id="btn-start" class="menu-btn"></button>
@@ -29,6 +32,12 @@
         <label><input type="checkbox" id="chk-mute"><span id="chk-mute-label"></span></label>
         <label><span id="rng-sfx-label"></span><input type="range" id="rng-sfx" min="0" max="1" step="0.05"></label>
         <label><span id="rng-music-label"></span><input type="range" id="rng-music" min="0" max="1" step="0.05"></label>
+        <div id="zoom-row">
+          <span id="zoom-label"></span>
+          <button id="btn-zoom-half" class="menu-btn zoom-btn"></button>
+          <button id="btn-zoom-1x" class="menu-btn zoom-btn"></button>
+          <button id="btn-zoom-2x" class="menu-btn zoom-btn"></button>
+        </div>
       </div>
       <button id="btn-options-fullscreen" class="menu-btn"></button>
       <button id="btn-close-options" class="menu-btn"></button>
@@ -43,6 +52,7 @@
     <div id="screen-pause" class="screen hidden">
       <h2 id="pause-title"></h2>
       <button id="btn-resume" class="menu-btn"></button>
+      <button id="btn-pause-restart" class="menu-btn hidden"></button>
       <button id="btn-fullscreen-pause" class="menu-btn"></button>
       <button id="btn-quit" class="menu-btn"></button>
     </div>
@@ -84,10 +94,8 @@
         <button id="btn-shoot" class="touch-btn touch-btn-primary" aria-label="Shoot">&#9650;</button>
       </div>
     </div>
-
-    <div id="debug-panel" class="hidden"></div>
-    <div id="editor-panel" class="hidden"></div>
   </div>
+</div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

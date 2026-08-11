@@ -1,7 +1,11 @@
 import { GAME_STATES, COLORS } from './constants.js';
-import { POWERUP_TYPES } from './elements.js';
 import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
+import { getZoom, setZoom } from './DisplayZoom.js';
+
+// zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
+// bindEvents/updateZoomButtons below).
+const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x' };
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
@@ -14,21 +18,10 @@ const SCREEN_IDS = {
   [GAME_STATES.VICTORY]: 'screen-victory',
 };
 
-// The always-visible stat bar and the level-intro screen are graphic now
-// (see Hud.js / LevelIntro.js, drawn in Phaser) -- this set is only used
-// here to show/hide the DOM powerup-timer chips, which stay in-play only.
-const HUD_VISIBLE_STATES = new Set([
-  GAME_STATES.PLAYING,
-  GAME_STATES.PAUSED,
-  GAME_STATES.LEVEL_INTRO,
-  GAME_STATES.LEVEL_CLEAR,
-  GAME_STATES.HIT_FREEZE,
-]);
-
 const ELEMENT_IDS = [
-  'powerup-indicators',
   'screen-menu', 'game-title-line1', 'game-title-line2',
   'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x',
   'screen-level-select', 'level-select-title', 'level-select-list',
   'screen-pause', 'pause-title',
   'screen-game-over', 'gameover-title', 'final-score',
@@ -38,7 +31,7 @@ const ELEMENT_IDS = [
   'touch-controls',
   'btn-start', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
-  'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
+  'btn-resume', 'btn-pause-restart', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
 
@@ -54,6 +47,10 @@ const STATIC_LABELS = [
   ['chk-mute-label', 'MUTE', 'body', COLORS.text],
   ['rng-sfx-label', 'SFX', 'body', COLORS.text],
   ['rng-music-label', 'MUSIC', 'body', COLORS.text],
+  ['zoom-label', 'SIZE', 'body', COLORS.text],
+  ['btn-zoom-half', '0.5X', 'button', COLORS.text],
+  ['btn-zoom-1x', '1X', 'button', COLORS.text],
+  ['btn-zoom-2x', '2X', 'button', COLORS.text],
   ['level-select-title', 'START LEVEL', 'h2', COLORS.accent],
   ['pause-title', 'PAUSED', 'h2', COLORS.accent],
   ['gameover-title', 'GAME OVER', 'h2', COLORS.accent],
@@ -70,6 +67,7 @@ const STATIC_LABELS = [
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
   ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
+  ['btn-pause-restart', 'RESTART LEVEL', 'button', COLORS.text],
   ['btn-quit', 'QUIT TO MENU', 'button', COLORS.text],
   ['btn-restart', 'PLAY AGAIN', 'button', COLORS.text],
   ['btn-menu', 'MAIN MENU', 'button', COLORS.text],
@@ -107,8 +105,7 @@ export class UI {
   // Every static heading/button/settings-row label goes through the same
   // bitmap font the HUD/level-intro screen use (see PixelText.js), so
   // this menu chrome actually looks like it belongs to the same game --
-  // only genuinely dynamic per-frame text (the powerup-timer chips) and
-  // the live-editable initials input stay plain CSS text.
+  // only the live-editable initials input stays plain CSS text.
   setupPixelLabels() {
     for (const [id, text, tier, color] of STATIC_LABELS) {
       setPixelText(this.el[id], text, tier, color);
@@ -142,6 +139,7 @@ export class UI {
     this.el['btn-close-level-select'].addEventListener('click', () => this.game.goToMenu());
 
     this.el['btn-resume'].addEventListener('click', () => this.game.resume());
+    this.el['btn-pause-restart'].addEventListener('click', () => this.game.restartLevel());
     this.el['btn-quit'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-menu'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-victory-menu'].addEventListener('click', () => this.game.goToMenu());
@@ -165,6 +163,13 @@ export class UI {
       this.audio.setMusicVolume(v);
       this.storage.saveSettings({ musicVolume: v });
     });
+
+    for (const [zoom, id] of Object.entries(ZOOM_BUTTON_IDS)) {
+      this.el[id].addEventListener('click', () => {
+        setZoom(parseFloat(zoom));
+        this.updateZoomButtons();
+      });
+    }
   }
 
   applySettingsToControls() {
@@ -172,6 +177,19 @@ export class UI {
     this.el['chk-mute'].checked = s.muted;
     this.el['rng-sfx'].value = s.sfxVolume;
     this.el['rng-music'].value = s.musicVolume;
+    this.updateZoomButtons();
+  }
+
+  // Highlights whichever of the three zoom buttons matches the currently
+  // applied display size (see DisplayZoom.js) -- re-run on every options
+  // load and every click, same pattern as the mute checkbox/volume
+  // sliders above just without a native control of its own to reflect
+  // state through.
+  updateZoomButtons() {
+    const zoom = getZoom();
+    for (const [z, id] of Object.entries(ZOOM_BUTTON_IDS)) {
+      this.el[id].classList.toggle('active', parseFloat(z) === zoom);
+    }
   }
 
   submitScore() {
@@ -191,26 +209,6 @@ export class UI {
       this.setScreen(g.state);
       this.lastState = g.state;
     }
-
-    if (HUD_VISIBLE_STATES.has(g.state)) {
-      this.renderPowerupIndicators();
-    } else {
-      this.el['powerup-indicators'].innerHTML = '';
-    }
-  }
-
-  renderPowerupIndicators() {
-    const container = this.el['powerup-indicators'];
-    container.innerHTML = '';
-    for (const [type, expiresAt] of this.game.effects.active) {
-      const def = POWERUP_TYPES[type];
-      const remaining = Math.max(0, (expiresAt - this.game.elapsedMs) / 1000);
-      const chip = document.createElement('div');
-      chip.className = 'powerup-chip';
-      chip.style.borderColor = def.color;
-      chip.textContent = `${def.label} ${remaining.toFixed(1)}s`;
-      container.appendChild(chip);
-    }
   }
 
   setScreen(state) {
@@ -219,7 +217,15 @@ export class UI {
     if (!id) return;
     this.el[id].classList.remove('hidden');
 
-    if (state === GAME_STATES.GAME_OVER) {
+    if (state === GAME_STATES.PAUSED) {
+      // Only a level opened via the editor's Play button gets the extra
+      // Restart button -- it's there to jump straight back into testing
+      // the level you're actively building, not a general "restart"
+      // offered mid-campaign (see GameScene.advanceLevel/hitPlayer for
+      // the matching playtest-only behavior: clearing or dying here
+      // reopens this same screen instead of ending the run).
+      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel);
+    } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {
       setPixelText(this.el['victory-score'], `SCORE: ${this.game.score}`, 'body', COLORS.text);

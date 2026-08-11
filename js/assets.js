@@ -55,7 +55,7 @@ export function ballPopAnimKey(shape, size) {
 }
 
 // Player: a single spritesheet (one PNG, not one file per frame) of
-// PLAYER_CONFIG.spriteWidth x spriteHeight (16x32) cells stacked
+// PLAYER_CONFIG.spriteWidth x spriteHeight (32x64) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
 // dead -- see PLAYER_ANIM_FRAMES below for which index is which (see the
 // README's "Swapping graphics" for the full frame reference). Every frame
@@ -63,7 +63,7 @@ export function ballPopAnimKey(shape, size) {
 // right-facing instead of needing a separate left/right file.
 export const PLAYER_TEXTURE_KEY = 'player';
 export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
-export const PLAYER_FRAME = { frameWidth: 16, frameHeight: 32 };
+export const PLAYER_FRAME = { frameWidth: 32, frameHeight: 64 };
 
 // state -> its frame index (or indices, in play order) within the
 // spritesheet above.
@@ -87,10 +87,13 @@ export const PLAYER_SHIELD_FRAMES = 3;
 export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
-// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each
-// exactly OBSTACLE_BLOCK_SIZE square (8x8) -- tiled via TileSprite across
-// whatever area a block/the border frame covers, so the file itself is
-// just the one repeating cell.
+// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES) -- tiled
+// via TileSprite across whatever area a block/the border frame covers, so
+// the file itself is just the one repeating cell. Sized to match
+// OBSTACLE_BLOCK_SIZE/BORDER_THICKNESS exactly (16x16) so a block/the
+// border reads as one clean tile rather than a busy sub-grid, though
+// TileSprite would repeat a smaller texture just as correctly if it were
+// ever swapped for one.
 export const OBSTACLE_TEXTURE_DIR = 'assets/obstacles/';
 
 export function obstacleTextureKey(name) {
@@ -221,8 +224,8 @@ export const HUD_1P_KEY = 'hud-1p';
 export const HUD_1P_PATH = `${HUD_DIR}hud_1p.webp`;
 export const HUD_TIME_LABEL_KEY = 'hud-time-label';
 export const HUD_TIME_LABEL_PATH = `${HUD_DIR}hud_time_label.webp`;
-export const HUD_WORLD_LABEL_KEY = 'hud-world-label';
-export const HUD_WORLD_LABEL_PATH = `${HUD_DIR}hud_world_label.webp`;
+export const HUD_LEVEL_LABEL_KEY = 'hud-level-label';
+export const HUD_LEVEL_LABEL_PATH = `${HUD_DIR}hud_level_label.webp`;
 export const HUD_HI_LABEL_KEY = 'hud-hi-label';
 export const HUD_HI_LABEL_PATH = `${HUD_DIR}hud_hi_label.webp`;
 

@@ -5,11 +5,7 @@
 // MAX_LEVEL_FILES) rather than an index file, so this tab probes the
 // same way instead of reading a manifest.
 import * as assets from '../../js/assets.js';
-import { fetchJSON, statusParagraph, labeled } from './util.js';
-
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
+import { el, fetchJSON, labeled, statusParagraph } from './util.js';
 
 export async function initLevelsTab(panel, fs) {
   panel.innerHTML = '<p>Loading levels…</p>';
@@ -67,8 +63,8 @@ function buildLevelCard(n, data, fs) {
     saveBtn.disabled = true;
     status.textContent = 'Saving…';
     try {
-      const result = await fs.saveFile(assets.levelFilePath(n), `${JSON.stringify(parsed, null, 2)}\n`);
-      status.textContent = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into levels/${key}.json.`;
+      await fs.saveFile(assets.levelFilePath(n), `${JSON.stringify(parsed, null, 2)}\n`);
+      status.textContent = 'Saved.';
       title.textContent = `${key} -- ${parsed.name ?? ''}`;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;

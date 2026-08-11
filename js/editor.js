@@ -1,9 +1,9 @@
-import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
+import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
 import { LEVELS } from './LevelManager.js';
-import { Obstacle } from './Obstacle.js';
+import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import * as storage from './storage.js';
 
@@ -12,6 +12,41 @@ const BRUSHES = [
   { id: 'crate', label: 'Crate' },
   { id: 'erase', label: 'Erase' },
 ];
+
+// The editor panel is plain DOM (same markup/CSS as the debug panel, see
+// style.css's .debug-btn-row) built entirely in buildPanel() below -- these
+// two cover every button and dropdown it needs.
+function makeButton(label, onClick, title) {
+  const btn = document.createElement('button');
+  btn.textContent = label;
+  if (title) btn.title = title;
+  btn.onclick = onClick;
+  return btn;
+}
+
+// `entries` is a list of [value, label] pairs, in the order they should
+// appear -- the caller builds that list, including any leading "none"
+// entry (see the powerup dropdown, whose empty value means "no drop").
+function makeSelect(entries, onChange) {
+  const select = document.createElement('select');
+  for (const [value, label] of entries) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    select.appendChild(opt);
+  }
+  select.onchange = onChange;
+  return select;
+}
+
+// A <label> with its text and the control it labels, matching the
+// "Text: <control>" shape every labelled row in the panel uses.
+function labelled(text, control) {
+  const label = document.createElement('label');
+  label.textContent = text;
+  label.appendChild(control);
+  return label;
+}
 
 // Builds the brush list for balls straight from BALL_ELEMENTS, so a new
 // elements/<shape>-ball-<size>.json shows up as a brush automatically --
@@ -37,12 +72,29 @@ function backgroundNames() {
 // playfield (never overlapping the border) -- same rule every
 // hand-authored level in levels.js already follows. Every editor object
 // (walls, crates, balls) is placed on this exact grid, no free placement.
+// Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
+// are independent constants -- see constants.js.
+//
+// The clamp itself has to land ON a grid line, not just inside bounds:
+// GROUND_Y - BORDER_THICKNESS isn't necessarily a whole number of grid
+// cells below the top border (e.g. 800x420 with a 16px border/grid: the
+// inner playfield is 388px tall, and 388 isn't a multiple of 16), so a
+// naive `Math.min(gy, rawMax)` clamp could snap the bottom row to a
+// pixel offset the rest of the grid never uses -- visibly misaligned/
+// overlapping with the row above it. gridSnap() rounds each raw bound
+// down to the nearest cell that's actually still fully inside the
+// playfield, same as the floor() above does for an ordinary coordinate.
+function gridSnap(bt, grid, rawMax) {
+  return bt + Math.floor((rawMax - bt) / grid) * grid;
+}
+
 function snapObstacleOrigin(x, y) {
-  const bt = OBSTACLE_BLOCK_SIZE;
-  const gx = Math.floor((x - bt) / bt) * bt + bt;
-  const gy = Math.floor((y - bt) / bt) * bt + bt;
-  const maxX = VIRTUAL_W - bt * 2;
-  const maxY = GROUND_Y - bt * 2;
+  const grid = OBSTACLE_BLOCK_SIZE;
+  const bt = BORDER_THICKNESS;
+  const gx = Math.floor((x - bt) / grid) * grid + bt;
+  const gy = Math.floor((y - bt) / grid) * grid + bt;
+  const maxX = gridSnap(bt, grid, VIRTUAL_W - bt - grid);
+  const maxY = gridSnap(bt, grid, GROUND_Y - bt - grid);
   return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
 }
 
@@ -84,6 +136,10 @@ export class Editor {
 
     scene.input.on('pointerdown', (p) => this.onPointer(p, true));
     scene.input.on('pointermove', (p) => this.onPointer(p, false));
+    // Right-click is always erase, regardless of the selected brush --
+    // without this the browser's own context menu would pop up over the
+    // canvas on every right-click instead.
+    scene.input.mouse?.disableContextMenu();
   }
 
   buildPanel() {
@@ -95,10 +151,7 @@ export class Editor {
     brushRow.className = 'debug-btn-row';
     this.brushButtons = {};
     for (const brush of [...BRUSHES.slice(0, 2), ...ballBrushes(), BRUSHES[2]]) {
-      const btn = document.createElement('button');
-      btn.textContent = brush.label;
-      btn.title = brush.id;
-      btn.onclick = () => this.setBrush(brush.id);
+      const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.id);
       brushRow.appendChild(btn);
       this.brushButtons[brush.id] = btn;
     }
@@ -111,38 +164,25 @@ export class Editor {
     const optionsRow = document.createElement('div');
     optionsRow.className = 'debug-btn-row';
 
-    this.dirXBtn = document.createElement('button');
-    this.dirXBtn.title = 'Ball direction (horizontal)';
-    this.dirXBtn.onclick = () => {
+    // Both direction buttons get their label from updateOptionLabels()
+    // below (it renders the current arrow), not here.
+    this.dirXBtn = makeButton('', () => {
       this.dirX *= -1;
       this.updateOptionLabels();
-    };
+    }, 'Ball direction (horizontal)');
     optionsRow.appendChild(this.dirXBtn);
 
-    this.dirYBtn = document.createElement('button');
-    this.dirYBtn.title = 'Ball direction (vertical) -- hex balls only, round balls always start falling';
-    this.dirYBtn.onclick = () => {
+    this.dirYBtn = makeButton('', () => {
       this.dirY *= -1;
       this.updateOptionLabels();
-    };
+    }, 'Ball direction (vertical) -- hex balls only, round balls always start falling');
     optionsRow.appendChild(this.dirYBtn);
 
-    const powerupLabel = document.createElement('label');
-    powerupLabel.textContent = 'On break/pop: ';
-    this.powerupSelect = document.createElement('select');
-    const noneOpt = document.createElement('option');
-    noneOpt.value = '';
-    noneOpt.textContent = 'No powerup';
-    this.powerupSelect.appendChild(noneOpt);
-    for (const key of POWERUP_TYPE_KEYS) {
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = POWERUP_TYPES[key].label;
-      this.powerupSelect.appendChild(opt);
-    }
-    this.powerupSelect.onchange = () => { this.selectedPowerup = this.powerupSelect.value || null; };
-    powerupLabel.appendChild(this.powerupSelect);
-    optionsRow.appendChild(powerupLabel);
+    this.powerupSelect = makeSelect(
+      [['', 'No powerup'], ...POWERUP_TYPE_KEYS.map((key) => [key, POWERUP_TYPES[key].label])],
+      () => { this.selectedPowerup = this.powerupSelect.value || null; },
+    );
+    optionsRow.appendChild(labelled('On break/pop: ', this.powerupSelect));
 
     this.panelEl.appendChild(optionsRow);
     this.updateOptionLabels();
@@ -157,67 +197,37 @@ export class Editor {
     const levelRow = document.createElement('div');
     levelRow.className = 'debug-btn-row';
 
-    const backgroundLabel = document.createElement('label');
-    backgroundLabel.textContent = 'Background: ';
-    this.backgroundSelect = document.createElement('select');
-    for (const name of backgroundNames()) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      this.backgroundSelect.appendChild(opt);
-    }
-    this.backgroundSelect.onchange = () => this.setBackground(this.backgroundSelect.value);
-    backgroundLabel.appendChild(this.backgroundSelect);
-    levelRow.appendChild(backgroundLabel);
+    this.backgroundSelect = makeSelect(
+      backgroundNames().map((name) => [name, name]),
+      () => this.setBackground(this.backgroundSelect.value),
+    );
+    levelRow.appendChild(labelled('Background: ', this.backgroundSelect));
 
-    const weaponLabel = document.createElement('label');
-    weaponLabel.textContent = 'Weapon: ';
-    this.weaponSelect = document.createElement('select');
-    for (const [key, w] of Object.entries(WEAPON_TYPES)) {
-      const opt = document.createElement('option');
-      opt.value = key;
-      opt.textContent = w.label;
-      this.weaponSelect.appendChild(opt);
-    }
-    this.weaponSelect.onchange = () => { this.weapon = this.weaponSelect.value; };
-    weaponLabel.appendChild(this.weaponSelect);
-    levelRow.appendChild(weaponLabel);
+    this.weaponSelect = makeSelect(
+      Object.entries(WEAPON_TYPES).map(([key, w]) => [key, w.label]),
+      () => { this.weapon = this.weaponSelect.value; },
+    );
+    levelRow.appendChild(labelled('Weapon: ', this.weaponSelect));
 
     this.panelEl.appendChild(levelRow);
 
     const actionRow = document.createElement('div');
     actionRow.className = 'debug-btn-row';
 
-    const timeLabel = document.createElement('label');
-    timeLabel.textContent = 'Time ';
     this.timeInput = document.createElement('input');
     this.timeInput.type = 'number';
     this.timeInput.min = '10';
     this.timeInput.max = '300';
     this.timeInput.value = '60';
     this.timeInput.style.width = '48px';
-    timeLabel.appendChild(this.timeInput);
-    actionRow.appendChild(timeLabel);
+    actionRow.appendChild(labelled('Time ', this.timeInput));
 
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = 'Clear all';
-    clearBtn.onclick = () => this.clearAll();
-    actionRow.appendChild(clearBtn);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.textContent = 'Save';
-    saveBtn.onclick = () => this.save();
-    actionRow.appendChild(saveBtn);
-
-    const exportBtn = document.createElement('button');
-    exportBtn.textContent = 'Export';
-    exportBtn.onclick = () => this.exportJSON();
-    actionRow.appendChild(exportBtn);
-
-    const importBtn = document.createElement('button');
-    importBtn.textContent = 'Import';
-    importBtn.onclick = () => this.importFileInput.click();
-    actionRow.appendChild(importBtn);
+    actionRow.append(
+      makeButton('Clear all', () => this.clearAll()),
+      makeButton('Save', () => this.save()),
+      makeButton('Export', () => this.exportJSON()),
+      makeButton('Import', () => this.importFileInput.click()),
+    );
 
     this.importFileInput = document.createElement('input');
     this.importFileInput.type = 'file';
@@ -226,15 +236,10 @@ export class Editor {
     this.importFileInput.onchange = (e) => this.importJSON(e);
     actionRow.appendChild(this.importFileInput);
 
-    const playBtn = document.createElement('button');
-    playBtn.textContent = 'Play';
-    playBtn.onclick = () => this.play();
-    actionRow.appendChild(playBtn);
-
-    const backBtn = document.createElement('button');
-    backBtn.textContent = 'Menu';
-    backBtn.onclick = () => this.scene.exitEditor();
-    actionRow.appendChild(backBtn);
+    actionRow.append(
+      makeButton('Play', () => this.play()),
+      makeButton('Menu', () => this.scene.exitEditor()),
+    );
 
     this.panelEl.appendChild(actionRow);
 
@@ -350,6 +355,7 @@ export class Editor {
     const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
     this.scene.obstacles.add(block);
     this.blocks.set(key, block);
+    refreshObstacleSeams(this.scene.obstacles);
   }
 
   placeBlock(x, y, type) {
@@ -362,6 +368,7 @@ export class Editor {
     if (block) {
       block.destroy();
       this.blocks.delete(key);
+      refreshObstacleSeams(this.scene.obstacles);
     }
     const ball = this.balls.get(key);
     if (ball) {
@@ -409,12 +416,25 @@ export class Editor {
     if (this.scene.state !== GAME_STATES.EDITOR) return;
     const x = pointer.worldX;
     const y = pointer.worldY;
-    if (x < OBSTACLE_BLOCK_SIZE || x > VIRTUAL_W - OBSTACLE_BLOCK_SIZE || y < OBSTACLE_BLOCK_SIZE || y > GROUND_Y - OBSTACLE_BLOCK_SIZE) return;
+    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > GROUND_Y - BORDER_THICKNESS) return;
 
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;
 
-    if (!pointer.isDown) return;
+    // pointer.isDown only reflects the LEFT button -- the right button
+    // needs its own check, since right-click-to-erase (below) has to work
+    // even though it isn't "the" primary button press.
+    if (!pointer.isDown && !pointer.rightButtonDown()) return;
+
+    // Right-click always erases whatever's under the cursor, regardless of
+    // the selected brush -- a quick-access shortcut alongside the
+    // dedicated Erase brush, which still works the same as before via the
+    // left button.
+    if (pointer.rightButtonDown()) {
+      this.eraseAt(snapped.x, snapped.y);
+      return;
+    }
+
     const isBallBrush = this.brush.startsWith('ball-');
     if (isBallBrush && !isDown) return;
 

@@ -21,8 +21,14 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
+  /* Matches COLORS.hudBg in constants.js -- wherever the page background
+     shows around/outside the game canvas, it's the exact same black as
+     the in-game HUD strip, not a different "almost black" tone. */
   background: var(--bg);
-  overflow: hidden;
+  /* The canvas is a fixed size now (see DisplayZoom.js) instead of
+     always fitting the window -- at the 2x zoom level it can be larger
+     than the viewport, so scrolling (not clipping) has to be possible. */
+  overflow: auto;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -36,6 +42,34 @@ body {
   color: var(--text);
 }
 
+/* Wraps the tool-bar (debug/editor panels) and the game canvas in a
+   single column so the tool-bar always spans exactly the canvas's own
+   current width (see DisplayZoom.js) with no JS wiring needed for that:
+   #game-container has an explicit width set by DisplayZoom.js, so it
+   dictates #game-shell's own (otherwise auto) width, and #tool-bar --
+   which has no explicit width of its own -- stretches to match via the
+   default align-items: stretch. */
+#game-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Above the playfield's own ceiling, never overlapping it -- unlike the
+   old in-canvas overlay, neither panel eats into the visible play area.
+   Collapses to no extra gap above the canvas when both panels are
+   hidden (see debug.js/editor.js's own .hidden toggling), rather than
+   always reserving a sliver of empty space during normal play. */
+#tool-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#game-shell:has(#tool-bar > :not(.hidden)) #tool-bar {
+  margin-bottom: 6px;
+}
+
 #game-container {
   position: relative;
   display: flex;
@@ -43,10 +77,20 @@ body {
   justify-content: center;
   width: 100%;
   height: 100%;
+  /* A size container: every vmin/vw/vh-equivalent length in this
+     stylesheet is actually cqmin/cqw/cqh (see below), sized relative to
+     THIS box -- i.e. the game canvas's own current zoom level -- rather
+     than the full browser viewport, which is no longer the same thing
+     now that the canvas doesn't always fill the window (see
+     DisplayZoom.js, which sets this element's width/height in lockstep
+     with the canvas). */
+  container-type: size;
 }
 
 /* Phaser injects its own <canvas> into #game-container (see GameConfig.js
-   parent + scale.mode: FIT, which handles responsive sizing itself). */
+   parent + scale.mode: NONE -- DisplayZoom.js sets its CSS size by hand
+   to exactly match #game-container above, so there's no letterboxing gap
+   between the two to account for). */
 #game-container canvas {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
@@ -72,28 +116,11 @@ body {
   display: none !important;
 }
 
-/* The always-visible stat bar (score/lives/time/weapon/...) is graphic
-   now -- see Hud.js, drawn in Phaser inside the HUD_H strip below the
-   bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.
+/* The always-visible stat bar (score/lives/time/weapon/powerup timers/...)
+   is graphic -- see Hud.js, drawn in Phaser inside the HUD_H strip below
+   the bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.
    drawBackground paints the matching dark strip on the canvas itself).
-   Only the powerup-timer chips below are still a DOM overlay. */
-#powerup-indicators {
-  position: absolute;
-  top: clamp(20px, 5vmin, 40px);
-  left: 1.5vmin;
-  display: flex;
-  gap: 4px;
-  pointer-events: none;
-}
-
-.powerup-chip {
-  font-size: clamp(7px, 1.6vmin, 12px);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--panel-border);
-  padding: 2px 5px;
-  border-radius: 3px;
-  text-shadow: 1px 1px 0 #000;
-}
+   No DOM overlay is needed for any of it any more. */
 
 /* Screens (menu, pause, game over, etc.) */
 .screen {
@@ -103,10 +130,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.4vmin;
+  gap: 1.4cqmin;
   background: rgba(5, 4, 10, 0.88);
   text-align: center;
-  padding: 4vmin 3vmin;
+  padding: 4cqmin 3cqmin;
 }
 
 /* Every heading/button/score/list label is a <canvas> rendered by
@@ -128,12 +155,12 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.6vmin;
-  margin: 0 0 2vmin;
+  gap: 0.6cqmin;
+  margin: 0 0 2cqmin;
 }
 
 .screen h2 {
-  margin: 0 0 1vmin;
+  margin: 0 0 1cqmin;
 }
 
 .screen p {
@@ -143,8 +170,8 @@ body {
 
 .screen .hint {
   opacity: 0.65;
-  font-size: clamp(8px, 1.6vmin, 12px);
-  margin-top: 1.5vmin;
+  font-size: clamp(8px, 1.6cqmin, 12px);
+  margin-top: 1.5cqmin;
 }
 
 .menu-btn {
@@ -153,7 +180,7 @@ body {
   justify-content: center;
   background: var(--panel);
   border: 2px solid var(--panel-border);
-  padding: 1.2vmin 3vmin;
+  padding: 1.2cqmin 3cqmin;
   min-width: 180px;
   min-height: 1.6em;
   cursor: pointer;
@@ -173,8 +200,8 @@ body {
 #settings-row {
   display: flex;
   flex-direction: column;
-  gap: 1vmin;
-  margin-top: 1vmin;
+  gap: 1cqmin;
+  margin-top: 1cqmin;
 }
 
 #settings-row label {
@@ -184,12 +211,32 @@ body {
   justify-content: center;
 }
 
+/* Display size -- exactly three discrete choices (see constants.js's
+   ZOOM_LEVELS / DisplayZoom.js), not a slider, since there's nothing
+   continuous to pick between. */
+#zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.zoom-btn {
+  min-width: 0;
+  padding: 0.6cqmin 1.6cqmin;
+}
+
+.zoom-btn.active {
+  background: var(--panel-border);
+  border-color: var(--accent);
+}
+
 #level-select-list {
   display: flex;
   flex-direction: column;
-  gap: 0.6vmin;
-  width: min(85vw, 340px);
-  max-height: 45vh;
+  gap: 0.6cqmin;
+  width: min(85cqw, 340px);
+  max-height: 45cqh;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -199,7 +246,7 @@ body {
   align-items: center;
   background: var(--panel);
   border: 2px solid var(--panel-border);
-  padding: 1vmin 2.4vmin;
+  padding: 1cqmin 2.4cqmin;
   cursor: pointer;
   text-align: left;
 }
@@ -221,61 +268,63 @@ body {
    live-editable, so there's no static string for PixelText.js to render. */
 #entry-name {
   font-family: inherit;
-  font-size: clamp(16px, 4vmin, 28px);
+  font-size: clamp(16px, 4cqmin, 28px);
   text-align: center;
   text-transform: uppercase;
   width: 5ch;
   background: var(--panel);
   color: var(--accent);
   border: 2px solid var(--panel-border);
-  padding: 0.5vmin;
+  padding: 0.5cqmin;
   letter-spacing: 4px;
 }
 
 #high-score-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 1vmin;
-  width: min(80vw, 320px);
+  margin: 0 0 1cqmin;
+  width: min(80cqw, 320px);
 }
 
 #high-score-list li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.3vmin 0.6vmin;
+  padding: 0.3cqmin 0.6cqmin;
   border-bottom: 1px dashed var(--panel-border);
 }
 
 /* Touch controls -- anchored just above the HUD bar (the HUD_H strip
    Hud.js draws into, see constants.js) rather than the bottom of the
-   whole canvas, since that bottom strip is now the HUD. */
+   whole canvas, since that bottom strip is now the HUD. The percentage
+   is HUD_H / VIRTUAL_H (80 / 500) -- update it to match if either ever
+   changes. */
 #touch-controls {
   position: absolute;
-  bottom: calc(15.152% + 1.5vmin);
+  bottom: calc(16% + 1.5cqmin);
   left: 0;
   right: 0;
   display: flex;
   justify-content: space-between;
-  padding: 0 2vmin;
+  padding: 0 2cqmin;
   pointer-events: none;
 }
 
 .touch-group {
   display: flex;
-  gap: 2.5vmin;
+  gap: 2.5cqmin;
   pointer-events: none;
 }
 
 .touch-btn {
   pointer-events: auto;
-  width: clamp(44px, 13vmin, 72px);
-  height: clamp(44px, 13vmin, 72px);
+  width: clamp(44px, 13cqmin, 72px);
+  height: clamp(44px, 13cqmin, 72px);
   border-radius: 50%;
   background: rgba(28, 16, 66, 0.7);
   border: 2px solid var(--panel-border);
   color: var(--text);
-  font-size: clamp(16px, 4vmin, 26px);
+  font-size: clamp(16px, 4cqmin, 26px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -287,9 +336,9 @@ body {
 }
 
 .touch-btn-small {
-  width: clamp(32px, 8vmin, 48px);
-  height: clamp(32px, 8vmin, 48px);
-  font-size: clamp(11px, 2.6vmin, 16px);
+  width: clamp(32px, 8cqmin, 48px);
+  height: clamp(32px, 8cqmin, 48px);
+  font-size: clamp(11px, 2.6cqmin, 16px);
   align-self: flex-end;
 }
 
@@ -297,76 +346,67 @@ body {
   transform: scale(0.92);
 }
 
-/* Debug panel */
-#debug-panel {
-  position: absolute;
-  top: 0.5vmin;
-  right: 0.5vmin;
-  background: rgba(0, 0, 0, 0.65);
-  border: 1px solid #0f0;
-  color: #0f0;
-  font-size: 10px;
-  padding: 4px 6px;
-  line-height: 1.4;
-  white-space: pre;
-  pointer-events: none;
-  max-width: 46vw;
-}
-
-#debug-spawn-panel {
-  pointer-events: auto;
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  max-width: 44vw;
-}
-
-#debug-spawn-panel select,
-#debug-spawn-panel button,
-#debug-spawn-panel input {
-  font-size: 10px;
-  font-family: inherit;
-}
-
-/* Level editor panel -- same look/classes as the debug panel (.debug-
-   btn-row, .debug-text), just its own top-left slot and accent color.
-   Like #debug-panel, the panel itself is pointer-events: none and only
-   its interactive controls opt back in -- otherwise its own background
-   (and any gaps/padding/status text between buttons) would swallow
-   clicks meant for the canvas underneath it, which grows a real dead
-   zone over the playfield as the panel picks up more rows/buttons. */
+/* Debug panel (left) and level editor panel (right) -- siblings in
+   #tool-bar, above the playfield's own ceiling (see #tool-bar above),
+   never overlapping actual gameplay the way an in-canvas overlay would.
+   Same box/button/font treatment on both (see the shared rules below)
+   so they read as one consistent tool style; only the border/text color
+   differs, as a quick "which panel is this" cue -- green for debug
+   (matching the classic terminal-y debug-overlay look), accent/yellow
+   for the editor (matching the rest of the game's own UI accent). */
+#debug-panel,
 #editor-panel {
-  position: absolute;
-  top: 0.5vmin;
-  left: 0.5vmin;
   background: rgba(0, 0, 0, 0.7);
-  border: 1px solid var(--accent, #ffd23f);
-  color: var(--text, #f4f1de);
+  padding: 6px 8px;
   font-size: 10px;
-  padding: 4px 6px;
   line-height: 1.4;
-  pointer-events: none;
-  max-width: 60vw;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-width: 46%;
 }
 
+#debug-panel {
+  border: 1px solid #0f0;
+  color: #0f0;
+  white-space: pre;
+}
+
+#editor-panel {
+  border: 1px solid var(--accent);
+  color: var(--text);
+}
+
+#debug-spawn-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+#debug-panel select,
+#debug-panel button,
+#debug-panel input,
 #editor-panel select,
 #editor-panel button,
 #editor-panel input,
 #editor-panel label {
-  pointer-events: auto;
   font-size: 10px;
   font-family: inherit;
 }
 
+#debug-panel button,
 #editor-panel button {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  padding: 3px 6px;
   cursor: pointer;
+}
+
+#debug-panel button:hover,
+#editor-panel button:hover {
+  background: var(--panel-border);
 }
 
 .debug-section-label {

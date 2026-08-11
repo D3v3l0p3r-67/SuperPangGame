@@ -3,18 +3,19 @@
 A retro pixel-art arcade game inspired by the classic *Pang* / *Buster Bros.*
 gameplay: walk left and right along the ground, fire a harpoon straight up,
 and pop balls before they pop you. There are two ball shapes -- round balls
-(8x8px up to 48x48px, sizes 1-5) that fall under gravity and bounce, and hex
-balls (8x8px up to 24x24px, sizes 1-3 only) that ignore gravity and drift at
-a constant diagonal speed. Hitting a ball splits it into two balls one size
-smaller, one sent left and one right; size-1 balls are destroyed outright.
+(16x16px up to 96x96px, sizes 1-5) that fall under gravity and bounce, and
+hex balls (16x16px up to 48x48px, sizes 1-3 only) that ignore gravity and
+drift at a constant diagonal speed. Hitting a ball splits it into two balls
+one size smaller, one sent left and one right; size-1 balls are destroyed
+outright.
 
 Every ball's motion is fully deterministic: each size has fixed speed,
 bounce height, and gravity, so two balls of the same size always move and
 bounce identically no matter how they got there -- a landing always resets
 vertical speed to that size's standard bounce velocity rather than
 reflecting whatever speed it fell in at (size 1's bounce, for example,
-always takes it from a resting center 4px off the ground up to a peak
-96px higher). Levels can also contain obstacles built from 8x8 blocks
+always takes it from a resting center 8px off the ground up to a peak
+248px higher). Levels can also contain obstacles built from 16x16 blocks
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
@@ -87,6 +88,30 @@ whole time it's held (see `GameScene.updatePlaying`'s `wasShooting`
 tracking). Either way, an actual shot still only leaves if under the
 active weapon's `maxActiveShots` (see `tryFire`).
 
+## Display size
+
+The playing surface is a fixed 800x420px, bordered on all four sides
+(top/left/right/floor) by a 16px wall (`BORDER_THICKNESS` in
+`js/constants.js`) -- independent of the 8x8 obstacle/ball placement grid
+(`OBSTACLE_BLOCK_SIZE`, 16x16 -- also the smallest ball's size), which is
+unaffected. A dedicated 80px HUD strip sits below the bordered playfield
+(`HUD_H`), never overlapping gameplay -- 800x500px total.
+
+The canvas does **not** continuously resize with the browser window --
+there's no "fit to window" scaling. Instead, Options -> Size picks one of
+exactly three fixed display sizes: **0.5x**, **1x** (original), or **2x**
+(double), persisted the same way as mute/volume. `js/DisplayZoom.js` sets
+the canvas's (and `#game-container`'s) CSS size directly to
+`VIRTUAL_W/VIRTUAL_H` times the chosen zoom; `js/PixelText.js`'s DOM menu
+text reads that same rendered size back out, so it scales in lockstep
+without any separate logic. At 2x the canvas can be larger than the
+browser window -- the page scrolls rather than clipping it.
+
+Wherever the game's own background is black (the HUD strip, the page
+around/outside the canvas at any zoom level) it's the exact same color
+(`COLORS.hudBg` / `style.css`'s `--bg`, `#05040a`), so there's no visible
+seam between the canvas and the page behind it.
+
 ## Features
 
 - 10 hand-tuned levels with increasing difficulty (more/larger balls, more
@@ -98,7 +123,7 @@ active weapon's `maxActiveShots` (see `tryFire`).
   fixed, deterministic physics; splitting one size smaller (one left, one
   right) per hit.
 - Obstacles: indestructible platforms and shootable crates, built from
-  8x8 blocks (rectangular or stepped shapes), blocking ball movement from
+  16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
 - 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
@@ -113,10 +138,12 @@ active weapon's `maxActiveShots` (see `tryFire`).
   the same hit -- same shield absorption, same life loss/restart, checked
   every frame the clock stays expired the same way an overlapping ball
   would keep re-triggering a hit.
-- A graphic HUD (1-P, life icons, score, weapon socket, time/world/hi-score
-  -- see "Swapping HUD graphics") always shows remaining level time, lives,
-  and the current weapon (plus score, level, top score, and active timed
-  effects in a small DOM overlay).
+- A graphic HUD (1-P, life icons, score, weapon socket, time/level/hi-score,
+  active power-up icons + countdowns -- see "Swapping HUD graphics")
+  always shows remaining level time, lives, score, level, top score, and
+  every currently active power-up -- entirely drawn in Phaser, no DOM
+  overlay for any of it. Picking up `rapid_shot`/`wide_harpoon` swaps the
+  weapon socket's own icon to match for as long as it's active.
 - Score, lives, a locally-persisted top-10 high score table, and per-level
   unlock progress (`localStorage`, with a versioned schema for safe future
   upgrades) -- see "Start Campaign vs. Start Level" below.
@@ -153,14 +180,19 @@ Useful while tuning levels or ball behavior:
   quick-spawn button per power-up (bonus fruit, shield, every weapon
   power-up, and all the others); jump straight to any level -- all without
   replaying the whole game or affecting normal play when the panel is off.
+- Lives above the playfield's own ceiling, in a `#tool-bar` row shared
+  with the level editor's own panel (editor on the left, debug on the
+  right, see index.html/style.css) -- never overlapping actual gameplay
+  the way an in-canvas overlay would.
 
 ## Project structure
 
 ```
 index.html          Phaser injects its own canvas into #game-container;
-                      DOM overlay for menus/powerup timers/touch controls
-                      sits on top -- the always-visible stat bar itself is
-                      drawn in Phaser, see js/Hud.js below
+                      DOM overlay for menus/touch controls sits on top --
+                      the always-visible stat bar (including active
+                      power-up timers) is drawn in Phaser, see js/Hud.js
+                      below
 style.css            All visual styling, responsive/touch layout
 assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
@@ -187,10 +219,11 @@ elements/            One JSON file per ball size/shape, obstacle type, or
                       see "Adding elements" below
 levels/              One level_NN.json per level, in level-editor Export
                       format -- see "Adding levels" below
-admin/               A separate, standalone site for editing graphics/
-                      sounds/elements/levels without touching code -- see
-                      "Admin tool" below. Not linked from the game itself;
-                      open admin/index.html directly.
+admin/               A separate, PHP-backed, login-gated site for editing
+                      graphics/sounds/elements/levels without touching
+                      code -- see "Admin tool" below. Not linked from the
+                      game itself; open admin/index.php directly (needs a
+                      PHP-capable server, see "Running it locally").
 js/
   vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
   main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
@@ -237,7 +270,7 @@ js/
   LevelManager.js    Owns the LEVELS array (populated by ElementsScene
                       from levels/*.json) and loads a level definition
                       into a GameScene's groups; decomposes each obstacle
-                      into independent 8x8 Obstacle blocks (see
+                      into independent 16x16 Obstacle blocks (see
                       OBSTACLE_BLOCK_SIZE)
   config.js          Static gameplay tuning that isn't per-element data
                       (player movement, weapon base stats, power-up drop
@@ -271,9 +304,8 @@ js/
                       any string to a <canvas> from the same font_alpha
                       .webp spritesheet, sized off the game canvas's own
                       current scale (see "Swapping intro graphics")
-  ui.js              DOM menus/screens/powerup-timer chips -- every
-                      heading/button/score/list label goes through
-                      PixelText.js, not plain CSS text
+  ui.js              DOM menus/screens -- every heading/button/score/list
+                      label goes through PixelText.js, not plain CSS text
   storage.js         Versioned localStorage persistence
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
@@ -296,8 +328,8 @@ resolved (no shared/derived values):
 ```json
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
-  "label": "Round 1", "hasGravity": true, "gravityAccel": 260,
-  "radius": 4, "speed": 40, "bounceVelocity": 221, "points": 200,
+  "label": "Round 1", "hasGravity": true, "gravityAccel": 520,
+  "radius": 8, "speed": 80, "bounceVelocity": 508, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -346,7 +378,7 @@ Two power-ups can share a `kind` and just differ in `durationMs`/`params`
 `powerup-stoptime-12s.json` (with its own `type`, since that's the key
 used everywhere else -- effects tracking, HUD, level `powerup` fields) can
 both use `kind: "freeze_balls"`. Needs an
-`assets/powerups/<type>.webp` icon (9x9, see "Swapping graphics"). Adding
+`assets/powerups/<type>.webp` icon (18x18, see "Swapping graphics"). Adding
 a genuinely new *behavior* (not just a new tuning of an existing one) does
 need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`. `pickupSound`
 names an `assets/audio/audio.json` entry to play on pickup (falls back to
@@ -357,10 +389,13 @@ names an `assets/audio/audio.json` entry to play on pickup (falls back to
 Levels live under `levels/`, one JSON file per level -- `LEVELS.length`
 (and the built-in level count) is always exactly how many files are
 there, no separate count or manifest to keep in sync. The easiest way to
-create one: open the in-game **LEVEL EDITOR**, paint it, then click
-**Export** to download a `.json` file already in the right shape, and
-drop that file into `levels/` as `level_NN.json` (the next free number,
-zero-padded to 2 digits -- `level_11.json`, `level_12.json`, ...).
+create one: open the in-game **LEVEL EDITOR**, paint it (left-click/drag
+places whatever brush is selected; right-click always erases whatever's
+under the cursor instead, regardless of the selected brush, alongside the
+dedicated **Erase** brush), then click **Export** to download a `.json`
+file already in the right shape, and drop that file into `levels/` as
+`level_NN.json` (the next free number, zero-padded to 2 digits --
+`level_11.json`, `level_12.json`, ...).
 
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json
@@ -370,8 +405,8 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "timeLimitSec": 80,
   "background": "default",
   "weapon": "harpoon",
-  "obstacles": [{ "type": "crate", "x": 176, "y": 152, "w": 8, "h": 8, "powerup": "shield" }],
-  "balls": [{ "shape": "hex", "size": 2, "x": 192, "y": 60, "vx": 45, "vy": -45, "powerup": "extra_life" }]
+  "obstacles": [{ "type": "crate", "x": 368, "y": 288, "w": 16, "h": 16, "powerup": "shield" }],
+  "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
 `powerup` on an obstacle or ball is optional -- when set, that exact
@@ -394,6 +429,15 @@ per-level plumbing needed). Both are optional and default to
 level files without them still load. The in-game **LEVEL EDITOR** has a
 **Background**/**Weapon** dropdown for both (top panel) -- picking a
 background updates the live preview immediately.
+
+Clicking **Play** starts the level exactly like real gameplay, except
+it's a playtest, not a run: clearing it or pressing Escape/P pauses on
+the usual pause screen with an extra **Restart Level** button instead of
+advancing to a next level or a victory screen (there's nothing to
+advance *to* -- an editor level isn't part of `LEVELS`), and a hit never
+costs a life or ends in game over (`GameScene.hitPlayer`/`advanceLevel`
+both branch on `isCustomLevel`) -- the point is testing the layout you
+just built, not beating it.
 
 `BootScene.js` probes `levels/level_01.json` up to `MAX_LEVEL_FILES` (see
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static
@@ -430,8 +474,8 @@ dimensions:
 
 - **Balls**: `assets/balls/ball_<shape>_<size>.webp` (e.g. `ball_round_1
   .webp`) -- one per `elements/*-ball-*.json` (see "Adding elements"),
-  exactly 2x that element's `radius` square (8/16/24/32/48px for round
-  sizes 1-5, 8/16/24px for hex sizes 1-3), used at native resolution with
+  exactly 2x that element's `radius` square (16/32/48/64/96px for round
+  sizes 1-5, 16/32/48px for hex sizes 1-3), used at native resolution with
   no runtime scaling -- that's also the ball's physics collision diameter.
   A shape with `hasGravity: false` (hex today) spins, so its file is
   instead a `HEX_SPIN_FRAMES`-frame (3) spritesheet stacked vertically,
@@ -457,7 +501,7 @@ dimensions:
   -- then over 300ms drifts up another 10px, grows slightly, and fades
   out, all tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
-  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32)
+  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (32x64)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
@@ -465,25 +509,27 @@ dimensions:
   per hit). Every frame is authored facing LEFT; Player.js mirrors it for
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
-  the same 16x(32 x 8) total size and frame order.
+  the same 32x(64 x 8) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
-  -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (32) square
+  -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`
   power-up is active (`Player.js`'s `shieldEffect`). Distinct from the
   power-up's own pickup icon (`assets/powerups/shield.webp`, see below).
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
-  `tileTexture` field, 8x8px, tiled across whatever area a block (or the
+  `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
+  `BORDER_THICKNESS`, see "Display size" above, so a block/the border
+  reads as one clean tile), tiled across whatever area a block (or the
   playfield border) covers.
 - **Power-ups**: `assets/powerups/<type>.webp` (e.g. `shield.webp`) -- one
   per `elements/powerup-*.json`'s `type`, 9x9px.
-- **Projectile / particle**: `assets/projectile.webp` (4x7, stretched to
+- **Projectile / particle**: `assets/projectile.webp` (8x14, stretched to
   the active weapon's width) and `assets/particle.webp` (2x2, always
   tinted at runtime to whatever color a burst effect needs, so keep it
   plain white).
 - **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
   distinct `background` value used across `levels/*.json` (see "Adding
-  levels"), exactly `VIRTUAL_W x GROUND_Y` (384x200 from `js/constants.js`)
+  levels"), exactly `VIRTUAL_W x GROUND_Y` (800x404 from `js/constants.js`)
   -- covers the sky area behind obstacles/balls/player; the floor strip and
   HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
   `assets/backgrounds/default.webp` is the one every level ships with today
@@ -571,8 +617,9 @@ track per half, so adding levels keeps both tracks in use) and
 
 ### Swapping HUD graphics
 
-The always-visible stat bar (score, lives, time, current weapon, world/
-level, top score) is drawn entirely from files under `assets/hud/` by
+The always-visible stat bar (score, lives, time, current weapon, level,
+top score, active power-up timers) is drawn entirely from files under
+`assets/hud/` by
 `js/Hud.js`, inside the dedicated `HUD_H` strip below the playfield --
 nothing there is drawn text. `js/assets.js`'s `HUD_*` constants are the
 single place each file's texture key/path/frame size is defined (used by
@@ -582,7 +629,7 @@ in place, keeping the same filename and pixel dimensions:
 
 - **Digits**: two spritesheets, `assets/hud/digits_large.webp` (used only
   for the score, 12x18px per frame) and `assets/hud/digits_small.webp`
-  (used for time/world/hi, 8x12px per frame) -- each exactly 10 frames
+  (used for time/level/hi, 8x12px per frame) -- each exactly 10 frames
   side by side, frame index = the digit it shows (`0`-`9`). Every digit
   and label image ships as plain white pixel art so `Hud.js` can
   `setTint()` each usage independently (e.g. the time value turns red in
@@ -590,17 +637,31 @@ in place, keeping the same filename and pixel dimensions:
   multiplies over it, so keep replacements white/light if you want the
   same tinting behavior.
 - **Fixed labels**: `assets/hud/hud_1p.webp`, `hud_time_label.webp`,
-  `hud_world_label.webp`, `hud_hi_label.webp` -- one static image each,
-  12px tall to match the small digit strip.
+  `hud_level_label.webp`, `hud_hi_label.webp` -- one static image each,
+  12px tall to match the small digit strip. HI sits directly under the
+  score (same left edge) rather than alongside TIME/LEVEL, so it reads as
+  "current score / best score" together.
 - **Life icon**: `assets/hud/hud_life.webp` (10x10), drawn once per
   remaining life (up to `Hud.js`'s `MAX_LIVES_ICONS`, currently 5).
-- **Weapon socket**: `assets/hud/hud_weapon_frame.webp` (22x22, always
+- **Weapon socket**: `assets/hud/hud_weapon_frame.webp` (33x33, always
   shown) and one icon per `WEAPON_TYPES` key in `js/config.js` --
-  `assets/hud/weapon_<type>.webp` (14x14, e.g. `weapon_harpoon.webp`) --
+  `assets/hud/weapon_<type>.webp` (21x21, e.g. `weapon_harpoon.webp`) --
   named via `assets.js`'s `hudWeaponIconKey()`/`hudWeaponIconPath()`, same
-  per-key-file convention as obstacle tiles/power-up icons. Adding a
-  second weapon type later is just dropping in its icon file, once
-  `WEAPON_TYPES` actually has more than one entry to choose from.
+  per-key-file convention as obstacle tiles/power-up icons. The icon is
+  always centered on the frame (`Hud.js` reads the frame's own width/
+  height), so the two can be swapped independently as long as the icon
+  stays smaller than the frame. Adding a second weapon type later is just
+  dropping in its icon file, once `WEAPON_TYPES` actually has more than
+  one entry to choose from. While `rapid_shot` or `wide_harpoon` is
+  active, the socket shows that power-up's own icon (from
+  `assets/powerups/`, see "Adding elements" below) instead, reverting to
+  the plain weapon icon once it expires.
+- **Active power-up row**: no separate art of its own -- reuses each
+  power-up's existing `assets/powerups/<type>.webp` icon plus the small
+  digit strip for a whole-seconds countdown, one pooled slot per
+  currently-active `EffectManager` entry (`Hud.js`'s `powerupSlots`, up
+  to `MAX_POWERUP_SLOTS`). Sits in the HUD bar's own spare vertical room
+  below the rest of the layout -- entirely in Phaser, not a DOM overlay.
 
 All 9 files currently under `assets/hud/` are placeholder pixel art
 (hand-authored bitmap glyphs and simple shapes, generated offline) rather
@@ -704,13 +765,10 @@ admin/
                        pixel font -- this page is dense with JSON text and
                        forms, where a proportional font reads better)
   js/
-    fsSave.js          The save abstraction every tab calls: POSTs to
-                       save.php first (see "Saving" below); if that fails
-                       for any reason, falls back to the File System
-                       Access API (if a local project folder is
-                       connected, see main.js), then to a browser
-                       download as a last resort -- same download pattern
-                       as js/editor.js's own Export button
+    fsSave.js          The one function every tab's Save calls: POSTs to
+                       save.php (see "Saving" below). One destination, no
+                       fallback -- a save either lands on the server or
+                       throws with the server's own reason
     util.js            Small shared helpers (fetch-relative-to-project-
                        root JSON loading, DOM element builders)
     graphicsTab.js      Lists every image the game loads (built from
@@ -732,11 +790,8 @@ admin/
                        button, an "Import" file input for a level-editor
                        Export straight from the game's own Level Editor,
                        and a link to open that Level Editor
-    main.js             The "Choose project folder" button (File System
-                       Access API permission prompt, the fsSave.js
-                       fallback -- see above), and lazy per-tab loading
-                       (each tab only fetches its data the first time
-                       it's opened)
+    main.js             Tab switching + lazy per-tab loading (each tab
+                       only fetches its data the first time it's opened)
 ```
 
 ### Running it locally
@@ -750,6 +805,29 @@ way, pointed at the project root -- just make sure the web server's user
 can write to `elements/`, `levels/`, and `assets/` (that's what
 `save.php` actually needs; nothing needs write access to `admin/`
 itself).
+
+### "Saves will fail" (write permissions)
+
+`index.php` checks on every load that the account PHP runs as can write
+to `elements/`, `levels/` and `assets/`. If it can't, the header turns
+red and a banner names the exact problem: which account PHP is
+(`webServerUser()` in `includes/config.php`), which folders block it,
+who owns them, their mode, and a ready-to-paste `chown`/`chmod` for
+those exact paths. This is the one setup problem that would otherwise
+make every single Save fail identically, so it's reported once up front
+rather than per-card.
+
+The usual cause is that the files were uploaded as a different account
+(over SMB/File Station/git) than the one the web server runs as. On a
+Synology NAS serving from `/volume1/web/...` that's typically `http`;
+on Debian/Ubuntu + Apache it's `www-data`. Fix it over SSH with the
+command the banner prints, or in DSM via **File Station → right-click
+the folder → Properties → Permission**, adding that account with
+Read/Write and ticking "Apply to this folder, sub-folders and files".
+Reload the admin page afterwards -- the check re-runs every time.
+
+Nothing needs write access to `admin/` itself; `save.php` deliberately
+refuses to write there at all (see "Saving" below).
 
 ### Login
 
@@ -783,7 +861,26 @@ including `admin/` itself being outside the writable set. Path
 validation is one regex covering traversal (`..`), the directory
 whitelist, and the extension whitelist all at once, plus a second
 `realpath()`-based check that the resolved directory is still actually
-inside the project root before anything is written. If `save.php` is
-ever unreachable (wrong host, no PHP, misconfigured), `js/fsSave.js`
-falls back to the File System Access API / a download exactly like the
-tool's very first version did -- see `fsSave.js`'s own comments.
+inside the project root before anything is written.
+
+**Where saves go is fixed in code** -- `PROJECT_ROOT` in
+`includes/config.php`, resolved from `admin/`'s own location. The admin
+is never asked to pick a folder, and there is no client-side fallback:
+an earlier version quietly downloaded the file instead whenever the
+server save failed, which made a failed save look exactly like a
+successful one. Now a save either lands on the server or the card says
+`Save failed: <the server's reason>`. `index.php` also checks up front
+that the web server user can actually write to `elements/`, `levels/`
+and `assets/`, and shows a red warning in the header if it can't --
+that's the one setup problem that would otherwise make every single
+Save fail identically.
+
+**If a change doesn't show up in the game**, the save almost certainly
+worked -- replacing an image or a sound leaves its URL unchanged, so a
+browser that already cached it keeps serving the old copy (the game
+loads its assets without any cache-busting query, deliberately, so real
+players get normal caching). Hard-refresh the game tab
+(<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>); the graphics/sounds
+tabs say so in their own "Saved." message. The admin's own preview
+re-reads the written file from the server after each save, so what it
+shows is what's actually on disk.

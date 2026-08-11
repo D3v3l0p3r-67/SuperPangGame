@@ -1,14 +1,11 @@
 import { HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_FRAME } from './assets.js';
+import { hexColor } from './colors.js';
 
 const LIFESPAN_MS = 300;
 const START_Y_OFFSET = 16; // appears this many px above the pop point -- clear of the pop effect (see assets.js's POP_FRAME_SCALE), which is centered right on the pop point
 const RISE_PX = 10; // additional upward drift over LIFESPAN_MS, on top of START_Y_OFFSET
 const START_SCALE = 1 / 3; // a further 1/3 smaller than the previous 0.5 (0.5 * 2/3)
 const END_SCALE = 0.5; // 0.75 * 2/3, same growth ratio as before
-
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
-}
 
 // The floating "+N" score readout a popped ball leaves behind (see
 // GameScene.popBall) -- built from the same tintable HUD score-digit

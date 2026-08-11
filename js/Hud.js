@@ -1,11 +1,8 @@
-import { PLAYFIELD_H, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, HUD_H, GAME_STATES, COLORS } from './constants.js';
 import { WEAPON_TYPES } from './config.js';
 import * as assets from './assets.js';
 import * as storage from './storage.js';
-
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
-}
+import { hexColor } from './colors.js';
 
 const ACCENT = hexColor(COLORS.accent);
 const DANGER = hexColor(COLORS.danger);
@@ -19,6 +16,27 @@ const VISIBLE_STATES = new Set([
 ]);
 
 const MAX_LIVES_ICONS = 5;
+
+// Every power-up type that can ever sit in EffectManager.active at once --
+// the two instant ones (bonus_fruit, extra_life) never appear there (see
+// weapons.js's EffectManager.apply), so 6 is the real maximum, not 8.
+const MAX_POWERUP_SLOTS = 6;
+
+// Which active power-up (if any) the HUD weapon icon should reflect --
+// checked in this order, first match wins, matching GameScene.tryFire's
+// own "is this shot special" check (rapid_shot/wide_harpoon). Falls back
+// to the plain hudWeaponIconKey(weaponType) icon (see render()) when
+// neither is active.
+const WEAPON_ICON_POWERUP_TYPES = ['wide_harpoon', 'rapid_shot'];
+
+// The HUD's own pixel-art layout below is authored at a fixed design
+// width/height (all the individual x/y offsets -- 4, 74, 166, 196, 1, 14,
+// 27, ... -- assume it), independent of VIRTUAL_W/HUD_H. Centering the
+// whole container in whatever the actual (possibly larger) HUD bar is
+// keeps that hand-laid design intact instead of stretching or
+// re-anchoring every element.
+const HUD_CONTENT_W = 384;
+const HUD_CONTENT_H = 40;
 
 // A left-anchored row of pooled digit Images, one call to setValue() per
 // frame -- unused slots (beyond however many digits the current value
@@ -46,6 +64,10 @@ class DigitRow {
   setTint(color) {
     for (const img of this.images) img.setTint(color);
   }
+
+  setVisible(visible) {
+    for (const img of this.images) img.setVisible(visible);
+  }
 }
 
 // The graphic status bar living in the dedicated HUD_H strip below the
@@ -55,15 +77,26 @@ class DigitRow {
 // Layout (all coordinates local to this.container, which sits at
 // (0, PLAYFIELD_H)):
 //   "1-P" label, then a row of life icons, top-left.
-//   Score: large digits, no label (matches the reference HUD).
-//   Weapon frame + the current weapon's icon centered inside it.
-//   Three label+value rows on the right: TIME, WORLD (level), HI (top
-//   score) -- all using the smaller digit strip so label and value line
-//   up at the same height.
+//   Score: large digits, with HI (top score, smaller digits) directly
+//   below it -- reads as one "current / best" column instead of HI
+//   living apart from the score it's compared against.
+//   Weapon frame + an icon centered inside it, 1.5x the digit-column
+//   art's scale so the currently-held weapon reads as the HUD's focal
+//   point -- the icon itself swaps to whichever weapon-affecting
+//   power-up (rapid_shot/wide_harpoon) is active, falling back to the
+//   plain weapon icon otherwise (see WEAPON_ICON_POWERUP_TYPES).
+//   TIME and LEVEL on the right, each a label + the smaller digit strip
+//   so label and value line up at the same height.
+//   A row of active power-up icons + remaining whole seconds along the
+//   bottom, replacing the old DOM #powerup-indicators overlay -- pooled
+//   the same way the life icons are, one slot per currently active
+//   EffectManager entry.
 export class Hud {
   constructor(scene) {
     this.scene = scene;
-    this.container = scene.add.container(0, PLAYFIELD_H).setDepth(20);
+    const contentX = Math.max(0, (VIRTUAL_W - HUD_CONTENT_W) / 2);
+    const contentY = PLAYFIELD_H + Math.max(0, (HUD_H - HUD_CONTENT_H) / 2);
+    this.container = scene.add.container(contentX, contentY).setDepth(20);
 
     this.container.add(scene.add.image(4, 3, assets.HUD_1P_KEY).setOrigin(0, 0).setTint(ACCENT));
 
@@ -74,31 +107,58 @@ export class Hud {
       this.lifeIcons.push(icon);
     }
 
-    this.scoreRow = new DigitRow(this.container, assets.HUD_DIGITS_LARGE_KEY, assets.HUD_DIGITS_LARGE_FRAME.frameWidth, 6, 74, 11);
+    const SCORE_X = 74;
+    this.scoreRow = new DigitRow(this.container, assets.HUD_DIGITS_LARGE_KEY, assets.HUD_DIGITS_LARGE_FRAME.frameWidth, 6, SCORE_X, 2);
     this.scoreRow.setTint(ACCENT);
 
-    this.weaponFrame = scene.add.image(166, 9, assets.HUD_WEAPON_FRAME_KEY).setOrigin(0, 0);
-    this.container.add(this.weaponFrame);
-    this.weaponIcon = scene.add.image(177, 20, assets.hudWeaponIconKey(Object.keys(WEAPON_TYPES)[0]));
-    this.container.add(this.weaponIcon);
-    this.lastWeaponType = null;
+    const HI_Y = 22;
+    this.container.add(scene.add.image(SCORE_X, HI_Y, assets.HUD_HI_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
+    this.hiRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 6, SCORE_X + 20, HI_Y);
+    this.hiRow.setTint(ACCENT);
 
-    const ROW1_Y = 1;
-    const ROW2_Y = 14;
-    const ROW3_Y = 27;
-    const RIGHT_X = 196;
+    // 33x33/21x21 (1.5x the original 22x22/14x14 art) -- see
+    // "Swapping HUD graphics" in the README. The icon keeps its default
+    // center origin (like before), positioned at the frame's own center
+    // so it stays centered regardless of either image's exact size.
+    const WEAPON_X = 160;
+    const WEAPON_Y = 4;
+    this.weaponFrame = scene.add.image(WEAPON_X, WEAPON_Y, assets.HUD_WEAPON_FRAME_KEY).setOrigin(0, 0);
+    this.container.add(this.weaponFrame);
+    this.weaponIcon = scene.add.image(WEAPON_X + this.weaponFrame.width / 2, WEAPON_Y + this.weaponFrame.height / 2, assets.hudWeaponIconKey(Object.keys(WEAPON_TYPES)[0]));
+    this.container.add(this.weaponIcon);
+    this.lastWeaponIconKey = null;
+
+    // TIME / LEVEL -- only two rows now that HI moved under the score,
+    // so they get more vertical breathing room than the old cramped
+    // three-row stack.
+    const ROW1_Y = 8;
+    const ROW2_Y = 22;
+    const RIGHT_X = 210;
 
     this.container.add(scene.add.image(RIGHT_X, ROW1_Y, assets.HUD_TIME_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
     this.timeRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 3, RIGHT_X + 44, ROW1_Y);
     this.timeRow.setTint(ACCENT);
 
-    this.container.add(scene.add.image(RIGHT_X, ROW2_Y, assets.HUD_WORLD_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
-    this.worldRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, RIGHT_X + 54, ROW2_Y);
-    this.worldRow.setTint(ACCENT);
+    this.container.add(scene.add.image(RIGHT_X, ROW2_Y, assets.HUD_LEVEL_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
+    this.levelRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, RIGHT_X + 54, ROW2_Y);
+    this.levelRow.setTint(ACCENT);
 
-    this.container.add(scene.add.image(RIGHT_X, ROW3_Y, assets.HUD_HI_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
-    this.hiRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 6, RIGHT_X + 20, ROW3_Y);
-    this.hiRow.setTint(ACCENT);
+    // Active power-up row -- sits in HUD_H's spare vertical room below
+    // the design block above (HUD_CONTENT_H < HUD_H), one pooled icon +
+    // 2-digit countdown per slot, left-anchored like the 1-P/score
+    // columns above it.
+    const POWERUP_ROW_Y = 40;
+    const POWERUP_SLOT_W = 44;
+    this.powerupSlots = [];
+    for (let i = 0; i < MAX_POWERUP_SLOTS; i++) {
+      const slotX = 4 + i * POWERUP_SLOT_W;
+      const icon = scene.add.image(slotX, POWERUP_ROW_Y, assets.powerupTextureKey('shield')).setOrigin(0, 0).setVisible(false);
+      this.container.add(icon);
+      const digits = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, slotX + 20, POWERUP_ROW_Y + 3);
+      digits.setTint(ACCENT);
+      digits.setVisible(false);
+      this.powerupSlots.push({ icon, digits });
+    }
 
     this.lastState = null;
     this.topHighScore = storage.loadHighScores()[0]?.score ?? 0;
@@ -117,17 +177,34 @@ export class Hud {
     this.container.setVisible(visible);
     if (!visible) return;
 
-    if (g.weaponType !== this.lastWeaponType) {
-      this.lastWeaponType = g.weaponType;
-      this.weaponIcon.setTexture(assets.hudWeaponIconKey(g.weaponType));
+    const activeWeaponPowerup = WEAPON_ICON_POWERUP_TYPES.find((type) => g.effects.active.has(type));
+    const weaponIconKey = activeWeaponPowerup ? assets.powerupTextureKey(activeWeaponPowerup) : assets.hudWeaponIconKey(g.weaponType);
+    if (weaponIconKey !== this.lastWeaponIconKey) {
+      this.lastWeaponIconKey = weaponIconKey;
+      this.weaponIcon.setTexture(weaponIconKey);
     }
 
     this.scoreRow.setValue(g.score);
     this.timeRow.setValue(g.remainingLevelTime);
     this.timeRow.setTint(g.remainingLevelTime <= 10 ? DANGER : ACCENT);
-    this.worldRow.setValue(g.levelIndex + 1);
+    this.levelRow.setValue(g.levelIndex + 1);
     this.hiRow.setValue(Math.max(this.topHighScore, g.score));
 
     for (let i = 0; i < this.lifeIcons.length; i++) this.lifeIcons[i].setVisible(i < g.lives);
+
+    const activeEffects = [...g.effects.active];
+    for (let i = 0; i < this.powerupSlots.length; i++) {
+      const slot = this.powerupSlots[i];
+      const entry = activeEffects[i];
+      if (!entry) {
+        slot.icon.setVisible(false);
+        slot.digits.setVisible(false);
+        continue;
+      }
+      const [type, expiresAt] = entry;
+      slot.icon.setVisible(true);
+      slot.icon.setTexture(assets.powerupTextureKey(type));
+      slot.digits.setValue(Math.max(0, Math.ceil((expiresAt - g.elapsedMs) / 1000)));
+    }
   }
 }

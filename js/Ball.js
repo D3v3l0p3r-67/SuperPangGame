@@ -150,16 +150,22 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     const childSize = this.size - 1;
     const childEl = getBallElement(this.shape, childSize);
     const childSpeed = childEl.speed;
+    // Spawn the two children half the new (smaller) radius apart from the
+    // pop point, one either side, so they don't start fully overlapping
+    // each other -- they're still moving apart immediately (opposite vx)
+    // either way, but this keeps them visually distinct from the very
+    // first frame instead of one dead frame of a perfect double-image.
+    const offset = childEl.radius / 2;
     const children = [];
 
     if (this.hasGravity) {
-      const spawnKick = -childEl.bounceVelocity * 0.35;
-      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: -childSpeed, vy: spawnKick });
-      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: childSpeed, vy: spawnKick });
+      const spawnKick = -childEl.bounceVelocity * 0.6;
+      children.push({ shape: this.shape, size: childSize, x: this.x - offset, y: this.y, vx: -childSpeed, vy: spawnKick });
+      children.push({ shape: this.shape, size: childSize, x: this.x + offset, y: this.y, vx: childSpeed, vy: spawnKick });
     } else {
       const component = childSpeed * Math.SQRT1_2;
-      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: -component, vy: -component });
-      children.push({ shape: this.shape, size: childSize, x: this.x, y: this.y, vx: component, vy: component });
+      children.push({ shape: this.shape, size: childSize, x: this.x - offset, y: this.y, vx: -component, vy: -component });
+      children.push({ shape: this.shape, size: childSize, x: this.x + offset, y: this.y, vx: component, vy: component });
     }
     return children;
   }

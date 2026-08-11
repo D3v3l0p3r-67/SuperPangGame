@@ -1,6 +1,6 @@
 import { OBSTACLE_BLOCK_SIZE } from './constants.js';
 import { Ball } from './Ball.js';
-import { Obstacle } from './Obstacle.js';
+import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 
 // Populated by BootScene.populateLevels() from levels/*.json (see
 // assets.js) before GameScene ever starts -- mutated in place (never
@@ -36,10 +36,7 @@ function obstacleBlocks(o) {
 export function loadLevel(scene, idxOrDef) {
   const def = typeof idxOrDef === 'number' ? LEVELS[idxOrDef] : idxOrDef;
 
-  scene.obstacles.clear(true, true);
-  scene.balls.clear(true, true);
-  scene.projectiles.clear(true, true);
-  scene.powerups.clear(true, true);
+  scene.clearEntities();
 
   for (const o of def.obstacles) {
     for (const [dx, dy, bw, bh] of obstacleBlocks(o)) {
@@ -47,6 +44,7 @@ export function loadLevel(scene, idxOrDef) {
       scene.obstacles.add(block);
     }
   }
+  refreshObstacleSeams(scene.obstacles);
 
   for (const b of def.balls) {
     const ball = new Ball(scene, b.shape, b.size, b.x, b.y, b.vx, b.vy, b.powerup || null);

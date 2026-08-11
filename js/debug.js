@@ -1,4 +1,4 @@
-import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE } from './constants.js';
+import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
 import { BALL_SHAPE_KEYS, BALL_ELEMENTS, maxBallSize, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './elements.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
@@ -129,17 +129,17 @@ export class Debug {
       const idx = Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
       this.scene.levelIndex = idx;
       this.scene.loadLevel(idx);
-      this.scene.state = 'PLAYING';
+      this.scene.state = GAME_STATES.PLAYING;
     };
     levelRow.append(levelInput, jumpBtn);
     wrap.appendChild(levelRow);
 
-    // -- 8x8 alignment grid (also toggled with the G key)
+    // -- 16x16 alignment grid (also toggled with the G key)
     this.addSectionLabel(wrap, 'Grid');
     const gridRow = document.createElement('div');
     gridRow.className = 'debug-btn-row';
     const gridBtn = document.createElement('button');
-    gridBtn.textContent = 'Toggle 8x8 grid';
+    gridBtn.textContent = 'Toggle 16x16 grid';
     gridBtn.onclick = () => {
       this.showGrid = !this.showGrid;
     };
@@ -157,9 +157,9 @@ export class Debug {
     this.updateText();
   }
 
-  // Every OBSTACLE_BLOCK_SIZE (8px) across the whole canvas, so obstacle/
-  // border alignment can be checked directly against it -- toggle with
-  // the G key or the panel button, independent of the collision overlay.
+  // Every OBSTACLE_BLOCK_SIZE across the whole canvas, so obstacle/border
+  // alignment can be checked directly against it -- toggle with the G key
+  // or the panel button, independent of the collision overlay.
   drawGrid(graphics) {
     graphics.lineStyle(1, 0x00ff00, 0.25);
     for (let x = 0; x <= VIRTUAL_W; x += OBSTACLE_BLOCK_SIZE) {

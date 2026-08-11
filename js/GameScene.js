@@ -1,10 +1,11 @@
-import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
 import { POWERUP_TYPE_KEYS } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
 import { Bonus } from './Bonus.js';
+import { refreshObstacleSeams } from './Obstacle.js';
 import { createWeaponState, EffectManager } from './weapons.js';
 import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioManager } from './audio.js';
@@ -20,12 +21,33 @@ import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
 } from './assets.js';
+import { hexColor } from './colors.js';
 
 const LEVEL_CLEAR_SEC = 1.6;
 const HIT_FREEZE_SEC = 2;
 
-function hexColor(cssHex) {
-  return Phaser.Display.Color.HexStringToColor(cssHex).color;
+// One ball bounce, resolved from whichever set of contact flags the
+// caller has -- the world-bounds event's own arguments, or an obstacle
+// collision's body.touching (see the two call sites below).
+//
+// Exactly one axis changes DIRECTION per bounce: a corner hit (e.g. down
+// AND left both true at once) picks vertical over horizontal rather than
+// flipping both. Arcade still zeroes BOTH axes' velocity while resolving
+// that corner collision though (see Ball.js), so the horizontal axis --
+// even though it isn't supposed to change direction here -- has to be
+// explicitly reasserted, or the ball is left motionless on it.
+function resolveBallBounce(ball, { up, down, left, right }) {
+  if (down) {
+    ball.landOnTop();
+    if (left || right) ball.reassertHorizontal();
+  } else if (up) {
+    ball.bounceOffBottom();
+    if (left || right) ball.reassertHorizontal();
+  } else if (left) {
+    ball.bounceOffLeft();
+  } else if (right) {
+    ball.bounceOffRight();
+  }
 }
 
 // The whole game lives in this one Scene. Phaser owns the loop (update()
@@ -74,14 +96,14 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
     this.drawBorder();
 
-    // Inset by the border's thickness (OBSTACLE_BLOCK_SIZE) on top/left/
+    // Inset by the border's thickness (BORDER_THICKNESS) on top/left/
     // right so a ball/player actually bounces off the border's visible
     // inner face instead of the (invisible) canvas edge underneath it --
-    // without this the ball would visually travel OBSTACLE_BLOCK_SIZE px
+    // without this the ball would visually travel BORDER_THICKNESS px
     // into the border tiles before bouncing. The bottom is unaffected:
     // the bottom border sits just past GROUND_Y already (see drawBorder),
     // so GROUND_Y is already exactly the border's inner face there.
-    const bt = OBSTACLE_BLOCK_SIZE;
+    const bt = BORDER_THICKNESS;
     this.physics.world.setBounds(bt, bt, VIRTUAL_W - bt * 2, GROUND_Y - bt);
     this.physics.world.on('worldbounds', this.onWorldBounds, this);
 
@@ -105,6 +127,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.balls, this.obstacles, this.onBallHitObstacle, null, this);
     this.physics.add.overlap(this.projectiles, this.balls, this.onProjectileHitBall, null, this);
     this.physics.add.overlap(this.projectiles, this.obstacles, this.onProjectileHitObstacle, null, this);
+    // Solid, not an overlap -- an intact obstacle physically blocks the
+    // player like the border does; only once its blocks are actually shot
+    // down (removed from this.obstacles, see onProjectileHitObstacle) does
+    // that space open up. No callback needed, Arcade's own separation is
+    // the entire effect.
+    this.physics.add.collider(this.player, this.obstacles);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
     this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);
@@ -166,7 +194,7 @@ export class GameScene extends Phaser.Scene {
   // below the world bounds, so it doesn't need its own space carved out
   // of the playfield.
   drawBorder() {
-    const t = OBSTACLE_BLOCK_SIZE;
+    const t = BORDER_THICKNESS;
     const wallTexture = obstacleTextureKey('wall');
     const strips = [
       this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
@@ -198,52 +226,58 @@ export class GameScene extends Phaser.Scene {
     return parts.join(' ');
   }
 
-  startNewGame() {
-    this.startAtLevel(0);
+  // Empties every entity group, destroying the members rather than just
+  // removing them from the group -- shared by the editor entry/exit
+  // paths here and by LevelManager's own level (re)load.
+  clearEntities() {
+    this.obstacles.clear(true, true);
+    this.balls.clear(true, true);
+    this.projectiles.clear(true, true);
+    this.powerups.clear(true, true);
   }
 
-  // Entry point for the menu's Start Level screen -- identical setup to
-  // startNewGame(), just at an arbitrary (already-unlocked, see
-  // storage.isLevelUnlocked) level index instead of always 0.
-  startAtLevel(levelIndex) {
+  // Shared fresh-run setup behind all three entry points below: what a
+  // new run resets (score, lives, multiplier, effects, ...) is identical
+  // for every one of them, only WHICH level definition gets loaded
+  // differs. `customDef` is the editor's own level object, or null for an
+  // ordinary run through LEVELS -- everything else (currentLevelDef,
+  // advanceLevel, levelClear's unlock bookkeeping) branches on the
+  // isCustomLevel flag it sets here.
+  beginRun(levelIndex, customDef) {
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = levelIndex;
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
     this.justSubmittedEntry = null;
-    this.isCustomLevel = false;
-    this.customLevelDef = null;
+    this.isCustomLevel = customDef !== null;
+    this.customLevelDef = customDef;
     this.effects.reset(this);
     this.audio.play('superpang');
-    this.loadLevel(this.levelIndex);
+    this.loadLevel(customDef ?? levelIndex);
     this.startLevelIntro();
   }
 
-  // Level editor entry point: same setup as startNewGame(), but plays a
-  // single editor-authored level (loadLevel/currentLevelDef/advanceLevel
-  // all branch on isCustomLevel to use it instead of indexing LEVELS).
+  startNewGame() {
+    this.beginRun(0, null);
+  }
+
+  // Entry point for the menu's Start Level screen -- identical setup to
+  // startNewGame(), just at an arbitrary (already-unlocked, see
+  // storage.isLevelUnlocked) level index instead of always 0.
+  startAtLevel(levelIndex) {
+    this.beginRun(levelIndex, null);
+  }
+
+  // Level editor entry point: same setup again, but playing a single
+  // editor-authored level instead of indexing into LEVELS.
   startCustomLevel(def) {
-    this.score = 0;
-    this.lives = PLAYER_CONFIG.startLives;
-    this.levelIndex = 0;
-    this.scoreMultiplier = 1;
-    this.ballsFrozen = false;
-    this.justSubmittedEntry = null;
-    this.isCustomLevel = true;
-    this.customLevelDef = def;
-    this.effects.reset(this);
-    this.audio.play('superpang');
-    this.loadLevel(def);
-    this.startLevelIntro();
+    this.beginRun(0, def);
   }
 
   enterEditor() {
     this.audio.stopMusic();
-    this.obstacles.clear(true, true);
-    this.balls.clear(true, true);
-    this.projectiles.clear(true, true);
-    this.powerups.clear(true, true);
+    this.clearEntities();
     this.state = GAME_STATES.EDITOR;
     this.physics.pause();
     this.editor.enable();
@@ -251,8 +285,7 @@ export class GameScene extends Phaser.Scene {
 
   exitEditor() {
     this.editor.disable();
-    this.obstacles.clear(true, true);
-    this.balls.clear(true, true);
+    this.clearEntities();
     this.goToMenu();
   }
 
@@ -302,7 +335,12 @@ export class GameScene extends Phaser.Scene {
 
   advanceLevel() {
     if (this.isCustomLevel) {
-      this.finishRun('victory');
+      // A level opened via the editor's Play button is a playtest, not a
+      // real run -- clearing it doesn't end anything (there's no "next
+      // level" to go to and no victory to record), it just pauses on the
+      // same menu Escape would, restart included (see ui.js's setScreen),
+      // so the level's own author can immediately go again.
+      this.pause();
     } else if (this.levelIndex + 1 < LEVELS.length) {
       this.levelIndex += 1;
       this.loadLevel(this.levelIndex);
@@ -581,46 +619,15 @@ export class GameScene extends Phaser.Scene {
 
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
-    if (go instanceof Ball) {
-      // Exactly one axis changes DIRECTION per bounce -- a corner hit
-      // (e.g. down AND left both true at once) picks vertical over
-      // horizontal rather than flipping both. Arcade still zeroes both
-      // axes' velocity while resolving a corner collision though (see
-      // Ball.js), so the horizontal axis -- even though it isn't
-      // supposed to change direction here -- has to be explicitly
-      // reasserted or the ball is left motionless on it.
-      if (down) {
-        go.landOnTop();
-        if (left || right) go.reassertHorizontal();
-      } else if (up) {
-        go.bounceOffBottom();
-        if (left || right) go.reassertHorizontal();
-      } else if (left) {
-        go.bounceOffLeft();
-      } else if (right) {
-        go.bounceOffRight();
-      }
-    } else if (go instanceof Projectile) {
-      if (up) go.destroy();
-    }
+    if (go instanceof Ball) resolveBallBounce(go, { up, down, left, right });
+    else if (go instanceof Projectile && up) go.destroy();
   }
 
-  onBallHitObstacle(ballGO, obstacleGO) {
-    // Same rule (and same Arcade-zeroes-both-axes caveat) as
-    // onWorldBounds above -- vertical wins on a corner hit (touching.
-    // down/up AND touching.left/right both true at once).
-    const body = ballGO.body;
-    if (body.touching.down) {
-      ballGO.landOnTop();
-      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
-    } else if (body.touching.up) {
-      ballGO.bounceOffBottom();
-      if (body.touching.left || body.touching.right) ballGO.reassertHorizontal();
-    } else if (body.touching.left) {
-      ballGO.bounceOffLeft();
-    } else if (body.touching.right) {
-      ballGO.bounceOffRight();
-    }
+  // Arcade's body.touching exposes the same up/down/left/right contact
+  // flags the world-bounds event passes as arguments, so both bounce
+  // sites resolve through the one helper above.
+  onBallHitObstacle(ballGO) {
+    resolveBallBounce(ballGO, ballGO.body.touching);
   }
 
   onProjectileHitObstacle(projGO, obstacleGO) {
@@ -631,6 +638,12 @@ export class GameScene extends Phaser.Scene {
     if (destroyed) {
       this.audio.play('walldestroy');
       this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+      // The destroyed block may have been shielding a neighbor's face
+      // from ever registering a collision (see Obstacle.js's
+      // refreshObstacleSeams) -- recompute now that it's actually gone,
+      // or a ball/the player could pass straight through where it used
+      // to be.
+      refreshObstacleSeams(this.obstacles);
       // A crate the level editor tagged with a powerup drops it the
       // moment it's shot down -- see Obstacle.js's forcedPowerup.
       if (forcedPowerup) {
@@ -673,9 +686,13 @@ export class GameScene extends Phaser.Scene {
     if (lostLife) {
       this.audio.stopMusic();
       this.audio.play('playerlifeloose');
-      this.lives -= 1;
+      // A playtest from the editor has unlimited lives -- it's there to
+      // test the level layout, not to be beaten, so a hit just restarts
+      // it (below) rather than ever costing a real life or ending in
+      // game over.
+      if (!this.isCustomLevel) this.lives -= 1;
       this.player.playDeadAnim();
-      this.startHitFreeze(this.lives <= 0);
+      this.startHitFreeze(!this.isCustomLevel && this.lives <= 0);
     }
   }
 

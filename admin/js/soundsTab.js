@@ -6,11 +6,7 @@
 // already independent in AUDIO_CONFIG (a file path vs its playback
 // settings).
 import * as assets from '../../js/assets.js';
-import { fetchJSON, rootUrl, labeled, statusParagraph } from './util.js';
-
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
+import { SAVED_ASSET_MSG, el, fetchJSON, labeled, rootUrl, statusParagraph } from './util.js';
 
 export async function initSoundsTab(panel, fs) {
   panel.innerHTML = '<p>Loading audio.json…</p>';
@@ -39,8 +35,8 @@ export async function initSoundsTab(panel, fs) {
     saveConfigBtn.disabled = true;
     configStatus.textContent = 'Saving…';
     try {
-      const result = await fs.saveFile(assets.AUDIO_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`);
-      configStatus.textContent = result.savedTo !== 'download' ? 'Saved.' : 'Downloaded audio.json -- copy it into assets/audio/.';
+      await fs.saveFile(assets.AUDIO_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`);
+      configStatus.textContent = 'Saved.';
     } catch (err) {
       configStatus.textContent = `Save failed: ${err.message}`;
     }
@@ -113,8 +109,8 @@ function buildSoundCard(name, cfg, fs) {
     status.textContent = 'Saving…';
     try {
       const path = assets.audioPath(cfg.file);
-      const result = await fs.saveFile(path, pendingFile);
-      status.textContent = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into ${path}.`;
+      await fs.saveFile(path, pendingFile);
+      status.textContent = SAVED_MSG;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;
     }

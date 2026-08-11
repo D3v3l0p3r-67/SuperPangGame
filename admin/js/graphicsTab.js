@@ -6,7 +6,7 @@
 // drift out of sync with what the game actually loads.
 import * as assets from '../../js/assets.js';
 import { WEAPON_TYPES } from '../../js/config.js';
-import { fetchJSON, rootUrl, statusParagraph } from './util.js';
+import { SAVED_ASSET_MSG, el, fetchJSON, rootUrl, statusParagraph } from './util.js';
 
 async function fetchElements() {
   const ids = await fetchJSON(assets.ELEMENTS_INDEX_PATH);
@@ -110,10 +110,6 @@ export async function initGraphicsTab(panel, fs) {
   for (const item of list) grid.appendChild(buildGraphicCard(item, fs));
 }
 
-function el(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
-
 function buildGraphicCard({ label, path }, fs) {
   const card = document.createElement('div');
   card.className = 'card';
@@ -145,8 +141,13 @@ function buildGraphicCard({ label, path }, fs) {
     saveBtn.disabled = true;
     status.textContent = 'Saving…';
     try {
-      const result = await fs.saveFile(path, pendingFile);
-      status.textContent = result.savedTo !== 'download' ? 'Saved.' : `Downloaded -- copy it into ${path}.`;
+      await fs.saveFile(path, pendingFile);
+      // Re-read the just-written file from the server instead of leaving
+      // the local object URL on screen, so the preview reflects what is
+      // actually on disk now. Cache-busted: the path didn't change, so
+      // the browser would otherwise reuse its cached copy.
+      preview.src = `${rootUrl(path)}?t=${Date.now()}`;
+      status.textContent = SAVED_ASSET_MSG;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;
     }

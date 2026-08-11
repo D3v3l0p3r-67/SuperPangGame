@@ -8,8 +8,8 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
 
     this.body.setAllowGravity(false);
-    this.body.setSize(width, 7);
-    this.setDisplaySize(width, 7);
+    this.body.setSize(width, 14);
+    this.setDisplaySize(width, 14);
     this.body.setVelocityY(-speed);
     // Both are required: onWorldBounds only controls whether the event
     // fires, setCollideWorldBounds is what actually makes the body stop

@@ -149,6 +149,65 @@ header h1 {
   opacity: 0.9;
 }
 
+/* The web server user can't write to the project -- every Save is going
+   to fail until that's fixed, so this is a real problem, not a hint. */
+.fs-warning {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* The matching full-width explanation (see index.php): what PHP runs as,
+   which folders block it, and the exact command that fixes it. */
+.fs-fix {
+  border: 2px solid var(--danger);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  background: var(--panel);
+}
+
+.fs-fix h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--danger);
+}
+
+.fs-fix p {
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fs-fix table {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 10px 0;
+}
+
+.fs-fix th,
+.fs-fix td {
+  border: 1px solid var(--panel-border);
+  padding: 4px 10px;
+  text-align: left;
+}
+
+.fs-fix pre {
+  background: #0f0a24;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 10px 0;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  user-select: all; /* click once, copy the whole fix */
+}
+
+.fs-fix .note {
+  opacity: 0.8;
+  font-size: 12px;
+}
+
 #tabs {
   display: flex;
   gap: 4px;

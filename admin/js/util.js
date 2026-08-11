@@ -27,6 +27,13 @@ export function labeled(text, input) {
   return label;
 }
 
+// Replacing an asset FILE (an image or a sound) leaves its URL unchanged,
+// so a browser that already cached it keeps handing the game the old copy
+// -- the save landed on the server, it just isn't visible in the game
+// until a cache-skipping reload. The JSON tabs don't need this caveat:
+// the game re-reads elements/levels from disk on every boot.
+export const SAVED_ASSET_MSG = 'Saved. Hard-refresh the game (Ctrl+Shift+R) to see it.';
+
 export function statusParagraph() {
   const p = document.createElement('p');
   p.className = 'status';
