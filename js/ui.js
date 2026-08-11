@@ -99,6 +99,7 @@ export class UI {
     for (const id of ELEMENT_IDS) this.el[id] = document.getElementById(id);
 
     this.bindEvents();
+    this.bindMenuSfx();
     this.applySettingsToControls();
     this.setupPixelLabels();
   }
@@ -185,6 +186,38 @@ export class UI {
         this.updateZoomButtons();
       });
     }
+  }
+
+  // A short hover/click blip on every menu button (main menu, pause,
+  // level select, ...), including the level-select/high-score rows built
+  // dynamically in renderLevelSelect()/renderHighScores() -- delegated
+  // from #ui-layer once here instead of wiring each button individually,
+  // so a screen that builds new buttons later still gets it for free.
+  // Touch controls are deliberately excluded: they're in-game controls,
+  // not menu navigation, and don't have a "hover" concept anyway.
+  //
+  // mouseover (not mouseenter/pointerenter) is used because it bubbles,
+  // which is what makes delegation possible at all -- lastHoverBtn tracks
+  // the currently-hovered button so moving the pointer around inside the
+  // same button (over its inner pixel-text canvas, say) doesn't retrigger
+  // the sound on every sub-element crossed.
+  bindMenuSfx() {
+    const uiLayer = document.getElementById('ui-layer');
+    let lastHoverBtn = null;
+    uiLayer.addEventListener('mouseover', (e) => {
+      const btn = e.target.closest('button:not(.touch-btn)');
+      if (!btn || btn.disabled) { lastHoverBtn = null; return; }
+      if (btn === lastHoverBtn) return;
+      lastHoverBtn = btn;
+      this.audio.resumeContext();
+      this.audio.play('uihover');
+    });
+    uiLayer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button:not(.touch-btn)');
+      if (!btn || btn.disabled) return;
+      this.audio.resumeContext();
+      this.audio.play('uiclick');
+    });
   }
 
   applySettingsToControls() {

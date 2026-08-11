@@ -105,6 +105,18 @@ export class AudioManager {
     }
   }
 
+  // Freezes the current track at its playback position (as opposed to
+  // stopMusic(), which throws the instance away entirely) -- used for the
+  // pause menu, so the music picks back up where it left off on resume
+  // instead of restarting from the top. Safe to call with nothing playing.
+  pauseMusic() {
+    if (this.music && this.music.isPlaying) this.music.pause();
+  }
+
+  resumeMusic() {
+    if (this.music && this.music.isPaused) this.music.resume();
+  }
+
   setMuted(muted) {
     this.sound.mute = muted;
   }

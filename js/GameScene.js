@@ -439,11 +439,13 @@ export class GameScene extends Phaser.Scene {
 
   pause() {
     this.physics.pause();
+    this.audio.pauseMusic();
     this.state = GAME_STATES.PAUSED;
   }
 
   resumeFromPause() {
     this.physics.resume();
+    this.audio.resumeMusic();
     this.state = GAME_STATES.PLAYING;
   }
 
