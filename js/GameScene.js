@@ -329,12 +329,15 @@ export class GameScene extends Phaser.Scene {
     this.backgroundImage.setTexture(backgroundTextureKey(def.background || DEFAULT_BACKGROUND));
     this.effects.reset(this);
     this.levelTimer = 0;
-    // Panic Mode only (see updatePanicSpawner) -- the levelTimer value at
-    // which the next ceiling-drop ball is due. Re-derived from scratch on
-    // every load, including a post-hit restart, so a life lost always
-    // sends the wave progression back to the easy opening wave rather than
-    // resuming mid-ramp.
+    // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
+    // panicSpawnAt is the levelTimer value at which the next ceiling-drop
+    // ball is due; panicWaveIndex/panicPopCount track wave progress by
+    // balls popped, not elapsed time. All re-derived from scratch on every
+    // load, including a post-hit restart, so a life lost always sends the
+    // run back to the easy opening wave rather than resuming mid-ramp.
     this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
+    this.panicWaveIndex = 0;
+    this.panicPopCount = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
     // A key still held from before this level started (e.g. mashed
@@ -547,9 +550,19 @@ export class GameScene extends Phaser.Scene {
       ball.body.moves = !this.ballsFrozen;
       ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
       ball.setFrozen(this.ballsFrozen);
-      // Panic Mode ceiling-drop balls (see spawnPanicBall) spawn pinned to
-      // vx=0 so they visibly fall straight down out of the ceiling first;
-      // the instant one has dropped clear of it, give it normal drift.
+      // Panic Mode ceiling-drop balls (see spawnPanicBall) spawn centered
+      // on the ceiling border's own inner edge, depth-sorted behind it and
+      // with world-bounds collision off, so they visibly slide out from
+      // under/through the border instead of just appearing already fully
+      // below it -- restored to normal once the whole ball has cleared it.
+      if (ball.emergeY !== undefined && ball.body.y >= ball.emergeY) {
+        ball.setDepth(3);
+        ball.body.setCollideWorldBounds(true);
+        ball.emergeY = undefined;
+      }
+      // Pinned to vx=0 so it falls straight down first; the instant it's
+      // dropped clear (a size-scaled distance -- see spawnPanicBall), give
+      // it normal drift, same as any other ball from then on.
       if (ball.dropReleaseY !== undefined && ball.body.y >= ball.dropReleaseY) {
         ball.activateDrift();
         ball.dropReleaseY = undefined;
@@ -571,32 +584,49 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // Panic Mode's ball spawner: PANIC_LEVEL.panicSpawn.waves (levels/
-  // panic.json) is a list of { atSec, intervalSec, shapes } entries sorted
-  // ascending by atSec -- the active wave is whichever one's atSec is the
-  // largest not exceeding this.levelTimer, so time already spent this run
-  // (not a spawn count) drives the escalation, and the last wave simply
-  // keeps repeating once the run outlasts the whole table. panicSpawnAt
-  // tracks when the next ball is due, advanced by the wave's own
-  // intervalSec each time one spawns.
-  updatePanicSpawner() {
-    const spawn = this.currentLevelDef.panicSpawn;
-    if (!spawn || !spawn.waves?.length || this.levelTimer < this.panicSpawnAt) return;
+  // Panic Mode's active wave: PANIC_LEVEL.panicSpawn.waves (levels/
+  // panic.json) is a list of { popTarget, intervalSec, shapes } entries --
+  // progress is driven by balls actually popped (panicPopCount, see
+  // popBall/advancePanicProgress), not a timer, so a sharper player faces
+  // harder waves sooner instead of everyone escalating in lockstep. The
+  // last wave repeats forever once the run outlasts the whole table.
+  get panicWave() {
+    const waves = this.currentLevelDef?.panicSpawn?.waves;
+    if (!waves || !waves.length) return null;
+    return waves[Math.min(this.panicWaveIndex, waves.length - 1)];
+  }
 
-    let wave = spawn.waves[0];
-    for (const w of spawn.waves) {
-      if (w.atSec > this.levelTimer) break;
-      wave = w;
-    }
-    this.spawnPanicBall(wave, spawn.releaseDropPx ?? 24);
+  // 0-100 completion of the CURRENT wave, for the HUD's progress bar (see
+  // Hud.js) -- caps at 100 on the final wave instead of ever exceeding it.
+  get panicProgressPct() {
+    const wave = this.panicWave;
+    if (!wave || !wave.popTarget) return 0;
+    return Math.min(100, Math.floor(100 * this.panicPopCount / wave.popTarget));
+  }
+
+  // Ball spawn timing only -- still purely time-driven (panicSpawnAt vs
+  // levelTimer) since spawn CADENCE is about keeping the pressure steady,
+  // unlike wave difficulty which is skill-gated (see panicWave above).
+  updatePanicSpawner() {
+    const wave = this.panicWave;
+    if (!wave || this.levelTimer < this.panicSpawnAt) return;
+    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn.releaseDropRadiusMult ?? 3);
     this.panicSpawnAt = this.levelTimer + wave.intervalSec;
   }
 
   // Picks one (shape, size) from the wave's weighted `shapes` list and
-  // drops it in at a random x, flush against the ceiling, with vx pinned
-  // to 0 (see the dropReleaseY check in updatePlaying/Ball.activateDrift)
-  // so it visibly falls straight down before picking up normal drift.
-  spawnPanicBall(wave, releaseDropPx) {
+  // drops it in at a random x with its BOTTOM edge flush against the
+  // ceiling border's inner face -- i.e. entirely hidden above/within the
+  // border strip at spawn, none of it poking into the playfield yet (see
+  // the emergeY check in updatePlaying) -- so it visibly slides out
+  // through the border as it falls, rather than just appearing already
+  // mostly exposed (which centering on the border line used to do for any
+  // ball wider than the border is thick). Clearing the border this way
+  // always takes exactly one full diameter of travel, so bigger balls
+  // already take longer to become fully visible purely from their own
+  // size; dropReleaseY adds a further radius-scaled delay on top of that
+  // before it picks up normal drift, per releaseDropRadiusMult.
+  spawnPanicBall(wave, releaseDropRadiusMult) {
     const entries = wave.shapes;
     const totalWeight = entries.reduce((sum, e) => sum + (e.weight ?? 1), 0);
     let roll = Math.random() * totalWeight;
@@ -609,15 +639,35 @@ export class GameScene extends Phaser.Scene {
     const el = getBallElement(choice.shape, choice.size);
     const bt = BORDER_THICKNESS;
     const x = Phaser.Math.Between(bt + el.radius, VIRTUAL_W - bt - el.radius);
-    const y = bt + el.radius;
+    const y = bt - el.radius;
     // Gravity balls start at vy=0 and pick up speed naturally (their own
     // gravityAccel), which is already the "falls slowly at first" look --
     // hex balls have no gravity, so they need an explicit fixed downward
     // speed or they'd just hang motionless at the ceiling.
     const vy = el.hasGravity ? 0 : el.speed * Math.SQRT1_2;
     const ball = new Ball(this, choice.shape, choice.size, x, y, 0, vy);
-    ball.dropReleaseY = y + releaseDropPx;
+    // World bounds sit at exactly y = bt -- collision would otherwise
+    // immediately shove a ball spawned above that line back down, undoing
+    // the "still emerging through the ceiling" look before it even starts.
+    ball.body.setCollideWorldBounds(false);
+    ball.setDepth(0.4); // below the ceiling border's own depth (0.5) while emerging
+    ball.emergeY = bt; // body.y (top edge) reaching this means the whole ball has cleared the border
+    ball.dropReleaseY = ball.emergeY + el.radius * releaseDropRadiusMult;
     this.balls.add(ball);
+  }
+
+  // Panic Mode's own "level" progress: popping enough balls (the active
+  // wave's popTarget) advances to the next, harder wave -- see panicWave/
+  // updatePanicSpawner. Skill-driven on purpose (pop faster, face harder
+  // waves sooner) rather than a blind timer.
+  advancePanicProgress() {
+    this.panicPopCount += 1;
+    const wave = this.panicWave;
+    const waves = this.currentLevelDef.panicSpawn.waves;
+    if (wave && this.panicPopCount >= wave.popTarget && this.panicWaveIndex + 1 < waves.length) {
+      this.panicWaveIndex += 1;
+      this.panicPopCount = 0;
+    }
   }
 
   tryFire() {
@@ -640,6 +690,7 @@ export class GameScene extends Phaser.Scene {
   popBall(ball) {
     const awarded = Math.round(ball.points * this.scoreMultiplier);
     this.score += awarded;
+    if (this.isPanicMode) this.advancePanicProgress();
     this.audio.play('balldestroy');
     this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
     this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color));

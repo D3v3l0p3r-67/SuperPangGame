@@ -90,8 +90,14 @@ body {
 /* Phaser injects its own <canvas> into #game-container (see GameConfig.js
    parent + scale.mode: NONE -- DisplayZoom.js sets its CSS size by hand
    to exactly match #game-container above, so there's no letterboxing gap
-   between the two to account for). */
-#game-container canvas {
+   between the two to account for). Direct-child selector on purpose --
+   same reasoning as PixelText.js's gameCanvasScale(): #ui-layer's menu
+   buttons each hold their own tiny <canvas> (the pixel-text glyphs)
+   nested several levels deeper inside #game-container, and a plain
+   descendant selector here used to paint this opaque background onto
+   those too, blocking a hovered button's own background from ever
+   showing through behind its label text. */
+#game-container > canvas {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;

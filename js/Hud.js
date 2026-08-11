@@ -140,6 +140,17 @@ export class Hud {
     this.timeRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 3, RIGHT_X + 44, ROW1_Y);
     this.timeRow.setTint(ACCENT);
 
+    // Panic Mode has no time limit (see loadLevel/currentLevelDef) -- it
+    // shares the TIME row's slot with a small bar instead, showing the
+    // current wave's completion (balls popped / popTarget, see
+    // GameScene.panicProgressPct) rather than leaving the slot empty.
+    this.panicBarMaxW = 60;
+    const PANIC_BAR_H = 6;
+    this.panicBarBg = scene.add.rectangle(RIGHT_X, ROW1_Y + 4, this.panicBarMaxW, PANIC_BAR_H, 0x000000).setOrigin(0, 0).setStrokeStyle(1, ACCENT);
+    this.panicBarFill = scene.add.rectangle(RIGHT_X + 1, ROW1_Y + 5, this.panicBarMaxW - 2, PANIC_BAR_H - 2, ACCENT).setOrigin(0, 0);
+    this.container.add(this.panicBarBg);
+    this.container.add(this.panicBarFill);
+
     this.container.add(scene.add.image(RIGHT_X, ROW2_Y, assets.HUD_LEVEL_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
     this.levelRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, RIGHT_X + 54, ROW2_Y);
     this.levelRow.setTint(ACCENT);
@@ -197,7 +208,13 @@ export class Hud {
       this.timeRow.setValue(g.remainingLevelTime);
       this.timeRow.setTint(g.remainingLevelTime <= 10 ? DANGER : ACCENT);
     }
-    this.levelRow.setValue(g.levelIndex + 1);
+
+    const showPanicBar = !hasTimeLimit && g.isPanicMode;
+    this.panicBarBg.setVisible(showPanicBar);
+    this.panicBarFill.setVisible(showPanicBar);
+    if (showPanicBar) this.panicBarFill.displayWidth = Math.max(1, this.panicBarMaxW * (g.panicProgressPct / 100));
+
+    this.levelRow.setValue(g.isPanicMode ? g.panicWaveIndex + 1 : g.levelIndex + 1);
     this.hiRow.setValue(Math.max(this.topHighScore, g.score));
 
     for (let i = 0; i < this.lifeIcons.length; i++) this.lifeIcons[i].setVisible(i < g.lives);
