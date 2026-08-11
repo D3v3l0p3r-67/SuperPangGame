@@ -87,6 +87,8 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = false;
     this.customLevelDef = null;
     this.isPanicMode = false;
+    this.panicWaveIndex = 0;
+    this.panicPopCount = 0;
     this.weaponType = 'harpoon';
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
     // Tracks last frame's shoot input so a held key only fires once per
@@ -257,6 +259,12 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = customDef !== null;
     this.customLevelDef = customDef;
     this.isPanicMode = panicMode;
+    // Only a genuinely fresh run starts back at wave 1 -- a same-run
+    // restart after losing a life (restartLevel(), which calls loadLevel()
+    // directly rather than through here) deliberately leaves this alone,
+    // so the run picks back up on whatever wave it was on (see loadLevel's
+    // own panicPopCount/panicSpawnAt reset for what DOES restart on a hit).
+    this.panicWaveIndex = 0;
     this.effects.reset(this);
     this.audio.play('superpang');
     this.loadLevel(panicMode ? PANIC_LEVEL : (customDef ?? levelIndex));
@@ -331,12 +339,12 @@ export class GameScene extends Phaser.Scene {
     this.levelTimer = 0;
     // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
     // panicSpawnAt is the levelTimer value at which the next ceiling-drop
-    // ball is due; panicWaveIndex/panicPopCount track wave progress by
-    // balls popped, not elapsed time. All re-derived from scratch on every
-    // load, including a post-hit restart, so a life lost always sends the
-    // run back to the easy opening wave rather than resuming mid-ramp.
+    // ball is due; panicPopCount tracks progress within the CURRENT wave.
+    // Both reset on every load, including a post-hit restart, so a life
+    // lost restarts the wave you were actually on ("that level's balls
+    // start falling again") rather than dumping progress. panicWaveIndex
+    // itself is deliberately NOT touched here -- see beginRun().
     this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
-    this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
@@ -560,11 +568,13 @@ export class GameScene extends Phaser.Scene {
         ball.body.setCollideWorldBounds(true);
         ball.emergeY = undefined;
       }
-      // Pinned to vx=0 so it falls straight down first; the instant it's
-      // dropped clear (a size-scaled distance -- see spawnPanicBall), give
-      // it normal drift, same as any other ball from then on.
+      // Pinned to vx=0 and a controlled constant descent (see
+      // spawnPanicBall) so it visibly falls straight down first; the
+      // instant it reaches the shared release height, give it normal
+      // drift and hand its vertical motion back to normal ball behavior.
       if (ball.dropReleaseY !== undefined && ball.body.y >= ball.dropReleaseY) {
         ball.activateDrift();
+        ball.resumeNormalFall();
         ball.dropReleaseY = undefined;
       }
     }
@@ -610,7 +620,7 @@ export class GameScene extends Phaser.Scene {
   updatePanicSpawner() {
     const wave = this.panicWave;
     if (!wave || this.levelTimer < this.panicSpawnAt) return;
-    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn.releaseDropRadiusMult ?? 3);
+    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn);
     this.panicSpawnAt = this.levelTimer + wave.intervalSec;
   }
 
@@ -620,13 +630,19 @@ export class GameScene extends Phaser.Scene {
   // border strip at spawn, none of it poking into the playfield yet (see
   // the emergeY check in updatePlaying) -- so it visibly slides out
   // through the border as it falls, rather than just appearing already
-  // mostly exposed (which centering on the border line used to do for any
-  // ball wider than the border is thick). Clearing the border this way
-  // always takes exactly one full diameter of travel, so bigger balls
-  // already take longer to become fully visible purely from their own
-  // size; dropReleaseY adds a further radius-scaled delay on top of that
-  // before it picks up normal drift, per releaseDropRadiusMult.
-  spawnPanicBall(wave, releaseDropRadiusMult) {
+  // mostly exposed.
+  //
+  // Becoming "active" (normal drift + normal falling, see resumeNormalFall)
+  // happens at a fixed HEIGHT shared by every size (releaseHeightPx below
+  // the border, measured to the ball's own center) but after a size-scaled
+  // TIME (releaseDelayBaseSec + (size-1)*releaseDelayStepSec) -- every
+  // round size shares the same gravityAccel (see elements/round-ball-*
+  // .json), so hitting two independent targets (same end height, different
+  // elapsed time) means the descent speed has to be deliberately overridden
+  // rather than left to each ball's own gravity: gravity is switched off
+  // for the descent and vy is set to exactly travelDistance/delaySec,
+  // restored to normal (resumeNormalFall) only once release fires.
+  spawnPanicBall(wave, spawn) {
     const entries = wave.shapes;
     const totalWeight = entries.reduce((sum, e) => sum + (e.weight ?? 1), 0);
     let roll = Math.random() * totalWeight;
@@ -640,19 +656,29 @@ export class GameScene extends Phaser.Scene {
     const bt = BORDER_THICKNESS;
     const x = Phaser.Math.Between(bt + el.radius, VIRTUAL_W - bt - el.radius);
     const y = bt - el.radius;
-    // Gravity balls start at vy=0 and pick up speed naturally (their own
-    // gravityAccel), which is already the "falls slowly at first" look --
-    // hex balls have no gravity, so they need an explicit fixed downward
-    // speed or they'd just hang motionless at the ceiling.
-    const vy = el.hasGravity ? 0 : el.speed * Math.SQRT1_2;
+    const bodyY = y - el.radius; // Arcade's circle-body top-left == center - radius
+
+    const releaseHeightPx = spawn.releaseHeightPx ?? 48;
+    const delaySec = (spawn.releaseDelayBaseSec ?? 1) + (el.size - 1) * (spawn.releaseDelayStepSec ?? 0.5);
+    // Distance from THIS ball's own bodyY to the shared release height
+    // (measured by ball CENTER, bt + releaseHeightPx, so it's identical
+    // across sizes) -- working in bodyY terms throughout keeps this
+    // consistent with the >= comparison in updatePlaying's release check.
+    const travelPx = releaseHeightPx + el.radius;
+    const vy = travelPx / delaySec;
+
     const ball = new Ball(this, choice.shape, choice.size, x, y, 0, vy);
+    // Gravity would otherwise accelerate the descent, missing both the
+    // fixed height and the fixed time -- overridden with a constant
+    // velocity for the whole pre-release descent instead (see above).
+    ball.body.setAllowGravity(false);
     // World bounds sit at exactly y = bt -- collision would otherwise
     // immediately shove a ball spawned above that line back down, undoing
     // the "still emerging through the ceiling" look before it even starts.
     ball.body.setCollideWorldBounds(false);
     ball.setDepth(0.4); // below the ceiling border's own depth (0.5) while emerging
     ball.emergeY = bt; // body.y (top edge) reaching this means the whole ball has cleared the border
-    ball.dropReleaseY = ball.emergeY + el.radius * releaseDropRadiusMult;
+    ball.dropReleaseY = bodyY + travelPx;
     this.balls.add(ball);
   }
 
