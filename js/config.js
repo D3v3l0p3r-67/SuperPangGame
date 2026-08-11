@@ -9,11 +9,11 @@
 // Player.js) -- every animation frame shares this one hitbox. P1 and P2
 // (when added) use the same dimensions.
 export const PLAYER_CONFIG = {
-  spriteWidth: 16,
-  spriteHeight: 32,
-  hitboxWidth: 10,
-  hitboxHeight: 22,
-  shieldSize: 32,
+  spriteWidth: 32,
+  spriteHeight: 64,
+  hitboxWidth: 20,
+  hitboxHeight: 44,
+  shieldSize: 64,
   speed: 90,
   startLives: 3,
   invulnMs: 1500,
@@ -23,7 +23,7 @@ export const WEAPON_TYPES = {
   harpoon: {
     label: 'Harpoon',
     shotSpeed: 220,
-    width: 2,
+    width: 4,
     color: '#ffd23f',
     baseMaxActiveShots: 1,
     basePierce: 1,

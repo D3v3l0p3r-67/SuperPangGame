@@ -63,7 +63,7 @@ export function ballPopAnimKey(shape, size) {
 // right-facing instead of needing a separate left/right file.
 export const PLAYER_TEXTURE_KEY = 'player';
 export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
-export const PLAYER_FRAME = { frameWidth: 16, frameHeight: 32 };
+export const PLAYER_FRAME = { frameWidth: 32, frameHeight: 64 };
 
 // state -> its frame index (or indices, in play order) within the
 // spritesheet above.
@@ -87,11 +87,13 @@ export const PLAYER_SHIELD_FRAMES = 3;
 export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
-// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each a
-// small repeating cell (8x8) -- tiled via TileSprite across whatever area
-// a block/the border frame covers, independent of OBSTACLE_BLOCK_SIZE/
-// BORDER_THICKNESS (the tile just repeats however many times it takes to
-// fill either).
+// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES) -- tiled
+// via TileSprite across whatever area a block/the border frame covers, so
+// the file itself is just the one repeating cell. Sized to match
+// OBSTACLE_BLOCK_SIZE/BORDER_THICKNESS exactly (16x16) so a block/the
+// border reads as one clean tile rather than a busy sub-grid, though
+// TileSprite would repeat a smaller texture just as correctly if it were
+// ever swapped for one.
 export const OBSTACLE_TEXTURE_DIR = 'assets/obstacles/';
 
 export function obstacleTextureKey(name) {

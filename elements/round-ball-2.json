@@ -5,10 +5,10 @@
   "size": 2,
   "label": "Round 2",
   "hasGravity": true,
-  "gravityAccel": 260,
+  "gravityAccel": 520,
   "radius": 16,
-  "speed": 55,
-  "bounceVelocity": 257,
+  "speed": 110,
+  "bounceVelocity": 514,
   "points": 400,
   "color": "#ff6b6b",
   "highlight": "#ffb3b3"

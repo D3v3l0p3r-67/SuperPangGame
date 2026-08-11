@@ -6,7 +6,7 @@
   "label": "Hex 1",
   "hasGravity": false,
   "radius": 8,
-  "speed": 60,
+  "speed": 120,
   "bounceVelocity": 0,
   "points": 200,
   "color": "#4ecdc4",

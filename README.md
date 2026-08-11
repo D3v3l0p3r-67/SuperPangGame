@@ -322,8 +322,8 @@ resolved (no shared/derived values):
 ```json
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
-  "label": "Round 1", "hasGravity": true, "gravityAccel": 260,
-  "radius": 8, "speed": 40, "bounceVelocity": 221, "points": 200,
+  "label": "Round 1", "hasGravity": true, "gravityAccel": 520,
+  "radius": 8, "speed": 80, "bounceVelocity": 442, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -483,7 +483,7 @@ dimensions:
   -- then over 300ms drifts up another 10px, grows slightly, and fades
   out, all tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
-  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (16x32)
+  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (32x64)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
@@ -491,19 +491,21 @@ dimensions:
   per hit). Every frame is authored facing LEFT; Player.js mirrors it for
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
-  the same 16x(32 x 8) total size and frame order.
+  the same 32x(64 x 8) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
-  -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (32) square
+  -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`
   power-up is active (`Player.js`'s `shieldEffect`). Distinct from the
   power-up's own pickup icon (`assets/powerups/shield.webp`, see below).
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
-  `tileTexture` field, 8x8px, tiled across whatever area a block (or the
+  `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
+  `BORDER_THICKNESS`, see "Display size" above, so a block/the border
+  reads as one clean tile), tiled across whatever area a block (or the
   playfield border) covers.
 - **Power-ups**: `assets/powerups/<type>.webp` (e.g. `shield.webp`) -- one
   per `elements/powerup-*.json`'s `type`, 9x9px.
-- **Projectile / particle**: `assets/projectile.webp` (4x7, stretched to
+- **Projectile / particle**: `assets/projectile.webp` (8x14, stretched to
   the active weapon's width) and `assets/particle.webp` (2x2, always
   tinted at runtime to whatever color a burst effect needs, so keep it
   plain white).
