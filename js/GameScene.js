@@ -5,6 +5,7 @@ import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
 import { Bonus } from './Bonus.js';
+import { refreshObstacleSeams } from './Obstacle.js';
 import { createWeaponState, EffectManager } from './weapons.js';
 import { loadLevel as loadLevelData, LEVELS } from './LevelManager.js';
 import { AudioManager } from './audio.js';
@@ -126,6 +127,12 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.balls, this.obstacles, this.onBallHitObstacle, null, this);
     this.physics.add.overlap(this.projectiles, this.balls, this.onProjectileHitBall, null, this);
     this.physics.add.overlap(this.projectiles, this.obstacles, this.onProjectileHitObstacle, null, this);
+    // Solid, not an overlap -- an intact obstacle physically blocks the
+    // player like the border does; only once its blocks are actually shot
+    // down (removed from this.obstacles, see onProjectileHitObstacle) does
+    // that space open up. No callback needed, Arcade's own separation is
+    // the entire effect.
+    this.physics.add.collider(this.player, this.obstacles);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
     this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);
@@ -626,6 +633,12 @@ export class GameScene extends Phaser.Scene {
     if (destroyed) {
       this.audio.play('walldestroy');
       this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+      // The destroyed block may have been shielding a neighbor's face
+      // from ever registering a collision (see Obstacle.js's
+      // refreshObstacleSeams) -- recompute now that it's actually gone,
+      // or a ball/the player could pass straight through where it used
+      // to be.
+      refreshObstacleSeams(this.obstacles);
       // A crate the level editor tagged with a powerup drops it the
       // moment it's shot down -- see Obstacle.js's forcedPowerup.
       if (forcedPowerup) {

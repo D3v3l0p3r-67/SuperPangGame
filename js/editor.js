@@ -3,7 +3,7 @@ import { OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, ge
 import { WEAPON_TYPES } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
 import { LEVELS } from './LevelManager.js';
-import { Obstacle } from './Obstacle.js';
+import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import * as storage from './storage.js';
 
@@ -74,13 +74,27 @@ function backgroundNames() {
 // (walls, crates, balls) is placed on this exact grid, no free placement.
 // Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
 // are independent constants -- see constants.js.
+//
+// The clamp itself has to land ON a grid line, not just inside bounds:
+// GROUND_Y - BORDER_THICKNESS isn't necessarily a whole number of grid
+// cells below the top border (e.g. 800x420 with a 16px border/grid: the
+// inner playfield is 388px tall, and 388 isn't a multiple of 16), so a
+// naive `Math.min(gy, rawMax)` clamp could snap the bottom row to a
+// pixel offset the rest of the grid never uses -- visibly misaligned/
+// overlapping with the row above it. gridSnap() rounds each raw bound
+// down to the nearest cell that's actually still fully inside the
+// playfield, same as the floor() above does for an ordinary coordinate.
+function gridSnap(bt, grid, rawMax) {
+  return bt + Math.floor((rawMax - bt) / grid) * grid;
+}
+
 function snapObstacleOrigin(x, y) {
   const grid = OBSTACLE_BLOCK_SIZE;
   const bt = BORDER_THICKNESS;
   const gx = Math.floor((x - bt) / grid) * grid + bt;
   const gy = Math.floor((y - bt) / grid) * grid + bt;
-  const maxX = VIRTUAL_W - bt - grid;
-  const maxY = GROUND_Y - bt - grid;
+  const maxX = gridSnap(bt, grid, VIRTUAL_W - bt - grid);
+  const maxY = gridSnap(bt, grid, GROUND_Y - bt - grid);
   return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
 }
 
@@ -122,6 +136,10 @@ export class Editor {
 
     scene.input.on('pointerdown', (p) => this.onPointer(p, true));
     scene.input.on('pointermove', (p) => this.onPointer(p, false));
+    // Right-click is always erase, regardless of the selected brush --
+    // without this the browser's own context menu would pop up over the
+    // canvas on every right-click instead.
+    scene.input.mouse?.disableContextMenu();
   }
 
   buildPanel() {
@@ -337,6 +355,7 @@ export class Editor {
     const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
     this.scene.obstacles.add(block);
     this.blocks.set(key, block);
+    refreshObstacleSeams(this.scene.obstacles);
   }
 
   placeBlock(x, y, type) {
@@ -349,6 +368,7 @@ export class Editor {
     if (block) {
       block.destroy();
       this.blocks.delete(key);
+      refreshObstacleSeams(this.scene.obstacles);
     }
     const ball = this.balls.get(key);
     if (ball) {
@@ -401,7 +421,20 @@ export class Editor {
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;
 
-    if (!pointer.isDown) return;
+    // pointer.isDown only reflects the LEFT button -- the right button
+    // needs its own check, since right-click-to-erase (below) has to work
+    // even though it isn't "the" primary button press.
+    if (!pointer.isDown && !pointer.rightButtonDown()) return;
+
+    // Right-click always erases whatever's under the cursor, regardless of
+    // the selected brush -- a quick-access shortcut alongside the
+    // dedicated Erase brush, which still works the same as before via the
+    // left button.
+    if (pointer.rightButtonDown()) {
+      this.eraseAt(snapped.x, snapped.y);
+      return;
+    }
+
     const isBallBrush = this.brush.startsWith('ball-');
     if (isBallBrush && !isDown) return;
 

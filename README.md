@@ -385,10 +385,13 @@ names an `assets/audio/audio.json` entry to play on pickup (falls back to
 Levels live under `levels/`, one JSON file per level -- `LEVELS.length`
 (and the built-in level count) is always exactly how many files are
 there, no separate count or manifest to keep in sync. The easiest way to
-create one: open the in-game **LEVEL EDITOR**, paint it, then click
-**Export** to download a `.json` file already in the right shape, and
-drop that file into `levels/` as `level_NN.json` (the next free number,
-zero-padded to 2 digits -- `level_11.json`, `level_12.json`, ...).
+create one: open the in-game **LEVEL EDITOR**, paint it (left-click/drag
+places whatever brush is selected; right-click always erases whatever's
+under the cursor instead, regardless of the selected brush, alongside the
+dedicated **Erase** brush), then click **Export** to download a `.json`
+file already in the right shape, and drop that file into `levels/` as
+`level_NN.json` (the next free number, zero-padded to 2 digits --
+`level_11.json`, `level_12.json`, ...).
 
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json
