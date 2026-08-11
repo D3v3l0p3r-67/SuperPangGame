@@ -157,9 +157,9 @@ export class Debug {
     this.updateText();
   }
 
-  // Every OBSTACLE_BLOCK_SIZE (8px) across the whole canvas, so obstacle/
-  // border alignment can be checked directly against it -- toggle with
-  // the G key or the panel button, independent of the collision overlay.
+  // Every OBSTACLE_BLOCK_SIZE across the whole canvas, so obstacle/border
+  // alignment can be checked directly against it -- toggle with the G key
+  // or the panel button, independent of the collision overlay.
   drawGrid(graphics) {
     graphics.lineStyle(1, 0x00ff00, 0.25);
     for (let x = 0; x <= VIRTUAL_W; x += OBSTACLE_BLOCK_SIZE) {

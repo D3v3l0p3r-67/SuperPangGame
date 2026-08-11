@@ -6,7 +6,7 @@
   "label": "Round 5",
   "hasGravity": true,
   "gravityAccel": 260,
-  "radius": 24,
+  "radius": 48,
   "speed": 100,
   "bounceVelocity": 286,
   "points": 3200,

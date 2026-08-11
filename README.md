@@ -3,18 +3,19 @@
 A retro pixel-art arcade game inspired by the classic *Pang* / *Buster Bros.*
 gameplay: walk left and right along the ground, fire a harpoon straight up,
 and pop balls before they pop you. There are two ball shapes -- round balls
-(8x8px up to 48x48px, sizes 1-5) that fall under gravity and bounce, and hex
-balls (8x8px up to 24x24px, sizes 1-3 only) that ignore gravity and drift at
-a constant diagonal speed. Hitting a ball splits it into two balls one size
-smaller, one sent left and one right; size-1 balls are destroyed outright.
+(16x16px up to 96x96px, sizes 1-5) that fall under gravity and bounce, and
+hex balls (16x16px up to 48x48px, sizes 1-3 only) that ignore gravity and
+drift at a constant diagonal speed. Hitting a ball splits it into two balls
+one size smaller, one sent left and one right; size-1 balls are destroyed
+outright.
 
 Every ball's motion is fully deterministic: each size has fixed speed,
 bounce height, and gravity, so two balls of the same size always move and
 bounce identically no matter how they got there -- a landing always resets
 vertical speed to that size's standard bounce velocity rather than
 reflecting whatever speed it fell in at (size 1's bounce, for example,
-always takes it from a resting center 4px off the ground up to a peak
-96px higher). Levels can also contain obstacles built from 8x8 blocks
+always takes it from a resting center 8px off the ground up to a peak
+96px higher). Levels can also contain obstacles built from 16x16 blocks
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
@@ -92,7 +93,7 @@ active weapon's `maxActiveShots` (see `tryFire`).
 The playing surface is a fixed 800x420px, bordered on all four sides
 (top/left/right/floor) by a 16px wall (`BORDER_THICKNESS` in
 `js/constants.js`) -- independent of the 8x8 obstacle/ball placement grid
-(`OBSTACLE_BLOCK_SIZE`, also the smallest ball's size), which is
+(`OBSTACLE_BLOCK_SIZE`, 16x16 -- also the smallest ball's size), which is
 unaffected. A dedicated 80px HUD strip sits below the bordered playfield
 (`HUD_H`), never overlapping gameplay -- 800x500px total.
 
@@ -122,7 +123,7 @@ seam between the canvas and the page behind it.
   fixed, deterministic physics; splitting one size smaller (one left, one
   right) per hit.
 - Obstacles: indestructible platforms and shootable crates, built from
-  8x8 blocks (rectangular or stepped shapes), blocking ball movement from
+  16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
 - 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
@@ -262,7 +263,7 @@ js/
   LevelManager.js    Owns the LEVELS array (populated by ElementsScene
                       from levels/*.json) and loads a level definition
                       into a GameScene's groups; decomposes each obstacle
-                      into independent 8x8 Obstacle blocks (see
+                      into independent 16x16 Obstacle blocks (see
                       OBSTACLE_BLOCK_SIZE)
   config.js          Static gameplay tuning that isn't per-element data
                       (player movement, weapon base stats, power-up drop
@@ -322,7 +323,7 @@ resolved (no shared/derived values):
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
   "label": "Round 1", "hasGravity": true, "gravityAccel": 260,
-  "radius": 4, "speed": 40, "bounceVelocity": 221, "points": 200,
+  "radius": 8, "speed": 40, "bounceVelocity": 221, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -455,8 +456,8 @@ dimensions:
 
 - **Balls**: `assets/balls/ball_<shape>_<size>.webp` (e.g. `ball_round_1
   .webp`) -- one per `elements/*-ball-*.json` (see "Adding elements"),
-  exactly 2x that element's `radius` square (8/16/24/32/48px for round
-  sizes 1-5, 8/16/24px for hex sizes 1-3), used at native resolution with
+  exactly 2x that element's `radius` square (16/32/48/64/96px for round
+  sizes 1-5, 16/32/48px for hex sizes 1-3), used at native resolution with
   no runtime scaling -- that's also the ball's physics collision diameter.
   A shape with `hasGravity: false` (hex today) spins, so its file is
   instead a `HEX_SPIN_FRAMES`-frame (3) spritesheet stacked vertically,

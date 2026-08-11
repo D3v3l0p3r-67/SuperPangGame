@@ -5,7 +5,7 @@
   "size": 2,
   "label": "Hex 2",
   "hasGravity": false,
-  "radius": 8,
+  "radius": 16,
   "speed": 82.5,
   "bounceVelocity": 0,
   "points": 400,

@@ -28,7 +28,7 @@ export const GROUND_Y = PLAYFIELD_H - BORDER_THICKNESS;
 // (see LevelManager.js), so one can be shot away without affecting the
 // rest of the shape. Also the level editor's placement/alignment grid
 // (see editor.js's snapObstacleOrigin).
-export const OBSTACLE_BLOCK_SIZE = 8;
+export const OBSTACLE_BLOCK_SIZE = 16;
 
 // The only display sizes the game can render at -- see DisplayZoom.js.
 // Deliberately NOT continuously responsive to the browser window: picking

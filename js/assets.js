@@ -87,10 +87,11 @@ export const PLAYER_SHIELD_FRAMES = 3;
 export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
-// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each
-// exactly OBSTACLE_BLOCK_SIZE square (8x8) -- tiled via TileSprite across
-// whatever area a block/the border frame covers, so the file itself is
-// just the one repeating cell.
+// an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES), each a
+// small repeating cell (8x8) -- tiled via TileSprite across whatever area
+// a block/the border frame covers, independent of OBSTACLE_BLOCK_SIZE/
+// BORDER_THICKNESS (the tile just repeats however many times it takes to
+// fill either).
 export const OBSTACLE_TEXTURE_DIR = 'assets/obstacles/';
 
 export function obstacleTextureKey(name) {
