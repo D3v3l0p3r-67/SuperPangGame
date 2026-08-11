@@ -55,7 +55,7 @@ export function ballPopAnimKey(shape, size) {
 }
 
 // Player: a single spritesheet (one PNG, not one file per frame) of
-// PLAYER_CONFIG.spriteWidth x spriteHeight (16x32) cells stacked
+// PLAYER_CONFIG.spriteWidth x spriteHeight (32x64) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
 // dead -- see PLAYER_ANIM_FRAMES below for which index is which (see the
 // README's "Swapping graphics" for the full frame reference). Every frame
