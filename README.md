@@ -15,7 +15,7 @@ bounce identically no matter how they got there -- a landing always resets
 vertical speed to that size's standard bounce velocity rather than
 reflecting whatever speed it fell in at (size 1's bounce, for example,
 always takes it from a resting center 8px off the ground up to a peak
-334px higher). Levels can also contain obstacles built from 16x16 blocks
+149px higher). Levels can also contain obstacles built from 16x16 blocks
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
@@ -323,7 +323,7 @@ resolved (no shared/derived values):
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
   "label": "Round 1", "hasGravity": true, "gravityAccel": 520,
-  "radius": 8, "speed": 80, "bounceVelocity": 589, "points": 200,
+  "radius": 8, "speed": 80, "bounceVelocity": 393, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```

@@ -14,7 +14,7 @@ export const PLAYER_CONFIG = {
   hitboxWidth: 20,
   hitboxHeight: 44,
   shieldSize: 64,
-  speed: 90,
+  speed: 180,
   startLives: 3,
   invulnMs: 1500,
 };
@@ -22,7 +22,7 @@ export const PLAYER_CONFIG = {
 export const WEAPON_TYPES = {
   harpoon: {
     label: 'Harpoon',
-    shotSpeed: 220,
+    shotSpeed: 440,
     width: 4,
     color: '#ffd23f',
     baseMaxActiveShots: 1,

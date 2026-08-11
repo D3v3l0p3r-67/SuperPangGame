@@ -8,7 +8,7 @@
   "gravityAccel": 520,
   "radius": 24,
   "speed": 140,
-  "bounceVelocity": 712,
+  "bounceVelocity": 475,
   "points": 800,
   "color": "#ff6b6b",
   "highlight": "#ffb3b3"
