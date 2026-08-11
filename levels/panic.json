@@ -1,0 +1,41 @@
+{
+  "id": "panic",
+  "name": "Panic Mode",
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [],
+  "balls": [],
+  "panicSpawn": {
+    "initialDelaySec": 1.5,
+    "releaseDropRadiusMult": 3,
+    "waves": [
+      { "popTarget": 8, "intervalSec": 2.6, "shapes": [
+        { "shape": "round", "size": 1, "weight": 1 }
+      ] },
+      { "popTarget": 10, "intervalSec": 2.2, "shapes": [
+        { "shape": "round", "size": 1, "weight": 2 },
+        { "shape": "round", "size": 2, "weight": 1 }
+      ] },
+      { "popTarget": 12, "intervalSec": 1.9, "shapes": [
+        { "shape": "round", "size": 2, "weight": 2 },
+        { "shape": "round", "size": 3, "weight": 1 }
+      ] },
+      { "popTarget": 14, "intervalSec": 1.6, "shapes": [
+        { "shape": "round", "size": 3, "weight": 2 },
+        { "shape": "round", "size": 4, "weight": 1 }
+      ] },
+      { "popTarget": 16, "intervalSec": 1.3, "shapes": [
+        { "shape": "round", "size": 4, "weight": 2 },
+        { "shape": "round", "size": 5, "weight": 1 }
+      ] },
+      { "popTarget": 18, "intervalSec": 1.1, "shapes": [
+        { "shape": "round", "size": 5, "weight": 2 },
+        { "shape": "hex", "size": 2, "weight": 1 }
+      ] },
+      { "popTarget": 20, "intervalSec": 0.95, "shapes": [
+        { "shape": "round", "size": 5, "weight": 1 },
+        { "shape": "hex", "size": 3, "weight": 1 }
+      ] }
+    ]
+  }
+}

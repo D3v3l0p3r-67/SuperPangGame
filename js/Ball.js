@@ -54,10 +54,8 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
 
     if (vx !== undefined) {
       this.body.setVelocityX(vx);
-    } else if (this.hasGravity) {
-      this.body.setVelocityX(this.speed * randomSign());
     } else {
-      this.body.setVelocityX(this.speed * Math.SQRT1_2 * randomSign());
+      this.body.setVelocityX(this.randomHSpeed());
     }
 
     if (vy !== undefined) {
@@ -92,6 +90,25 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
 
   get vSpeed() {
     return this.speed * Math.SQRT1_2; // only meaningful for hex balls
+  }
+
+  // A fresh random left/right horizontal speed at this ball's fixed
+  // magnitude -- used both by the constructor's default vx and by
+  // activateDrift() below (Panic Mode spawns a ball with vx pinned to 0,
+  // see GameScene.spawnPanicBall, then calls this once it clears the
+  // ceiling to give it the same drift a normal spawn would have gotten).
+  randomHSpeed() {
+    return this.hSpeed * randomSign();
+  }
+
+  // Panic Mode drops balls flush against the ceiling with vx forced to 0
+  // so they fall straight down instead of drifting sideways through the
+  // border (see GameScene.spawnPanicBall/updatePlaying's release check).
+  // Called the instant one clears the ceiling to give it its normal,
+  // never-zero horizontal drift.
+  activateDrift() {
+    this.body.setVelocityX(this.randomHSpeed());
+    this.hDir = Math.sign(this.body.velocity.x) || 1;
   }
 
   // Ball landed on a surface below it (ground or an obstacle top). Round
