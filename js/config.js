@@ -33,5 +33,5 @@ export const WEAPON_TYPES = {
 export const MIN_BALL_SIZE = 1;
 
 export const POWERUP_DROP_CHANCE = 0.14;
-export const POWERUP_FALL_SPEED = 52;
+export const POWERUP_FALL_SPEED = 104;
 export const POWERUP_TTL_MS = 7000;

@@ -224,8 +224,8 @@ export const HUD_1P_KEY = 'hud-1p';
 export const HUD_1P_PATH = `${HUD_DIR}hud_1p.webp`;
 export const HUD_TIME_LABEL_KEY = 'hud-time-label';
 export const HUD_TIME_LABEL_PATH = `${HUD_DIR}hud_time_label.webp`;
-export const HUD_WORLD_LABEL_KEY = 'hud-world-label';
-export const HUD_WORLD_LABEL_PATH = `${HUD_DIR}hud_world_label.webp`;
+export const HUD_LEVEL_LABEL_KEY = 'hud-level-label';
+export const HUD_LEVEL_LABEL_PATH = `${HUD_DIR}hud_level_label.webp`;
 export const HUD_HI_LABEL_KEY = 'hud-hi-label';
 export const HUD_HI_LABEL_PATH = `${HUD_DIR}hud_hi_label.webp`;
 

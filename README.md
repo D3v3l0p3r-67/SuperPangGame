@@ -15,7 +15,7 @@ bounce identically no matter how they got there -- a landing always resets
 vertical speed to that size's standard bounce velocity rather than
 reflecting whatever speed it fell in at (size 1's bounce, for example,
 always takes it from a resting center 8px off the ground up to a peak
-149px higher). Levels can also contain obstacles built from 16x16 blocks
+248px higher). Levels can also contain obstacles built from 16x16 blocks
 (horizontal, vertical, rectangular, or stepped/staircase shapes) that
 balls bounce off from any side, correctly, with no clipping or tunneling
 even at high speed; breakable obstacles lose only the individual block
@@ -323,7 +323,7 @@ resolved (no shared/derived values):
 {
   "id": "round-ball-1", "category": "ball", "shape": "round", "size": 1,
   "label": "Round 1", "hasGravity": true, "gravityAccel": 520,
-  "radius": 8, "speed": 80, "bounceVelocity": 393, "points": 200,
+  "radius": 8, "speed": 80, "bounceVelocity": 508, "points": 200,
   "color": "#ff6b6b", "highlight": "#ffb3b3"
 }
 ```
@@ -372,7 +372,7 @@ Two power-ups can share a `kind` and just differ in `durationMs`/`params`
 `powerup-stoptime-12s.json` (with its own `type`, since that's the key
 used everywhere else -- effects tracking, HUD, level `powerup` fields) can
 both use `kind: "freeze_balls"`. Needs an
-`assets/powerups/<type>.webp` icon (9x9, see "Swapping graphics"). Adding
+`assets/powerups/<type>.webp` icon (18x18, see "Swapping graphics"). Adding
 a genuinely new *behavior* (not just a new tuning of an existing one) does
 need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`. `pickupSound`
 names an `assets/audio/audio.json` entry to play on pickup (falls back to
@@ -610,7 +610,7 @@ in place, keeping the same filename and pixel dimensions:
 
 - **Digits**: two spritesheets, `assets/hud/digits_large.webp` (used only
   for the score, 12x18px per frame) and `assets/hud/digits_small.webp`
-  (used for time/world/hi, 8x12px per frame) -- each exactly 10 frames
+  (used for time/level/hi, 8x12px per frame) -- each exactly 10 frames
   side by side, frame index = the digit it shows (`0`-`9`). Every digit
   and label image ships as plain white pixel art so `Hud.js` can
   `setTint()` each usage independently (e.g. the time value turns red in
@@ -618,17 +618,22 @@ in place, keeping the same filename and pixel dimensions:
   multiplies over it, so keep replacements white/light if you want the
   same tinting behavior.
 - **Fixed labels**: `assets/hud/hud_1p.webp`, `hud_time_label.webp`,
-  `hud_world_label.webp`, `hud_hi_label.webp` -- one static image each,
-  12px tall to match the small digit strip.
+  `hud_level_label.webp`, `hud_hi_label.webp` -- one static image each,
+  12px tall to match the small digit strip. HI sits directly under the
+  score (same left edge) rather than alongside TIME/LEVEL, so it reads as
+  "current score / best score" together.
 - **Life icon**: `assets/hud/hud_life.webp` (10x10), drawn once per
   remaining life (up to `Hud.js`'s `MAX_LIVES_ICONS`, currently 5).
-- **Weapon socket**: `assets/hud/hud_weapon_frame.webp` (22x22, always
+- **Weapon socket**: `assets/hud/hud_weapon_frame.webp` (33x33, always
   shown) and one icon per `WEAPON_TYPES` key in `js/config.js` --
-  `assets/hud/weapon_<type>.webp` (14x14, e.g. `weapon_harpoon.webp`) --
+  `assets/hud/weapon_<type>.webp` (21x21, e.g. `weapon_harpoon.webp`) --
   named via `assets.js`'s `hudWeaponIconKey()`/`hudWeaponIconPath()`, same
-  per-key-file convention as obstacle tiles/power-up icons. Adding a
-  second weapon type later is just dropping in its icon file, once
-  `WEAPON_TYPES` actually has more than one entry to choose from.
+  per-key-file convention as obstacle tiles/power-up icons. The icon is
+  always centered on the frame (`Hud.js` reads the frame's own width/
+  height), so the two can be swapped independently as long as the icon
+  stays smaller than the frame. Adding a second weapon type later is just
+  dropping in its icon file, once `WEAPON_TYPES` actually has more than
+  one entry to choose from.
 
 All 9 files currently under `assets/hud/` are placeholder pixel art
 (hand-authored bitmap glyphs and simple shapes, generated offline) rather

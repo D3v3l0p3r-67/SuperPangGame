@@ -61,11 +61,14 @@ class DigitRow {
 // Layout (all coordinates local to this.container, which sits at
 // (0, PLAYFIELD_H)):
 //   "1-P" label, then a row of life icons, top-left.
-//   Score: large digits, no label (matches the reference HUD).
-//   Weapon frame + the current weapon's icon centered inside it.
-//   Three label+value rows on the right: TIME, WORLD (level), HI (top
-//   score) -- all using the smaller digit strip so label and value line
-//   up at the same height.
+//   Score: large digits, with HI (top score, smaller digits) directly
+//   below it -- reads as one "current / best" column instead of HI
+//   living apart from the score it's compared against.
+//   Weapon frame + the current weapon's icon centered inside it, 1.5x
+//   the digit-column art's scale so the currently-held weapon reads as
+//   the HUD's focal point.
+//   TIME and LEVEL on the right, each a label + the smaller digit strip
+//   so label and value line up at the same height.
 export class Hud {
   constructor(scene) {
     this.scene = scene;
@@ -82,31 +85,41 @@ export class Hud {
       this.lifeIcons.push(icon);
     }
 
-    this.scoreRow = new DigitRow(this.container, assets.HUD_DIGITS_LARGE_KEY, assets.HUD_DIGITS_LARGE_FRAME.frameWidth, 6, 74, 11);
+    const SCORE_X = 74;
+    this.scoreRow = new DigitRow(this.container, assets.HUD_DIGITS_LARGE_KEY, assets.HUD_DIGITS_LARGE_FRAME.frameWidth, 6, SCORE_X, 2);
     this.scoreRow.setTint(ACCENT);
 
-    this.weaponFrame = scene.add.image(166, 9, assets.HUD_WEAPON_FRAME_KEY).setOrigin(0, 0);
+    const HI_Y = 22;
+    this.container.add(scene.add.image(SCORE_X, HI_Y, assets.HUD_HI_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
+    this.hiRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 6, SCORE_X + 20, HI_Y);
+    this.hiRow.setTint(ACCENT);
+
+    // 33x33/21x21 (1.5x the original 22x22/14x14 art) -- see
+    // "Swapping HUD graphics" in the README. The icon keeps its default
+    // center origin (like before), positioned at the frame's own center
+    // so it stays centered regardless of either image's exact size.
+    const WEAPON_X = 160;
+    const WEAPON_Y = 4;
+    this.weaponFrame = scene.add.image(WEAPON_X, WEAPON_Y, assets.HUD_WEAPON_FRAME_KEY).setOrigin(0, 0);
     this.container.add(this.weaponFrame);
-    this.weaponIcon = scene.add.image(177, 20, assets.hudWeaponIconKey(Object.keys(WEAPON_TYPES)[0]));
+    this.weaponIcon = scene.add.image(WEAPON_X + this.weaponFrame.width / 2, WEAPON_Y + this.weaponFrame.height / 2, assets.hudWeaponIconKey(Object.keys(WEAPON_TYPES)[0]));
     this.container.add(this.weaponIcon);
     this.lastWeaponType = null;
 
-    const ROW1_Y = 1;
-    const ROW2_Y = 14;
-    const ROW3_Y = 27;
-    const RIGHT_X = 196;
+    // TIME / LEVEL -- only two rows now that HI moved under the score,
+    // so they get more vertical breathing room than the old cramped
+    // three-row stack.
+    const ROW1_Y = 8;
+    const ROW2_Y = 22;
+    const RIGHT_X = 210;
 
     this.container.add(scene.add.image(RIGHT_X, ROW1_Y, assets.HUD_TIME_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
     this.timeRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 3, RIGHT_X + 44, ROW1_Y);
     this.timeRow.setTint(ACCENT);
 
-    this.container.add(scene.add.image(RIGHT_X, ROW2_Y, assets.HUD_WORLD_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
-    this.worldRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, RIGHT_X + 54, ROW2_Y);
-    this.worldRow.setTint(ACCENT);
-
-    this.container.add(scene.add.image(RIGHT_X, ROW3_Y, assets.HUD_HI_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
-    this.hiRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 6, RIGHT_X + 20, ROW3_Y);
-    this.hiRow.setTint(ACCENT);
+    this.container.add(scene.add.image(RIGHT_X, ROW2_Y, assets.HUD_LEVEL_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
+    this.levelRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, RIGHT_X + 54, ROW2_Y);
+    this.levelRow.setTint(ACCENT);
 
     this.lastState = null;
     this.topHighScore = storage.loadHighScores()[0]?.score ?? 0;
@@ -133,7 +146,7 @@ export class Hud {
     this.scoreRow.setValue(g.score);
     this.timeRow.setValue(g.remainingLevelTime);
     this.timeRow.setTint(g.remainingLevelTime <= 10 ? DANGER : ACCENT);
-    this.worldRow.setValue(g.levelIndex + 1);
+    this.levelRow.setValue(g.levelIndex + 1);
     this.hiRow.setValue(Math.max(this.topHighScore, g.score));
 
     for (let i = 0; i < this.lifeIcons.length; i++) this.lifeIcons[i].setVisible(i < g.lives);
