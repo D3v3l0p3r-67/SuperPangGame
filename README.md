@@ -180,6 +180,10 @@ Useful while tuning levels or ball behavior:
   quick-spawn button per power-up (bonus fruit, shield, every weapon
   power-up, and all the others); jump straight to any level -- all without
   replaying the whole game or affecting normal play when the panel is off.
+- Lives above the playfield's own ceiling, in a `#tool-bar` row shared
+  with the level editor's own panel (editor on the left, debug on the
+  right, see index.html/style.css) -- never overlapping actual gameplay
+  the way an in-canvas overlay would.
 
 ## Project structure
 
@@ -425,6 +429,15 @@ per-level plumbing needed). Both are optional and default to
 level files without them still load. The in-game **LEVEL EDITOR** has a
 **Background**/**Weapon** dropdown for both (top panel) -- picking a
 background updates the live preview immediately.
+
+Clicking **Play** starts the level exactly like real gameplay, except
+it's a playtest, not a run: clearing it or pressing Escape/P pauses on
+the usual pause screen with an extra **Restart Level** button instead of
+advancing to a next level or a victory screen (there's nothing to
+advance *to* -- an editor level isn't part of `LEVELS`), and a hit never
+costs a life or ends in game over (`GameScene.hitPlayer`/`advanceLevel`
+both branch on `isCustomLevel`) -- the point is testing the layout you
+just built, not beating it.
 
 `BootScene.js` probes `levels/level_01.json` up to `MAX_LEVEL_FILES` (see
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static

@@ -159,7 +159,7 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     const children = [];
 
     if (this.hasGravity) {
-      const spawnKick = -childEl.bounceVelocity * 0.35;
+      const spawnKick = -childEl.bounceVelocity * 0.6;
       children.push({ shape: this.shape, size: childSize, x: this.x - offset, y: this.y, vx: -childSpeed, vy: spawnKick });
       children.push({ shape: this.shape, size: childSize, x: this.x + offset, y: this.y, vx: childSpeed, vy: spawnKick });
     } else {

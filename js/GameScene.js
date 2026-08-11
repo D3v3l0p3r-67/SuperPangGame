@@ -335,7 +335,12 @@ export class GameScene extends Phaser.Scene {
 
   advanceLevel() {
     if (this.isCustomLevel) {
-      this.finishRun('victory');
+      // A level opened via the editor's Play button is a playtest, not a
+      // real run -- clearing it doesn't end anything (there's no "next
+      // level" to go to and no victory to record), it just pauses on the
+      // same menu Escape would, restart included (see ui.js's setScreen),
+      // so the level's own author can immediately go again.
+      this.pause();
     } else if (this.levelIndex + 1 < LEVELS.length) {
       this.levelIndex += 1;
       this.loadLevel(this.levelIndex);
@@ -681,9 +686,13 @@ export class GameScene extends Phaser.Scene {
     if (lostLife) {
       this.audio.stopMusic();
       this.audio.play('playerlifeloose');
-      this.lives -= 1;
+      // A playtest from the editor has unlimited lives -- it's there to
+      // test the level layout, not to be beaten, so a hit just restarts
+      // it (below) rather than ever costing a real life or ending in
+      // game over.
+      if (!this.isCustomLevel) this.lives -= 1;
       this.player.playDeadAnim();
-      this.startHitFreeze(this.lives <= 0);
+      this.startHitFreeze(!this.isCustomLevel && this.lives <= 0);
     }
   }
 

@@ -31,7 +31,7 @@ const ELEMENT_IDS = [
   'touch-controls',
   'btn-start', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
-  'btn-resume', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
+  'btn-resume', 'btn-pause-restart', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
 
@@ -67,6 +67,7 @@ const STATIC_LABELS = [
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
   ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
+  ['btn-pause-restart', 'RESTART LEVEL', 'button', COLORS.text],
   ['btn-quit', 'QUIT TO MENU', 'button', COLORS.text],
   ['btn-restart', 'PLAY AGAIN', 'button', COLORS.text],
   ['btn-menu', 'MAIN MENU', 'button', COLORS.text],
@@ -138,6 +139,7 @@ export class UI {
     this.el['btn-close-level-select'].addEventListener('click', () => this.game.goToMenu());
 
     this.el['btn-resume'].addEventListener('click', () => this.game.resume());
+    this.el['btn-pause-restart'].addEventListener('click', () => this.game.restartLevel());
     this.el['btn-quit'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-menu'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-victory-menu'].addEventListener('click', () => this.game.goToMenu());
@@ -215,7 +217,15 @@ export class UI {
     if (!id) return;
     this.el[id].classList.remove('hidden');
 
-    if (state === GAME_STATES.GAME_OVER) {
+    if (state === GAME_STATES.PAUSED) {
+      // Only a level opened via the editor's Play button gets the extra
+      // Restart button -- it's there to jump straight back into testing
+      // the level you're actively building, not a general "restart"
+      // offered mid-campaign (see GameScene.advanceLevel/hitPlayer for
+      // the matching playtest-only behavior: clearing or dying here
+      // reopens this same screen instead of ending the run).
+      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel);
+    } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {
       setPixelText(this.el['victory-score'], `SCORE: ${this.game.score}`, 'body', COLORS.text);

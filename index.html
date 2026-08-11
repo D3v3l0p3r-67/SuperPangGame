@@ -9,8 +9,13 @@
 <script src="js/vendor/phaser.min.js"></script>
 </head>
 <body>
-<div id="game-container">
-  <div id="ui-layer">
+<div id="game-shell">
+  <div id="tool-bar">
+    <div id="editor-panel" class="hidden"></div>
+    <div id="debug-panel" class="hidden"></div>
+  </div>
+  <div id="game-container">
+    <div id="ui-layer">
     <div id="screen-menu" class="screen">
       <h1 id="game-title"><div id="game-title-line1"></div><div id="game-title-line2"></div></h1>
       <button id="btn-start" class="menu-btn"></button>
@@ -47,6 +52,7 @@
     <div id="screen-pause" class="screen hidden">
       <h2 id="pause-title"></h2>
       <button id="btn-resume" class="menu-btn"></button>
+      <button id="btn-pause-restart" class="menu-btn hidden"></button>
       <button id="btn-fullscreen-pause" class="menu-btn"></button>
       <button id="btn-quit" class="menu-btn"></button>
     </div>
@@ -88,10 +94,8 @@
         <button id="btn-shoot" class="touch-btn touch-btn-primary" aria-label="Shoot">&#9650;</button>
       </div>
     </div>
-
-    <div id="debug-panel" class="hidden"></div>
-    <div id="editor-panel" class="hidden"></div>
   </div>
+</div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>
