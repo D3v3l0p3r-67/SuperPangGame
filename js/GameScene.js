@@ -1,4 +1,4 @@
-import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
 import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
 import { POWERUP_TYPE_KEYS } from './elements.js';
 import { Player } from './Player.js';
@@ -95,14 +95,14 @@ export class GameScene extends Phaser.Scene {
     this.drawBackground();
     this.drawBorder();
 
-    // Inset by the border's thickness (OBSTACLE_BLOCK_SIZE) on top/left/
+    // Inset by the border's thickness (BORDER_THICKNESS) on top/left/
     // right so a ball/player actually bounces off the border's visible
     // inner face instead of the (invisible) canvas edge underneath it --
-    // without this the ball would visually travel OBSTACLE_BLOCK_SIZE px
+    // without this the ball would visually travel BORDER_THICKNESS px
     // into the border tiles before bouncing. The bottom is unaffected:
     // the bottom border sits just past GROUND_Y already (see drawBorder),
     // so GROUND_Y is already exactly the border's inner face there.
-    const bt = OBSTACLE_BLOCK_SIZE;
+    const bt = BORDER_THICKNESS;
     this.physics.world.setBounds(bt, bt, VIRTUAL_W - bt * 2, GROUND_Y - bt);
     this.physics.world.on('worldbounds', this.onWorldBounds, this);
 
@@ -187,7 +187,7 @@ export class GameScene extends Phaser.Scene {
   // below the world bounds, so it doesn't need its own space carved out
   // of the playfield.
   drawBorder() {
-    const t = OBSTACLE_BLOCK_SIZE;
+    const t = BORDER_THICKNESS;
     const wallTexture = obstacleTextureKey('wall');
     const strips = [
       this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),

@@ -2,6 +2,11 @@ import { GAME_STATES, COLORS } from './constants.js';
 import { POWERUP_TYPES } from './elements.js';
 import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
+import { getZoom, setZoom } from './DisplayZoom.js';
+
+// zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
+// bindEvents/updateZoomButtons below).
+const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x' };
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
@@ -29,6 +34,7 @@ const ELEMENT_IDS = [
   'powerup-indicators',
   'screen-menu', 'game-title-line1', 'game-title-line2',
   'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x',
   'screen-level-select', 'level-select-title', 'level-select-list',
   'screen-pause', 'pause-title',
   'screen-game-over', 'gameover-title', 'final-score',
@@ -54,6 +60,10 @@ const STATIC_LABELS = [
   ['chk-mute-label', 'MUTE', 'body', COLORS.text],
   ['rng-sfx-label', 'SFX', 'body', COLORS.text],
   ['rng-music-label', 'MUSIC', 'body', COLORS.text],
+  ['zoom-label', 'SIZE', 'body', COLORS.text],
+  ['btn-zoom-half', '0.5X', 'button', COLORS.text],
+  ['btn-zoom-1x', '1X', 'button', COLORS.text],
+  ['btn-zoom-2x', '2X', 'button', COLORS.text],
   ['level-select-title', 'START LEVEL', 'h2', COLORS.accent],
   ['pause-title', 'PAUSED', 'h2', COLORS.accent],
   ['gameover-title', 'GAME OVER', 'h2', COLORS.accent],
@@ -165,6 +175,13 @@ export class UI {
       this.audio.setMusicVolume(v);
       this.storage.saveSettings({ musicVolume: v });
     });
+
+    for (const [zoom, id] of Object.entries(ZOOM_BUTTON_IDS)) {
+      this.el[id].addEventListener('click', () => {
+        setZoom(parseFloat(zoom));
+        this.updateZoomButtons();
+      });
+    }
   }
 
   applySettingsToControls() {
@@ -172,6 +189,19 @@ export class UI {
     this.el['chk-mute'].checked = s.muted;
     this.el['rng-sfx'].value = s.sfxVolume;
     this.el['rng-music'].value = s.musicVolume;
+    this.updateZoomButtons();
+  }
+
+  // Highlights whichever of the three zoom buttons matches the currently
+  // applied display size (see DisplayZoom.js) -- re-run on every options
+  // load and every click, same pattern as the mute checkbox/volume
+  // sliders above just without a native control of its own to reflect
+  // state through.
+  updateZoomButtons() {
+    const zoom = getZoom();
+    for (const [z, id] of Object.entries(ZOOM_BUTTON_IDS)) {
+      this.el[id].classList.toggle('active', parseFloat(z) === zoom);
+    }
   }
 
   submitScore() {

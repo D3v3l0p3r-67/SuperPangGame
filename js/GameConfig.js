@@ -17,9 +17,13 @@ export const GAME_CONFIG = {
       debug: false,
     },
   },
+  // NONE: the canvas never auto-resizes to the browser window. Display
+  // size is one of exactly three discrete zoom levels instead (see
+  // constants.js's ZOOM_LEVELS / DisplayZoom.js), applied by hand as a
+  // CSS size on the canvas -- there is no continuous "fit to window"
+  // scaling left in this game.
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.NONE,
   },
   scene: [ElementsScene, BootScene, GameScene],
 };

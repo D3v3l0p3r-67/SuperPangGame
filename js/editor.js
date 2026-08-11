@@ -1,4 +1,4 @@
-import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
+import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
@@ -72,12 +72,15 @@ function backgroundNames() {
 // playfield (never overlapping the border) -- same rule every
 // hand-authored level in levels.js already follows. Every editor object
 // (walls, crates, balls) is placed on this exact grid, no free placement.
+// Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
+// are independent constants -- see constants.js.
 function snapObstacleOrigin(x, y) {
-  const bt = OBSTACLE_BLOCK_SIZE;
-  const gx = Math.floor((x - bt) / bt) * bt + bt;
-  const gy = Math.floor((y - bt) / bt) * bt + bt;
-  const maxX = VIRTUAL_W - bt * 2;
-  const maxY = GROUND_Y - bt * 2;
+  const grid = OBSTACLE_BLOCK_SIZE;
+  const bt = BORDER_THICKNESS;
+  const gx = Math.floor((x - bt) / grid) * grid + bt;
+  const gy = Math.floor((y - bt) / grid) * grid + bt;
+  const maxX = VIRTUAL_W - bt - grid;
+  const maxY = GROUND_Y - bt - grid;
   return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
 }
 
@@ -393,7 +396,7 @@ export class Editor {
     if (this.scene.state !== GAME_STATES.EDITOR) return;
     const x = pointer.worldX;
     const y = pointer.worldY;
-    if (x < OBSTACLE_BLOCK_SIZE || x > VIRTUAL_W - OBSTACLE_BLOCK_SIZE || y < OBSTACLE_BLOCK_SIZE || y > GROUND_Y - OBSTACLE_BLOCK_SIZE) return;
+    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > GROUND_Y - BORDER_THICKNESS) return;
 
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;

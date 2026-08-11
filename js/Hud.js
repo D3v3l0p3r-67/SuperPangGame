@@ -1,4 +1,4 @@
-import { PLAYFIELD_H, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GAME_STATES, COLORS } from './constants.js';
 import { WEAPON_TYPES } from './config.js';
 import * as assets from './assets.js';
 import * as storage from './storage.js';
@@ -16,6 +16,13 @@ const VISIBLE_STATES = new Set([
 ]);
 
 const MAX_LIVES_ICONS = 5;
+
+// The HUD's own pixel-art layout below is authored at a fixed design
+// width (all the individual x offsets -- 4, 74, 166, 196, ... -- assume
+// it), independent of VIRTUAL_W. Centering the whole container in
+// whatever the actual (possibly wider) HUD_H bar is keeps that hand-laid
+// design intact instead of stretching or re-anchoring every element.
+const HUD_CONTENT_W = 384;
 
 // A left-anchored row of pooled digit Images, one call to setValue() per
 // frame -- unused slots (beyond however many digits the current value
@@ -60,7 +67,8 @@ class DigitRow {
 export class Hud {
   constructor(scene) {
     this.scene = scene;
-    this.container = scene.add.container(0, PLAYFIELD_H).setDepth(20);
+    const contentX = Math.max(0, (VIRTUAL_W - HUD_CONTENT_W) / 2);
+    this.container = scene.add.container(contentX, PLAYFIELD_H).setDepth(20);
 
     this.container.add(scene.add.image(4, 3, assets.HUD_1P_KEY).setOrigin(0, 0).setTint(ACCENT));
 

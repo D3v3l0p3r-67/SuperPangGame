@@ -87,6 +87,29 @@ whole time it's held (see `GameScene.updatePlaying`'s `wasShooting`
 tracking). Either way, an actual shot still only leaves if under the
 active weapon's `maxActiveShots` (see `tryFire`).
 
+## Display size
+
+The playing surface is a fixed 800x600px, bordered on all four sides
+(top/left/right/floor) by a 16px wall (`BORDER_THICKNESS` in
+`js/constants.js`) -- independent of the 8x8 obstacle/ball placement grid
+(`OBSTACLE_BLOCK_SIZE`), which is unaffected. A dedicated 40px HUD strip
+sits below the bordered playfield (`HUD_H`), never overlapping gameplay.
+
+The canvas does **not** continuously resize with the browser window --
+there's no "fit to window" scaling. Instead, Options -> Size picks one of
+exactly three fixed display sizes: **0.5x**, **1x** (original), or **2x**
+(double), persisted the same way as mute/volume. `js/DisplayZoom.js` sets
+the canvas's (and `#game-container`'s) CSS size directly to
+`VIRTUAL_W/VIRTUAL_H` times the chosen zoom; `js/PixelText.js`'s DOM menu
+text reads that same rendered size back out, so it scales in lockstep
+without any separate logic. At 2x the canvas can be larger than the
+browser window -- the page scrolls rather than clipping it.
+
+Wherever the game's own background is black (the HUD strip, the page
+around/outside the canvas at any zoom level) it's the exact same color
+(`COLORS.hudBg` / `style.css`'s `--bg`, `#05040a`), so there's no visible
+seam between the canvas and the page behind it.
+
 ## Features
 
 - 10 hand-tuned levels with increasing difficulty (more/larger balls, more
@@ -187,10 +210,11 @@ elements/            One JSON file per ball size/shape, obstacle type, or
                       see "Adding elements" below
 levels/              One level_NN.json per level, in level-editor Export
                       format -- see "Adding levels" below
-admin/               A separate, standalone site for editing graphics/
-                      sounds/elements/levels without touching code -- see
-                      "Admin tool" below. Not linked from the game itself;
-                      open admin/index.html directly.
+admin/               A separate, PHP-backed, login-gated site for editing
+                      graphics/sounds/elements/levels without touching
+                      code -- see "Admin tool" below. Not linked from the
+                      game itself; open admin/index.php directly (needs a
+                      PHP-capable server, see "Running it locally").
 js/
   vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
   main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
@@ -483,7 +507,7 @@ dimensions:
   plain white).
 - **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
   distinct `background` value used across `levels/*.json` (see "Adding
-  levels"), exactly `VIRTUAL_W x GROUND_Y` (384x200 from `js/constants.js`)
+  levels"), exactly `VIRTUAL_W x GROUND_Y` (800x584 from `js/constants.js`)
   -- covers the sky area behind obstacles/balls/player; the floor strip and
   HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
   `assets/backgrounds/default.webp` is the one every level ships with today

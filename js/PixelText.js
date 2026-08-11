@@ -64,10 +64,11 @@ const registry = [];
 // heuristic.
 const TIERS = { h1: 5, h2: 3, button: 2, body: 2 };
 
-// The game canvas is scaled to fit the viewport by Phaser's own
-// scale.mode: FIT (see GameConfig.js) -- read its actual rendered CSS
-// size back out rather than re-deriving a competing guess from
-// window.innerWidth/Height, so this always matches exactly. Direct-child
+// The game canvas is sized by hand to one of a few fixed zoom levels (see
+// DisplayZoom.js, GameConfig.js's scale.mode: NONE) -- read its actual
+// rendered CSS size back out rather than re-deriving a competing guess
+// from window.innerWidth/Height or the chosen zoom level, so this always
+// matches exactly. Direct-child
 // selector on purpose: Phaser injects its canvas straight into
 // #game-container (GameConfig.js's `parent`), while every pixel-text
 // canvas this module creates lives several levels deeper inside
@@ -160,16 +161,15 @@ function scheduleRescale() {
 
 // The primary trigger: watches the actual game canvas element (not the
 // browser window) for size changes, so this reacts correctly to
-// everything that can change gameCanvasScale() -- a window resize,
-// fullscreen toggle, orientation change, AND Phaser's own Scale Manager
-// finishing its first FIT-mode layout pass after boot (which can land
-// *after* ui.js's very first setPixelText() calls during GameScene.
-// create(), since that runs synchronously well before Phaser necessarily
-// settles the canvas's final CSS size -- without this, that first paint
-// could be stuck at whatever transient size the canvas had at that
-// instant, forever, on a session where the window is never manually
-// resized). Falls back to a plain window resize listener if
-// ResizeObserver isn't available at all.
+// everything that can change gameCanvasScale() -- a fullscreen toggle, or
+// DisplayZoom.js applying its first zoom level shortly after boot (which
+// lands *after* ui.js's very first setPixelText() calls during GameScene.
+// create(), since those run synchronously before main.js's READY handler
+// gets a chance to set the canvas's final CSS size -- without this, that
+// first paint could be stuck at whatever transient size the canvas had at
+// that instant, forever, on a session where the zoom is never changed).
+// Falls back to a plain window resize listener if ResizeObserver isn't
+// available at all.
 let canvasObserverStarted = false;
 function ensureCanvasObserver() {
   if (canvasObserverStarted) return;

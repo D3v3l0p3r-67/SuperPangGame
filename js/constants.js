@@ -1,29 +1,40 @@
 // Technical constants: rendering resolution, timing, physics, palette.
 // Gameplay tuning values (speeds, points, durations, level data) live in config.js / levels.js.
 
-// 46 blocks (368px) of that width is the movable play area -- the rest is
-// the border frame (OBSTACLE_BLOCK_SIZE on each side, see GameScene.
-// drawBorder / the world bounds inset in GameScene.create).
-export const VIRTUAL_W = 384;
+// The playing surface: 800x600, bordered on all four sides (top/left/
+// right/floor) by BORDER_THICKNESS -- see GameScene.drawBorder / the
+// world bounds inset in GameScene.create.
+export const VIRTUAL_W = 800;
 // PLAYFIELD_H is the bordered play area (gameplay + floor strip), same as
 // the old fixed canvas height. HUD_H is a dedicated bar reserved below it
 // for the HUD (see GameScene.drawBackground + Hud.js), matching the
 // reference layout instead of overlaying the HUD on top of gameplay.
 // VIRTUAL_H is the *total* canvas height passed to Phaser.
-export const PLAYFIELD_H = 224;
+export const PLAYFIELD_H = 600;
 export const HUD_H = 40;
 export const VIRTUAL_H = PLAYFIELD_H + HUD_H;
 
-// Everything here is a multiple of 8 (matching OBSTACLE_BLOCK_SIZE) so the
-// playfield, ground line, and any obstacle grid all line up cleanly.
-export const GROUND_MARGIN = 24;
-export const GROUND_Y = PLAYFIELD_H - GROUND_MARGIN;
+// Thickness of the border/wall/floor/ceiling frame around the playfield,
+// on all four sides alike (see GameScene.create's physics bounds inset
+// and drawBorder's wall strips). Deliberately independent of
+// OBSTACLE_BLOCK_SIZE below -- the border can change thickness without
+// affecting the obstacle/ball placement grid, and vice versa.
+export const BORDER_THICKNESS = 16;
+export const GROUND_Y = PLAYFIELD_H - BORDER_THICKNESS;
 
 // Base cell size obstacles are composed of -- a breakable obstacle is a
 // group of independent OBSTACLE_BLOCK_SIZE x OBSTACLE_BLOCK_SIZE blocks
 // (see LevelManager.js), so one can be shot away without affecting the
-// rest of the shape.
+// rest of the shape. Also the level editor's placement/alignment grid
+// (see editor.js's snapObstacleOrigin).
 export const OBSTACLE_BLOCK_SIZE = 8;
+
+// The only display sizes the game can render at -- see DisplayZoom.js.
+// Deliberately NOT continuously responsive to the browser window: picking
+// one of these multiplies VIRTUAL_W/VIRTUAL_H directly into the canvas's
+// CSS size.
+export const ZOOM_LEVELS = [0.5, 1, 2];
+export const DEFAULT_ZOOM = 1;
 
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;
