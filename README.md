@@ -89,11 +89,12 @@ active weapon's `maxActiveShots` (see `tryFire`).
 
 ## Display size
 
-The playing surface is a fixed 800x600px, bordered on all four sides
+The playing surface is a fixed 800x420px, bordered on all four sides
 (top/left/right/floor) by a 16px wall (`BORDER_THICKNESS` in
 `js/constants.js`) -- independent of the 8x8 obstacle/ball placement grid
-(`OBSTACLE_BLOCK_SIZE`), which is unaffected. A dedicated 40px HUD strip
-sits below the bordered playfield (`HUD_H`), never overlapping gameplay.
+(`OBSTACLE_BLOCK_SIZE`, also the smallest ball's size), which is
+unaffected. A dedicated 80px HUD strip sits below the bordered playfield
+(`HUD_H`), never overlapping gameplay -- 800x500px total.
 
 The canvas does **not** continuously resize with the browser window --
 there's no "fit to window" scaling. Instead, Options -> Size picks one of
@@ -507,7 +508,7 @@ dimensions:
   plain white).
 - **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
   distinct `background` value used across `levels/*.json` (see "Adding
-  levels"), exactly `VIRTUAL_W x GROUND_Y` (800x584 from `js/constants.js`)
+  levels"), exactly `VIRTUAL_W x GROUND_Y` (800x404 from `js/constants.js`)
   -- covers the sky area behind obstacles/balls/player; the floor strip and
   HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
   `assets/backgrounds/default.webp` is the one every level ships with today

@@ -286,11 +286,11 @@ body {
 /* Touch controls -- anchored just above the HUD bar (the HUD_H strip
    Hud.js draws into, see constants.js) rather than the bottom of the
    whole canvas, since that bottom strip is now the HUD. The percentage
-   is HUD_H / VIRTUAL_H (40 / 640) -- update it to match if either ever
+   is HUD_H / VIRTUAL_H (80 / 500) -- update it to match if either ever
    changes. */
 #touch-controls {
   position: absolute;
-  bottom: calc(6.25% + 1.5cqmin);
+  bottom: calc(16% + 1.5cqmin);
   left: 0;
   right: 0;
   display: flex;

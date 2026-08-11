@@ -1,7 +1,7 @@
 // Technical constants: rendering resolution, timing, physics, palette.
 // Gameplay tuning values (speeds, points, durations, level data) live in config.js / levels.js.
 
-// The playing surface: 800x600, bordered on all four sides (top/left/
+// The playing surface: 800x420, bordered on all four sides (top/left/
 // right/floor) by BORDER_THICKNESS -- see GameScene.drawBorder / the
 // world bounds inset in GameScene.create.
 export const VIRTUAL_W = 800;
@@ -9,9 +9,10 @@ export const VIRTUAL_W = 800;
 // the old fixed canvas height. HUD_H is a dedicated bar reserved below it
 // for the HUD (see GameScene.drawBackground + Hud.js), matching the
 // reference layout instead of overlaying the HUD on top of gameplay.
-// VIRTUAL_H is the *total* canvas height passed to Phaser.
-export const PLAYFIELD_H = 600;
-export const HUD_H = 40;
+// VIRTUAL_H is the *total* canvas height passed to Phaser (800x500 with
+// the HUD included).
+export const PLAYFIELD_H = 420;
+export const HUD_H = 80;
 export const VIRTUAL_H = PLAYFIELD_H + HUD_H;
 
 // Thickness of the border/wall/floor/ceiling frame around the playfield,

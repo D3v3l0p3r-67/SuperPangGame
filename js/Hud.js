@@ -1,4 +1,4 @@
-import { VIRTUAL_W, PLAYFIELD_H, GAME_STATES, COLORS } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, HUD_H, GAME_STATES, COLORS } from './constants.js';
 import { WEAPON_TYPES } from './config.js';
 import * as assets from './assets.js';
 import * as storage from './storage.js';
@@ -18,11 +18,13 @@ const VISIBLE_STATES = new Set([
 const MAX_LIVES_ICONS = 5;
 
 // The HUD's own pixel-art layout below is authored at a fixed design
-// width (all the individual x offsets -- 4, 74, 166, 196, ... -- assume
-// it), independent of VIRTUAL_W. Centering the whole container in
-// whatever the actual (possibly wider) HUD_H bar is keeps that hand-laid
-// design intact instead of stretching or re-anchoring every element.
+// width/height (all the individual x/y offsets -- 4, 74, 166, 196, 1, 14,
+// 27, ... -- assume it), independent of VIRTUAL_W/HUD_H. Centering the
+// whole container in whatever the actual (possibly larger) HUD bar is
+// keeps that hand-laid design intact instead of stretching or
+// re-anchoring every element.
 const HUD_CONTENT_W = 384;
+const HUD_CONTENT_H = 40;
 
 // A left-anchored row of pooled digit Images, one call to setValue() per
 // frame -- unused slots (beyond however many digits the current value
@@ -68,7 +70,8 @@ export class Hud {
   constructor(scene) {
     this.scene = scene;
     const contentX = Math.max(0, (VIRTUAL_W - HUD_CONTENT_W) / 2);
-    this.container = scene.add.container(contentX, PLAYFIELD_H).setDepth(20);
+    const contentY = PLAYFIELD_H + Math.max(0, (HUD_H - HUD_CONTENT_H) / 2);
+    this.container = scene.add.container(contentX, contentY).setDepth(20);
 
     this.container.add(scene.add.image(4, 3, assets.HUD_1P_KEY).setOrigin(0, 0).setTint(ACCENT));
 
