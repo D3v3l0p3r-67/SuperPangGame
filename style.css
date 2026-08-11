@@ -189,7 +189,6 @@ body {
 .menu-btn:hover,
 .menu-btn:focus-visible {
   background: var(--panel-border);
-  border-width: 1px;
   outline: none;
 }
 

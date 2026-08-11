@@ -135,7 +135,8 @@ export class Hud {
     const ROW2_Y = 22;
     const RIGHT_X = 210;
 
-    this.container.add(scene.add.image(RIGHT_X, ROW1_Y, assets.HUD_TIME_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
+    this.timeLabel = scene.add.image(RIGHT_X, ROW1_Y, assets.HUD_TIME_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT);
+    this.container.add(this.timeLabel);
     this.timeRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 3, RIGHT_X + 44, ROW1_Y);
     this.timeRow.setTint(ACCENT);
 
@@ -185,8 +186,17 @@ export class Hud {
     }
 
     this.scoreRow.setValue(g.score);
-    this.timeRow.setValue(g.remainingLevelTime);
-    this.timeRow.setTint(g.remainingLevelTime <= 10 ? DANGER : ACCENT);
+    // Panic Mode (and any other level with no timeLimitSec) has no
+    // countdown to show -- leaving it at remainingLevelTime's 0 fallback
+    // would otherwise sit there in permanent DANGER-red, implying time's
+    // about to run out when it's actually unlimited.
+    const hasTimeLimit = !!g.currentLevelDef?.timeLimitSec;
+    this.timeLabel.setVisible(hasTimeLimit);
+    this.timeRow.setVisible(hasTimeLimit);
+    if (hasTimeLimit) {
+      this.timeRow.setValue(g.remainingLevelTime);
+      this.timeRow.setTint(g.remainingLevelTime <= 10 ? DANGER : ACCENT);
+    }
     this.levelRow.setValue(g.levelIndex + 1);
     this.hiRow.setValue(Math.max(this.topHighScore, g.score));
 

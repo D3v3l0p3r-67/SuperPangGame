@@ -7,6 +7,12 @@ import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 // reassigned) so this exported reference stays valid for every importer.
 export const LEVELS = [];
 
+// Panic Mode's single level definition (levels/panic.json), populated by
+// ElementsScene the same way as LEVELS above (Object.assign into this same
+// reference, never reassigned) -- kept separate from LEVELS so it's never
+// counted as a campaign level or offered in Start Level.
+export const PANIC_LEVEL = {};
+
 // Every level obstacle becomes one or more independent Obstacle blocks,
 // each its own Arcade body -- that's what lets a breakable obstacle lose
 // individual blocks to gunfire while the rest of its shape stays solid.

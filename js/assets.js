@@ -167,6 +167,14 @@ export function levelFilePath(n) {
   return `${LEVELS_DIR}${levelFileKey(n)}.json`;
 }
 
+// Panic Mode's level -- same shape as a regular level file plus its own
+// `panicSpawn` wave table (see LevelManager.js's PANIC_LEVEL/GameScene's
+// updatePanicSpawner) -- deliberately loaded under a fixed name rather than
+// through the level_NN probe above, so it never counts as (or displaces) a
+// campaign level.
+export const PANIC_LEVEL_KEY = 'panic-level';
+export const PANIC_LEVEL_PATH = `${LEVELS_DIR}panic.json`;
+
 // Elements: one JSON file per ball size/shape, obstacle type, or power-up
 // -- category, id, and the fields that category needs (see elements.js's
 // registerElement) -- under elements/, freely named (round-ball-1.json,

@@ -29,7 +29,7 @@ const ELEMENT_IDS = [
   'screen-high-score-entry', 'entry-title', 'entry-score', 'entry-name',
   'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls',
-  'btn-start', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
+  'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
   'btn-resume', 'btn-pause-restart', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
@@ -58,6 +58,7 @@ const STATIC_LABELS = [
   ['entry-title', 'NEW HIGH SCORE!', 'h2', COLORS.accent],
   ['highscores-title', 'HIGH SCORES', 'h2', COLORS.accent],
   ['btn-start', 'START CAMPAIGN', 'button', COLORS.text],
+  ['btn-start-panic', 'START PANIC MODE', 'button', COLORS.text],
   ['btn-start-level', 'START LEVEL', 'button', COLORS.text],
   ['btn-editor', 'LEVEL EDITOR', 'button', COLORS.text],
   ['btn-highscores', 'HIGH SCORES', 'button', COLORS.text],
@@ -117,10 +118,24 @@ export class UI {
       this.audio.resumeContext();
       this.game.startNewGame();
     };
+    // "Play Again" after a run ends replays whatever mode just ended --
+    // isPanicMode is still whatever that run left it as (only beginRun()
+    // ever changes it, see GameScene.js) -- while btn-start itself always
+    // means "start the campaign", regardless of what was last played.
+    const playAgain = () => {
+      this.audio.resumeContext();
+      if (this.game.isPanicMode) this.game.startPanicMode();
+      else this.game.startNewGame();
+    };
 
     this.el['btn-start'].addEventListener('click', startGame);
-    this.el['btn-restart'].addEventListener('click', startGame);
-    this.el['btn-victory-restart'].addEventListener('click', startGame);
+    this.el['btn-restart'].addEventListener('click', playAgain);
+    this.el['btn-victory-restart'].addEventListener('click', playAgain);
+
+    this.el['btn-start-panic'].addEventListener('click', () => {
+      this.audio.resumeContext();
+      this.game.startPanicMode();
+    });
 
     this.el['btn-editor'].addEventListener('click', () => {
       this.audio.resumeContext();
@@ -218,13 +233,13 @@ export class UI {
     this.el[id].classList.remove('hidden');
 
     if (state === GAME_STATES.PAUSED) {
-      // Only a level opened via the editor's Play button gets the extra
-      // Restart button -- it's there to jump straight back into testing
-      // the level you're actively building, not a general "restart"
-      // offered mid-campaign (see GameScene.advanceLevel/hitPlayer for
-      // the matching playtest-only behavior: clearing or dying here
-      // reopens this same screen instead of ending the run).
-      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel);
+      // The extra Restart button only shows for a level opened via the
+      // editor's Play button (jump straight back into testing the level
+      // you're actively building -- see GameScene.advanceLevel/hitPlayer
+      // for the matching playtest-only behavior) or for Panic Mode (start
+      // the difficulty ramp over without spending a life) -- not a general
+      // "restart" offered mid-campaign.
+      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.isPanicMode);
     } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {

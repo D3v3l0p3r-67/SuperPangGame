@@ -1,10 +1,11 @@
 import { WEAPON_TYPES } from './config.js';
 import { registerElement } from './elements.js';
-import { LEVELS } from './LevelManager.js';
+import { LEVELS, PANIC_LEVEL } from './LevelManager.js';
 import { AUDIO_CONFIG } from './audio.js';
 import {
   ELEMENTS_INDEX_PATH, ELEMENTS_INDEX_KEY, elementFileKey, elementFilePath,
   levelFileKey, levelFilePath, MAX_LEVEL_FILES,
+  PANIC_LEVEL_KEY, PANIC_LEVEL_PATH,
   AUDIO_CONFIG_PATH, AUDIO_CONFIG_KEY,
 } from './assets.js';
 
@@ -32,6 +33,8 @@ export class ElementsScene extends Phaser.Scene {
       this.load.json(levelFileKey(n), levelFilePath(n));
     }
 
+    this.load.json(PANIC_LEVEL_KEY, PANIC_LEVEL_PATH);
+
     // Single self-contained config -- unlike elements/index.json (a
     // manifest naming OTHER files still to be loaded), audio.json already
     // holds every sound's full playback config, so it needs no second
@@ -47,6 +50,7 @@ export class ElementsScene extends Phaser.Scene {
       if (this.cache.json.has(key)) LEVELS.push(this.cache.json.get(key));
     }
 
+    Object.assign(PANIC_LEVEL, this.cache.json.get(PANIC_LEVEL_KEY) || {});
     Object.assign(AUDIO_CONFIG, this.cache.json.get(AUDIO_CONFIG_KEY) || {});
 
     const elementIds = this.cache.json.get(ELEMENTS_INDEX_KEY) || [];
