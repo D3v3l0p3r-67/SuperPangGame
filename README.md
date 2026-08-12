@@ -307,7 +307,12 @@ seam between the canvas and the page behind it.
   rests on it out of reach) -- and neither is allowed. On top of the
   geometry check, every level's balls are simulated with no player and no
   shooting, and each one must reach a position where that column is
-  clear.
+  clear. A level file gives a hex ball only its horizontal speed and the
+  vertical direction is drawn at random when it spawns, so whether a level
+  works must not depend on that coin flip: the simulation is run twice,
+  once with every hex ball starting upward and once downward. Balls never
+  collide with each other, so their paths are independent and those two
+  runs cover every ball in both of its possible states.
 - 2 ball shapes: round (sizes 1-5) and hex (sizes 1-3 only), each with
   fixed, deterministic physics; splitting one size smaller (one left, one
   right) per hit.
@@ -637,6 +642,14 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
+An obstacle's `x`/`y`/`w`/`h` are on the 16x16 grid, and so is a ball,
+though a ball's `x`/`y` is its CENTRE rather than a corner -- the grid cell
+is its bounding box's top-left, so a ball sits on the grid when `x - radius`
+and `y - radius` do. Every shipped level follows both rules, which is what
+makes opening one in the **LEVEL EDITOR** and saving it back give the same
+level: the editor snaps whatever it loads, so anything off the grid would
+quietly move.
+
 `powerup` on an obstacle or ball is optional -- when set, that exact
 crate/ball guarantees that power-up drop when destroyed/popped, instead of
 the usual random chance. An obstacle can also use `{ "cells": [[dx, dy],
