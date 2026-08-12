@@ -19,6 +19,24 @@ export const PLAYER_CONFIG = {
   invulnMs: 1500,
 };
 
+// Every weapon fires the same way -- one shot per press, a beam whose foot
+// stays on the ground and whose head climbs (see Projectile.js). What a
+// weapon entry changes is how fast that head climbs, how wide the shot is,
+// how many may be in the air at once, how many balls one shot survives
+// (basePierce), and -- with ceilingStickSec -- whether reaching the
+// ceiling ends the shot or anchors it there for a while.
+//
+// baseMaxActiveShots is 1 for every weapon: one shot in the air at a time
+// is the base state, and a second slot is something the rapid_shot
+// power-up grants for its duration (see elements/powerup-rapidshot-*.json).
+//
+// ceilingStickSec: 0/absent means the shot dies the moment it tops out
+// (the harpoon). Above 0, the shot instead hangs from the ceiling for that
+// long, staying lethal along its whole length the entire time, and spends
+// its last ceilingReleaseWarnSec seconds drawn in its "letting go" frame
+// so the release is telegraphed rather than sudden. On one slot that also
+// means an anchored shot is the player's only shot until it lets go --
+// the cost of putting up a barrier, not a bug.
 export const WEAPON_TYPES = {
   harpoon: {
     label: 'Harpoon',
@@ -27,6 +45,16 @@ export const WEAPON_TYPES = {
     color: '#ffd23f',
     baseMaxActiveShots: 1,
     basePierce: 1,
+  },
+  grapple: {
+    label: 'Grapple',
+    shotSpeed: 400,
+    width: 4,
+    color: '#4ecdc4',
+    baseMaxActiveShots: 1,
+    basePierce: 1,
+    ceilingStickSec: 4,
+    ceilingReleaseWarnSec: 1,
   },
 };
 

@@ -23,6 +23,7 @@ import * as storage from './storage.js';
 import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
+  PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -101,6 +102,7 @@ export class GameScene extends Phaser.Scene {
     this.timeBonusSecondsLeft = 0;
     this.timeBonusPartialPoint = 0;
     this.timeBonusTickTimer = 0;
+    this.introLeadInSec = 0; // see startLevelIntro/beginRun
     this.levelClearElapsed = 0;
     this.levelClearPhase = 'pause';
     this.justSubmittedEntry = null;
@@ -113,8 +115,8 @@ export class GameScene extends Phaser.Scene {
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
-    // Tracks last frame's shoot input so a held key only fires once per
-    // press (see updatePlaying) unless rapid_shot is active.
+    // Tracks last frame's shoot input so a held key only ever fires once
+    // per press (see updatePlaying).
     this.wasShooting = false;
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
@@ -254,7 +256,6 @@ export class GameScene extends Phaser.Scene {
   get weaponLabel() {
     const parts = [];
     if (this.effects.active.has('rapid_shot')) parts.push('RAPID');
-    if (this.effects.active.has('wide_harpoon')) parts.push('WIDE');
     parts.push(WEAPON_TYPES[this.weaponType].label.toUpperCase());
     return parts.join(' ');
   }
@@ -299,9 +300,15 @@ export class GameScene extends Phaser.Scene {
     // own panicPopCount/panicSpawnAt reset for what DOES restart on a hit).
     this.panicWaveIndex = 0;
     this.effects.reset(this);
-    this.audio.play('superpang');
+    // The run-start fanfare used to play straight over the countdown's own
+    // cues. The countdown now waits it out: its title card is up (the
+    // LEVEL/name rows) while the fanfare rings, and READY only sounds once
+    // it's finished. Only a NEW run gets this -- advancing or restarting a
+    // level within one doesn't replay the fanfare, so those intros start
+    // immediately as before.
+    const fanfare = this.audio.play('superpang');
     this.loadLevel(panicMode ? PANIC_LEVEL : (customDef ?? levelIndex));
-    this.startLevelIntro();
+    this.startLevelIntro(fanfare?.duration ?? 0);
   }
 
   startNewGame() {
@@ -382,17 +389,22 @@ export class GameScene extends Phaser.Scene {
   // countdown -- Arcade Physics keeps stepping every frame regardless of
   // scene state unless explicitly paused, so without this balls would
   // already be falling/bouncing while the countdown is still on screen.
-  startLevelIntro() {
+  // `leadInSec` holds the countdown (and its cues) for that long first,
+  // showing only the LEVEL/name title card -- used to let the run-start
+  // fanfare finish before READY interrupts it (see beginRun).
+  startLevelIntro(leadInSec = 0) {
     this.state = GAME_STATES.LEVEL_INTRO;
     this.stateTimer = LEVEL_INTRO_SEC;
+    this.introLeadInSec = leadInSec;
     this.physics.pause();
-    // One cue per countdown word. READY sounds here as the intro opens;
-    // SET and GO! are fired from update() (see the LEVEL_INTRO case) at
-    // the exact thresholds LevelIntro.js swaps the text at, so word and
-    // sound always land together however long the countdown is.
+    // One cue per countdown word. READY sounds as the countdown proper
+    // opens -- here, or when the lead-in expires (see update's LEVEL_INTRO
+    // case); SET and GO! fire from there too, at the exact thresholds
+    // LevelIntro.js swaps the text at, so word and sound always land
+    // together however long the countdown is.
     this.setSoundPlayed = false;
     this.goSoundPlayed = false;
-    this.audio.play('ready');
+    if (leadInSec <= 0) this.audio.play('ready');
   }
 
   // Fully (re)loads the current level: balls, obstacles, projectiles,
@@ -636,6 +648,13 @@ export class GameScene extends Phaser.Scene {
 
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
+        // Lead-in: hold the countdown (and the physics freeze) while the
+        // run-start fanfare finishes, then open with READY.
+        if (this.introLeadInSec > 0) {
+          this.introLeadInSec -= dt;
+          if (this.introLeadInSec <= 0) this.audio.play('ready');
+          break;
+        }
         this.stateTimer -= dt;
         // The same thresholds LevelIntro.js uses to swap the countdown
         // word, so each sound lands on the frame its word appears.
@@ -719,12 +738,12 @@ export class GameScene extends Phaser.Scene {
     const inputState = this.readInput();
     this.player.update(dt, inputState);
 
-    // Holding the shoot input only fires once per press -- it has to be
-    // released and pressed again for another shot -- unless rapid_shot is
-    // active, which auto-fires the whole time it's held (still throttled
-    // by weaponState.maxActiveShots either way, see tryFire).
-    const rapidShotActive = this.effects.active.has('rapid_shot');
-    if (inputState.shoot && (rapidShotActive || !this.wasShooting)) this.tryFire();
+    // One shot per press, for every weapon and power-up alike: the input
+    // has to be released and pressed again before it fires again, so
+    // holding the key/button down does nothing. What rapid_shot changes is
+    // only how many shots may be in the air at once (weaponState
+    // .maxActiveShots, see tryFire) -- never how the trigger itself reads.
+    if (inputState.shoot && !this.wasShooting) this.tryFire();
     this.wasShooting = inputState.shoot;
 
     // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
@@ -892,19 +911,20 @@ export class GameScene extends Phaser.Scene {
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
     const base = WEAPON_TYPES[this.weaponType];
-    const width = base.width * this.weaponState.widthMultiplier;
     // The beam's foot is planted on the ground (Projectile.js anchors it
     // there itself); this is where its HEAD starts -- the muzzle, same
     // height a shot has always appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
-    const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce, this.weaponType);
+    const proj = new Projectile(
+      this, tipX, tipY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType,
+      base.ceilingStickSec ?? 0, base.ceilingReleaseWarnSec ?? 0,
+    );
     this.projectiles.add(proj);
-    // "Special/rapid" shot sound whenever an active weapon power-up is
-    // boosting the harpoon (rapid_shot: more simultaneous shots,
-    // wide_harpoon: wider/piercing shot); the plain harpoon otherwise.
-    const isSpecialShot = this.effects.active.has('rapid_shot') || this.effects.active.has('wide_harpoon');
-    this.audio.play(isSpecialShot ? 'weaponshootm' : 'weaponshoot');
+    // "Special/rapid" shot sound while a weapon power-up is boosting the
+    // harpoon (rapid_shot: more shots in the air at once); the plain
+    // harpoon sound otherwise.
+    this.audio.play(this.effects.active.has('rapid_shot') ? 'weaponshootm' : 'weaponshoot');
     this.player.playShotAnim();
   }
 
@@ -914,7 +934,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isPanicMode) this.advancePanicProgress();
     this.audio.play('balldestroy');
     this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
-    this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color));
+    this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color, ball.radius));
 
     const children = ball.getSplitChildren();
     const forcedPowerup = ball.forcedPowerup;
@@ -1019,7 +1039,28 @@ export class GameScene extends Phaser.Scene {
   onPlayerHitBall(playerGO, ballGO) {
     if (this.state !== GAME_STATES.PLAYING || !ballGO.active) return;
     if (this.ballsFrozen) return; // time_freeze: frozen balls can't hurt the player
+    this.playPlayerHitEffect(playerGO, ballGO);
     this.hitPlayer();
+  }
+
+  // The impact burst, played where the ball actually touched -- the
+  // counterpart to playBallPopEffect below, which marks the other kind of
+  // collision. The contact point is taken as the point on the ball's rim
+  // facing the player rather than either body's centre: at the frame the
+  // overlap fires, that lands on the surface the two met at, so a big ball
+  // bursts at its edge instead of from somewhere inside itself.
+  playPlayerHitEffect(playerGO, ballGO) {
+    const dx = playerGO.x - ballGO.x;
+    const dy = playerGO.y - ballGO.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const sprite = this.add.sprite(
+      ballGO.x + (dx / dist) * ballGO.radius,
+      ballGO.y + (dy / dist) * ballGO.radius,
+      PLAYER_HIT_TEXTURE_KEY,
+    );
+    sprite.setDepth(7); // above the player (4) and the ball-pop burst (6)
+    sprite.play(PLAYER_HIT_ANIM_KEY);
+    sprite.once('animationcomplete', () => sprite.destroy());
   }
 
   // Running out of time counts as exactly the same hit as a ball touching

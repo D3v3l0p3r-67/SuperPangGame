@@ -10,7 +10,6 @@ export function createWeaponState(weaponType = 'harpoon') {
   return {
     maxActiveShots: base.baseMaxActiveShots,
     pierce: base.basePierce,
-    widthMultiplier: 1,
   };
 }
 

@@ -82,11 +82,50 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
 
-Holding Shoot fires once per press -- release and press again for another
-shot -- unless the `rapid_shot` power-up is active, which auto-fires the
-whole time it's held (see `GameScene.updatePlaying`'s `wasShooting`
-tracking). Either way, an actual shot still only leaves if under the
-active weapon's `maxActiveShots` (see `tryFire`).
+Shoot fires once per press, for every weapon and power-up alike -- the
+key/button has to be released and pressed again for another shot, so
+holding it down does nothing (see `GameScene.updatePlaying`'s
+`wasShooting` tracking). A shot still only leaves if under the active
+weapon's `maxActiveShots` (see `tryFire`), which is what `rapid_shot`
+raises -- it changes how many shots may be in the air at once, never how
+the trigger reads.
+
+## Weapons
+
+Every weapon is the same kind of thing: a BEAM whose foot stays on the
+ground the player fired from and whose head climbs (`js/Projectile.js`).
+The whole length is lethal, not just the leading edge, so a ball drifting
+into the middle of an already-extended shot still pops. Which weapon a
+level gives the player is the level file's `weapon` field; both are
+offered by the **LEVEL EDITOR**'s Weapon dropdown, so either can be tried
+without editing a file.
+
+| | Harpoon | Grapple |
+|---|---|---|
+| climb speed | 440 px/s | 400 px/s |
+| shots in the air at once | 1 | 1 |
+| on reaching the ceiling | ends | anchors for 4s |
+
+The **grapple** is the reason the beam has phases. Topping out doesn't end
+it: it hangs from the ceiling for `ceilingStickSec` (4s), staying lethal
+along its full ground-to-ceiling length the whole time, which makes it a
+standing barrier balls cannot cross rather than a single strike. Its last
+`ceilingReleaseWarnSec` (1s) is spent in a third, "letting go" state --
+still solid, just drawn differently, so the barrier's expiry is
+telegraphed instead of sudden. Each phase has its own cell in the shot
+spritesheet (`assets.js`'s `WEAPON_SHOT_FRAMES`), so the three states are
+visibly different rather than something the player has to infer.
+
+One shot in the air at a time is the base state for both weapons; the
+`rapid_shot` power-up grants a second slot for its duration. For the
+grapple that means an anchored shot is normally the player's only shot
+until it lets go -- putting up a barrier costs the next four seconds of
+shooting, unless rapid_shot is running.
+
+Giving a weapon `ceilingStickSec` is all it takes to make it stick --
+`js/Projectile.js` reads it off the weapon definition, so a third weapon
+needs no new code, only a `WEAPON_TYPES` entry, its shot cells, and a HUD
+icon.
 
 ## Display size
 
@@ -126,8 +165,13 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
-- 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
-  life, score multiplier, time freeze, shield. A dropped power-up falls
+- 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
+  "Weapons" below): the **harpoon**, which ends the moment it tops out,
+  and the **grapple**, which anchors to the ceiling for 4s and keeps
+  killing along its whole length while it hangs there. One shot in the air
+  at a time, until `rapid_shot` grants a second.
+- 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
+  multiplier, time freeze, shield. A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
   shooting it with the harpoon.
@@ -142,8 +186,8 @@ seam between the canvas and the page behind it.
   active power-up icons + countdowns -- see "Swapping HUD graphics")
   always shows remaining level time, lives, score, level, top score, and
   every currently active power-up -- entirely drawn in Phaser, no DOM
-  overlay for any of it. Picking up `rapid_shot`/`wide_harpoon` swaps the
-  weapon socket's own icon to match for as long as it's active.
+  overlay for any of it. Picking up `rapid_shot` swaps the weapon socket's
+  own icon to match for as long as it's active.
 - Score, lives, a locally-persisted top-10 high score table, and per-level
   unlock progress (`localStorage`, with a versioned schema for safe future
   upgrades) -- see "Start Campaign vs. Start Level" below.
@@ -178,8 +222,14 @@ Useful while tuning levels or ball behavior:
 - A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
   clear every ball on the field instantly with **Remove all balls**; one
   quick-spawn button per power-up (bonus fruit, shield, every weapon
-  power-up, and all the others); jump straight to any level -- all without
-  replaying the whole game or affecting normal play when the panel is off.
+  power-up, and all the others); one button per weapon under **Give
+  weapon**, which hands it to the player directly -- a weapon is a
+  property of the level rather than something that drops, so there is no
+  pickup to spawn -- without cancelling a weapon power-up that happens to
+  be running; jump straight to any level -- all without replaying the
+  whole game or affecting normal play when the panel is off. The power-up
+  and weapon rows are both built from their registries (`POWERUP_TYPES`,
+  `WEAPON_TYPES`), so a new entry appears in the panel on its own.
 - Lives above the playfield's own ceiling, in a `#tool-bar` row shared
   with the level editor's own panel (editor on the left, debug on the
   right, see index.html/style.css) -- never overlapping actual gameplay
@@ -361,7 +411,7 @@ false` shapes this is instead a spin spritesheet, see below.
 balls/obstacles, a power-up needs actual *behavior* (what happens when
 it's collected), which a JSON file can't express -- so it names a `kind`
 from the fixed set in `js/elements.js`'s `POWERUP_BEHAVIORS`
-(`instant_score`, `weapon_max_shots`, `weapon_wide_pierce`,
+(`instant_score`, `weapon_max_shots`,
 `player_speed_multiplier`, `extra_life`, `score_multiplier`,
 `freeze_balls`, `player_shield`) plus a `params` object with that kind's
 own numbers:
@@ -421,10 +471,9 @@ elements" above).
 `background` names an `assets/backgrounds/<name>.webp` image (see
 "Swapping graphics" below) drawn behind the whole playfield; `weapon`
 names a `js/config.js` `WEAPON_TYPES` key the player starts the level
-with (currently only `"harpoon"` exists, so every level uses it, but the
-field is real and level-specific -- adding a second weapon type is purely
-a new `WEAPON_TYPES` entry plus an `assets/hud/weapon_<key>.webp` icon, no
-per-level plumbing needed). Both are optional and default to
+with -- `"harpoon"` or `"grapple"` (see "Weapons" below); adding a third
+is purely a new `WEAPON_TYPES` entry plus an `assets/hud/weapon_<key>.webp`
+icon, no per-level plumbing needed. Both are optional and default to
 `"default"`/`"harpoon"` respectively if omitted, so older hand-written
 level files without them still load. The in-game **LEVEL EDITOR** has a
 **Background**/**Weapon** dropdown for both (top panel) -- picking a
@@ -494,19 +543,28 @@ dimensions:
 - **Score popup**: not a separate asset -- the floating "+N" points
   readout a pop leaves behind (see `js/ScorePopup.js`) reuses the HUD's
   own large score-digit spritesheet (`assets/hud/digits_large.webp`, see
-  "Swapping HUD graphics" below), tinted to the popped ball's `color`,
-  drawn at half that spritesheet's native size (so it doesn't dominate
-  over a small ball's pop effect). Appears 16px above the pop point --
-  clear of the pop effect above, which is centered right on the pop point
-  -- then over 300ms drifts up another 10px, grows slightly, and fades
-  out, all tuned in `js/ScorePopup.js`'s constants.
+  "Swapping HUD graphics" below), tinted to the popped ball's `color`.
+  It opens just clear of the popped ball's top edge (the pop point plus
+  the ball's own radius, so a big ball never has its readout appear inside
+  it) at a third of the spritesheet's native size, then over 500ms rises
+  64px, grows to full size and fades to nothing -- clamped at the ceiling,
+  since a ball popped right under the border has less than 64px of room
+  above it. All tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
   file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (32x64)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
   played once when a run ends without a game over), dead (1, played once
-  per hit). Every frame is authored facing LEFT; Player.js mirrors it for
+  per hit). The walk cycle carries its own vertical bob: the two
+  double-support frames (both feet down) are drawn with the whole upper
+  body 2px lower and the legs correspondingly shorter, so the head rides
+  up and down as it does in a real gait. It is baked into the art, not
+  applied to the sprite's position -- the entity and its hitbox never
+  move, and the weapon barrel is still drawn to the top of the cell on
+  every frame (it is a long pole running past the sprite, so its visible
+  top edge belongs at the cell boundary however the hand holding it
+  moves). Every frame is authored facing LEFT; Player.js mirrors it for
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
   the same 32x(64 x 8) total size and frame order.
@@ -515,6 +573,15 @@ dimensions:
   per frame, drawn centered on the player the whole time the `shield`
   power-up is active (`Player.js`'s `shieldEffect`). Distinct from the
   power-up's own pickup icon (`assets/powerups/shield.webp`, see below).
+- **Player hit burst**: `assets/player/hit.webp` -- a `PLAYER_HIT_FRAMES`
+  -frame (2) spritesheet, `PLAYER_HIT_SIZE` (32) square per frame stacked
+  vertically (frame 0 on top), played once where a ball actually touches
+  the player (`GameScene.onPlayerHitBall` -> `playPlayerHitEffect`). The
+  counterpart to the ball-pop burst below, and authored the same way: one
+  beat for the impact, one for it dissipating. It is centred on the point
+  of the ball's rim facing the player, not on either body's centre, so a
+  big ball bursts at the edge the two actually met at. Swapping it is just
+  replacing the file, as long as the new art keeps that 32x64 layout.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
@@ -650,10 +717,10 @@ in place, keeping the same filename and pixel dimensions:
   per-key-file convention as obstacle tiles/power-up icons. The icon is
   always centered on the frame (`Hud.js` reads the frame's own width/
   height), so the two can be swapped independently as long as the icon
-  stays smaller than the frame. Adding a second weapon type later is just
-  dropping in its icon file, once `WEAPON_TYPES` actually has more than
-  one entry to choose from. While `rapid_shot` or `wide_harpoon` is
-  active, the socket shows that power-up's own icon (from
+  stays smaller than the frame. Adding a weapon type is just dropping in
+  its icon file alongside its `WEAPON_TYPES` entry. While `rapid_shot` is
+  active, the socket
+  shows that power-up's own icon (from
   `assets/powerups/`, see "Adding elements" below) instead, reverting to
   the plain weapon icon once it expires.
 - **Active power-up row**: no separate art of its own -- reuses each

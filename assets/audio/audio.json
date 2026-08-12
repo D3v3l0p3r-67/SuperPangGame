@@ -16,7 +16,7 @@
   "weaponhold": { "file": "weaponhold.ogg", "category": "sfx", "volume": 0.75, "mode": "once", "overlap": false },
   "scoretick": { "file": "scoretick.ogg", "category": "sfx", "volume": 0.45, "mode": "once", "overlap": true },
   "ready": { "file": "ready.ogg", "category": "ui", "volume": 0.8, "mode": "once", "overlap": false },
-  "set": { "file": "set.ogg", "category": "ui", "volume": 0.85, "mode": "once", "overlap": false },
+  "set": { "file": "set.ogg", "category": "ui", "volume": 0.8, "mode": "once", "overlap": false },
   "go": { "file": "go.ogg", "category": "ui", "volume": 0.9, "mode": "once", "overlap": false },
   "uihover": { "file": "uihover.ogg", "category": "ui", "volume": 0.4, "mode": "once", "overlap": true },
   "uiclick": { "file": "uiclick.ogg", "category": "ui", "volume": 0.55, "mode": "once", "overlap": true },

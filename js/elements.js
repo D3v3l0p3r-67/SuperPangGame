@@ -44,10 +44,6 @@ export const POWERUP_BEHAVIORS = {
     apply(game, params) { game.weaponState.maxActiveShots = params.maxActiveShots; },
     revert(game, params, base) { game.weaponState.maxActiveShots = base.baseMaxActiveShots; },
   },
-  weapon_wide_pierce: {
-    apply(game, params) { game.weaponState.widthMultiplier = params.widthMultiplier; game.weaponState.pierce = Infinity; },
-    revert(game, params, base) { game.weaponState.widthMultiplier = 1; game.weaponState.pierce = base.basePierce; },
-  },
   player_speed_multiplier: {
     apply(game, params) { game.player.speedMultiplier = params.multiplier; },
     revert(game) { game.player.speedMultiplier = 1; },
@@ -73,8 +69,8 @@ export const POWERUP_BEHAVIORS = {
 // Dispatches a loaded elements/*.json payload into the right registry
 // above -- called once per file by BootScene.populateElements(). `harpoon`
 // is WEAPON_TYPES.harpoon (see config.js), passed through so
-// weapon_max_shots/weapon_wide_pierce can revert to its base values
-// without importing config.js here (kept element-registry-only).
+// weapon_max_shots can revert to its base values without importing
+// config.js here (kept element-registry-only).
 export function registerElement(el, harpoon) {
   if (el.category === 'ball') {
     BALL_ELEMENTS.push(el);

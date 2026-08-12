@@ -91,6 +91,19 @@ export const PLAYER_SHIELD_TEXTURE_PATH = 'assets/player/shield.webp';
 export const PLAYER_SHIELD_FRAMES = 3;
 export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
+// Impact burst: played once at the point a ball actually touches the
+// player (see GameScene.onPlayerHitBall), the counterpart to the ball-pop
+// effect a shot ball leaves behind. Same two-beat shape and same vertical
+// frame layout as the ball-pop sheets (see BALL_POP_FRAMES above) --
+// PLAYER_HIT_SIZE wide by PLAYER_HIT_SIZE * PLAYER_HIT_FRAMES tall, frame
+// 0 on top -- so swapping it is just replacing the one file, as long as
+// the new art keeps that layout.
+export const PLAYER_HIT_TEXTURE_KEY = 'player-hit';
+export const PLAYER_HIT_TEXTURE_PATH = 'assets/player/hit.webp';
+export const PLAYER_HIT_FRAMES = 2;
+export const PLAYER_HIT_SIZE = 32;
+export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
+
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES) -- tiled
 // via TileSprite across whatever area a block/the border frame covers, so
@@ -126,14 +139,34 @@ export const WEAPON_SHOTS_PATH = 'assets/weapons/shots.webp';
 export const WEAPON_SHOTS_FRAME = { frameWidth: 36, frameHeight: 400 };
 export const SHOT_BEAM_WIDTH = 6;
 
-// weapon type (see config.js's WEAPON_TYPES) -> its cell index above.
-// Only the first cell is used today; the other three are authored ready
-// for whenever a second weapon type exists.
-export const WEAPON_SHOT_FRAMES = { harpoon: 0 };
+// weapon type (see config.js's WEAPON_TYPES) -> the cell index above for
+// each phase of that weapon's shot. A weapon that can't stick to the
+// ceiling only ever needs `flying`; the grapple uses all three, so its
+// three states are visibly different shots rather than one graphic whose
+// behaviour you have to infer.
+export const WEAPON_SHOT_FRAMES = {
+  harpoon: { flying: 0 },
+  grapple: { flying: 1, stuck: 2, releasing: 3 },
+};
 
-export function weaponShotFrame(type) {
-  return WEAPON_SHOT_FRAMES[type] ?? 0;
+export function weaponShotFrame(type, phase = 'flying') {
+  const frames = WEAPON_SHOT_FRAMES[type] ?? WEAPON_SHOT_FRAMES.harpoon;
+  return frames[phase] ?? frames.flying;
 }
+
+// Loading screen: the splash shown while BootScene loads everything else,
+// plus a "%" glyph for the progress readout (the intro font has no percent
+// sign, and this is the only place one is needed -- sized to
+// HUD_DIGITS_SMALL_FRAME so it lines up with the digits beside it).
+//
+// These, and the small HUD digit strip the readout borrows, are loaded a
+// scene EARLIER than everything else (ElementsScene, see BootScene's note)
+// -- the loading screen has to be on screen before the load it reports on
+// can start.
+export const LOADING_TEXTURE_KEY = 'loading-splash';
+export const LOADING_TEXTURE_PATH = 'assets/ui/loading.webp';
+export const PERCENT_TEXTURE_KEY = 'loading-percent';
+export const PERCENT_TEXTURE_PATH = 'assets/ui/percent.webp';
 
 // Particle (the small square used for every burst effect) -- always
 // tinted at runtime to whatever color the effect needs (see GameScene.
