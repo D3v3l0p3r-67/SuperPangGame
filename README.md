@@ -103,7 +103,7 @@ without editing a file.
 | | Harpoon | Grapple |
 |---|---|---|
 | climb speed | 440 px/s | 400 px/s |
-| shots in the air at once | 2 | 2 |
+| shots in the air at once | 1 | 1 |
 | on reaching the ceiling | ends | anchors for 4s |
 
 The **grapple** is the reason the beam has phases. Topping out doesn't end
@@ -116,9 +116,11 @@ telegraphed instead of sudden. Each phase has its own cell in the shot
 spritesheet (`assets.js`'s `WEAPON_SHOT_FRAMES`), so the three states are
 visibly different rather than something the player has to infer.
 
-Both weapons allow two shots in the air at once, which the grapple needs:
-with a single slot, an anchored shot would lock the player out of firing
-for its whole 4 seconds.
+One shot in the air at a time is the base state for both weapons; the
+`rapid_shot` power-up grants a second slot for its duration. For the
+grapple that means an anchored shot is normally the player's only shot
+until it lets go -- putting up a barrier costs the next four seconds of
+shooting, unless rapid_shot is running.
 
 Giving a weapon `ceilingStickSec` is all it takes to make it stick --
 `js/Projectile.js` reads it off the weapon definition, so a third weapon
@@ -166,7 +168,8 @@ seam between the canvas and the page behind it.
 - 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
   "Weapons" below): the **harpoon**, which ends the moment it tops out,
   and the **grapple**, which anchors to the ceiling for 4s and keeps
-  killing along its whole length while it hangs there.
+  killing along its whole length while it hangs there. One shot in the air
+  at a time, until `rapid_shot` grants a second.
 - 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
   multiplier, time freeze, shield. A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
