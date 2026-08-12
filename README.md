@@ -92,19 +92,20 @@ the trigger reads.
 
 ## Weapons
 
-Every weapon is the same kind of thing: a BEAM whose foot stays on the
-ground the player fired from and whose head climbs (`js/Projectile.js`).
-The whole length is lethal, not just the leading edge, so a ball drifting
-into the middle of an already-extended shot still pops. Which weapon a
-level gives the player is the level file's `weapon` field; both are
-offered by the **LEVEL EDITOR**'s Weapon dropdown, so either can be tried
-without editing a file.
+Two of the three are BEAMS: the foot stays on the ground the player fired
+from and the head climbs (`js/Projectile.js`). The whole length is lethal,
+not just the leading edge, so a ball drifting into the middle of an
+already-extended shot still pops. Which weapon a level gives the player is
+the level file's `weapon` field; all three are offered by the **LEVEL
+EDITOR**'s Weapon dropdown and the debug panel's **Give weapon** row, so
+any can be tried without editing a file.
 
-| | Harpoon | Grapple |
-|---|---|---|
-| climb speed | 440 px/s | 400 px/s |
-| shots in the air at once | 1 | 1 |
-| on reaching the ceiling | ends | anchors for 4s |
+| | Harpoon | Grapple | Machine Gun |
+|---|---|---|---|
+| kind | beam | beam | volley of darts |
+| speed | 440 px/s | 400 px/s | 520 px/s |
+| in the air at once | 1 shot | 1 shot | 3 volleys (12 darts) |
+| on reaching the ceiling | ends | anchors for 4s | splashes and stops |
 
 The **grapple** is the reason the beam has phases. Topping out doesn't end
 it: it catches hold for `ceilingStickSec` (4s), staying lethal
@@ -135,9 +136,27 @@ until it lets go -- putting up a barrier costs the next four seconds of
 shooting, unless rapid_shot is running.
 
 Giving a weapon `ceilingStickSec` is all it takes to make it stick --
-`js/Projectile.js` reads it off the weapon definition, so a third weapon
-needs no new code, only a `WEAPON_TYPES` entry, its shot cells, and a HUD
-icon.
+`js/Projectile.js` reads it off the weapon definition.
+
+The **machine gun** is the one that isn't a beam. A `volley` block on its
+weapon entry is what marks it, and `js/Bullet.js` takes over from
+`Projectile.js`: one press puts up four short darts, fanned a few degrees
+apart so the group covers more ground the higher it climbs rather than
+staying a 4-wide comb. What it limits is how many VOLLEYS are in the air
+(three), not how many darts -- counting darts would mean the first press
+spent the whole allowance. A dart that stops on something it cannot break
+-- the ceiling, a side wall, an indestructible block -- leaves a splash
+(`assets/weapons/bullet_hit.webp`, the same two-frame sheet layout as
+every other effect in the game).
+
+Bullet.js deliberately answers the same calls GameScene already makes on a
+beam (`updateBeam`, `registerHit`, `isAnchored`/`anchorAt`), so both kinds
+share one projectile group and every collider set up for beams works for
+darts untouched -- only `tryFire` knows the difference.
+
+`rapid_shot` adds one shot to whatever is held rather than setting an
+absolute number: an absolute value would have NERFED the machine gun,
+whose own base of three is higher than the power-up's.
 
 ## Regions
 
@@ -295,11 +314,12 @@ seam between the canvas and the page behind it.
   "Regions" below).
 - A level-to-level transition effect in campaign runs (fade / wipe / iris
   / shutter, see "Level transitions" below) -- swappable by name.
-- 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
+- 3 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
   "Weapons" below): the **harpoon**, which ends the moment it tops out,
-  and the **grapple**, which anchors to the ceiling for 4s and keeps
-  killing along its whole length while it hangs there. One shot in the air
-  at a time, until `rapid_shot` grants a second.
+  the **grapple**, which anchors to the ceiling for 4s and keeps killing
+  along its whole length while it hangs there, and the **machine gun**,
+  which fires fanned volleys of four darts, three volleys at a time.
+  `rapid_shot` adds one more shot to whichever is in hand.
 - 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
   multiplier, time freeze, shield. A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the

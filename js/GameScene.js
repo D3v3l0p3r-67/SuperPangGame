@@ -7,6 +7,7 @@ import { POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
+import { Bullet } from './Bullet.js';
 import { Bonus } from './Bonus.js';
 import { refreshObstacleSeams } from './Obstacle.js';
 import { createWeaponState, EffectManager } from './weapons.js';
@@ -27,6 +28,7 @@ import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
+  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -117,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
+    this.volleyCounter = 0; // see fireVolley -- ids only need to be distinct
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
     // Tracks last frame's shoot input so a held key only ever fires once
     // per press (see updatePlaying).
@@ -256,6 +259,13 @@ export class GameScene extends Phaser.Scene {
     const def = this.currentLevelDef;
     if (!def || !def.timeLimitSec) return 0;
     return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
+  }
+
+  // How many shots the weapon in hand allows on its own, before any
+  // power-up. Read by the rapid_shot behavior, which adds to it rather
+  // than replacing it.
+  get baseMaxActiveShots() {
+    return WEAPON_TYPES[this.weaponType].baseMaxActiveShots;
   }
 
   get weaponLabel() {
@@ -958,9 +968,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   tryFire() {
+    const base = WEAPON_TYPES[this.weaponType];
+    if (base.volley) {
+      this.fireVolley(base);
+      return;
+    }
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
-    const base = WEAPON_TYPES[this.weaponType];
     // The beam's foot is planted on the ground (Projectile.js anchors it
     // there itself); this is where its HEAD starts -- the muzzle, same
     // height a shot has always appeared at.
@@ -976,6 +990,47 @@ export class GameScene extends Phaser.Scene {
     // harpoon sound otherwise.
     this.audio.play(this.effects.active.has('rapid_shot') ? 'weaponshootm' : 'weaponshoot');
     this.player.playShotAnim();
+  }
+
+  // The machine gun: one press puts up a fanned volley of bullets rather
+  // than a single beam. What the weapon limits is how many VOLLEYS are in
+  // the air, not how many bullets -- counting bullets would mean the first
+  // press alone used the whole allowance up.
+  fireVolley(base) {
+    const live = new Set();
+    for (const p of this.projectiles.getChildren()) {
+      if (p.active && p.volleyId !== undefined) live.add(p.volleyId);
+    }
+    if (live.size >= this.weaponState.maxActiveShots) return;
+
+    const { count, spreadDeg, spacingPx } = base.volley;
+    const id = ++this.volleyCounter;
+    const muzzleY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
+    for (let i = 0; i < count; i++) {
+      // Spread evenly about straight up: with 4 bullets that is -1.5, -0.5,
+      // +0.5, +1.5 steps, so the fan stays symmetric and no bullet goes
+      // straight up the middle.
+      const offset = i - (count - 1) / 2;
+      const angle = Phaser.Math.DegToRad(offset * spreadDeg);
+      const bullet = new Bullet(
+        this, this.player.x + offset * spacingPx, muzzleY,
+        angle, base.shotSpeed, this.weaponState.pierce, id,
+      );
+      this.projectiles.add(bullet);
+    }
+    this.audio.play(this.effects.active.has('rapid_shot') ? 'weaponshootm' : 'weaponshoot');
+    this.player.playShotAnim();
+  }
+
+  // The splash a bullet leaves where it stops on something it cannot break
+  // -- the ceiling, a side wall, or an indestructible obstacle. The beam
+  // weapons have no equivalent: a beam ENDS at the ceiling by design, while
+  // a bullet visibly strikes it.
+  playBulletImpact(x, y) {
+    const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
+    sprite.setDepth(6);
+    sprite.play(BULLET_HIT_ANIM_KEY);
+    sprite.once('animationcomplete', () => sprite.destroy());
   }
 
   popBall(ball) {
@@ -1068,6 +1123,12 @@ export class GameScene extends Phaser.Scene {
     // blocks still take the hit and stop the shot, so the grapple can't be
     // used to dodge breaking them open.
     if (!obstacleGO.def.destructible && projGO.anchorAt(obstacleGO.body.bottom)) return;
+    // A bullet can't catch hold, so an unbreakable block simply stops it --
+    // and that stop gets the same splash the ceiling and side walls give.
+    if (!obstacleGO.def.destructible && projGO.volleyId !== undefined) {
+      const tip = projGO.tip;
+      this.playBulletImpact(tip.x, Math.max(obstacleGO.body.bottom, tip.y));
+    }
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;
     const destroyed = obstacleGO.takeHit();

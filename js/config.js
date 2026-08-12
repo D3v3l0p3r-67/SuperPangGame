@@ -46,6 +46,24 @@ export const WEAPON_TYPES = {
     baseMaxActiveShots: 1,
     basePierce: 1,
   },
+  // The odd one out: a volley weapon rather than a beam. `volley` is what
+  // marks it -- GameScene.tryFire branches on it, and Bullet.js takes over
+  // from Projectile.js. `baseMaxActiveShots` counts VOLLEYS in the air,
+  // not bullets, so three presses put twelve darts up at once.
+  //
+  // The bullets are fanned rather than parallel: fired straight they would
+  // stay a 4-wide comb the whole way up and cover no more than the beam
+  // does, whereas a few degrees of spread makes the volley reach wider the
+  // higher it gets, which is the whole point of the weapon.
+  machinegun: {
+    label: 'Machine Gun',
+    shotSpeed: 520,
+    width: 4,
+    color: '#4ecdc4',
+    baseMaxActiveShots: 3,
+    basePierce: 1,
+    volley: { count: 4, spreadDeg: 7, spacingPx: 8 },
+  },
   grapple: {
     label: 'Grapple',
     shotSpeed: 400,

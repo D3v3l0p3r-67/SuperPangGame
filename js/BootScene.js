@@ -11,6 +11,8 @@ import {
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, PLAYER_HIT_FRAMES, PLAYER_HIT_SIZE, PLAYER_HIT_ANIM_KEY,
+  BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
+  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
   WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
@@ -79,6 +81,8 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
     this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
     this.load.spritesheet(PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, { frameWidth: PLAYER_HIT_SIZE, frameHeight: PLAYER_HIT_SIZE });
+    this.load.image(BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH);
+    this.load.spritesheet(BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, { frameWidth: BULLET_HIT_SIZE, frameHeight: BULLET_HIT_SIZE });
     this.load.image(WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH);
     this.load.image(PLANE_TEXTURE_KEY, PLANE_TEXTURE_PATH);
 
@@ -195,6 +199,12 @@ export class BootScene extends Phaser.Scene {
     });
     // Same rate as the ball-pop burst (see buildBallAnimations), so a hit
     // on the player and a hit on a ball read as the same kind of event.
+    this.anims.create({
+      key: BULLET_HIT_ANIM_KEY,
+      frames: this.anims.generateFrameNumbers(BULLET_HIT_TEXTURE_KEY, { start: 0, end: BULLET_HIT_FRAMES - 1 }),
+      frameRate: 14,
+      repeat: 0,
+    });
     this.anims.create({
       key: PLAYER_HIT_ANIM_KEY,
       frames: this.anims.generateFrameNumbers(PLAYER_HIT_TEXTURE_KEY, { start: 0, end: PLAYER_HIT_FRAMES - 1 }),
