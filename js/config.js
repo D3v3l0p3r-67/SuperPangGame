@@ -79,3 +79,10 @@ export const TIME_BONUS_COUNTDOWN_PER_SEC = 30;
 // (which at 100/s x 30 would be 3000 sounds a second) or one per frame
 // (which would change pitch with the frame rate).
 export const TIME_BONUS_TICK_SEC = 0.07;
+
+// Which of js/LevelTransition.js's LEVEL_TRANSITIONS effects plays between
+// campaign levels -- the screen is hidden with it, the next level is
+// swapped in underneath, and it is drawn back off. Change the name to
+// change the effect; each effect carries its own duration, so there is
+// nothing else to keep in step.
+export const LEVEL_TRANSITION = 'shutter';

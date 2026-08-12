@@ -1,6 +1,7 @@
 import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './constants.js';
 import { BALL_SHAPE_KEYS, BALL_ELEMENTS, maxBallSize, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './elements.js';
-import { WEAPON_TYPES } from './config.js';
+import { WEAPON_TYPES, LEVEL_TRANSITION } from './config.js';
+import { LEVEL_TRANSITIONS } from './LevelTransition.js';
 import { createWeaponState } from './weapons.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
@@ -144,6 +145,26 @@ export class Debug {
       weaponRow.appendChild(btn);
     }
     wrap.appendChild(weaponRow);
+
+    // -- Level transition: pick one and watch it, without having to clear
+    // a level to see it. The picker only overrides what plays here; the
+    // effect a real run uses is config.js's LEVEL_TRANSITION.
+    this.addSectionLabel(wrap, 'Level transition');
+    const transitionRow = document.createElement('div');
+    transitionRow.className = 'debug-btn-row';
+    const transitionSelect = document.createElement('select');
+    for (const [name, def] of Object.entries(LEVEL_TRANSITIONS)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = def.label;
+      transitionSelect.appendChild(opt);
+    }
+    transitionSelect.value = LEVEL_TRANSITION;
+    const playTransitionBtn = document.createElement('button');
+    playTransitionBtn.textContent = 'Play';
+    playTransitionBtn.onclick = () => this.scene.transition.start(transitionSelect.value, null);
+    transitionRow.append(transitionSelect, playTransitionBtn);
+    wrap.appendChild(transitionRow);
 
     // -- Level jump
     this.addSectionLabel(wrap, 'Jump to level');

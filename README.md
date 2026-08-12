@@ -139,6 +139,38 @@ Giving a weapon `ceilingStickSec` is all it takes to make it stick --
 needs no new code, only a `WEAPON_TYPES` entry, its shot cells, and a HUD
 icon.
 
+## Level transitions
+
+Clearing a campaign level doesn't cut straight to the next one: the
+playfield is hidden with an effect, the next level is built underneath it,
+and the effect is drawn back off. The swap happens on the single frame the
+screen is fully covered, so it can never be seen happening.
+
+Effects live in `js/LevelTransition.js`'s `LEVEL_TRANSITIONS`, the same
+kind of named registry as `WEAPON_TYPES` and `POWERUP_BEHAVIORS`, and
+`js/config.js`'s `LEVEL_TRANSITION` names the one that plays. Changing the
+effect is that one word; each effect carries its own `durationSec`, so
+there is nothing else to keep in step.
+
+| name | what it does |
+|---|---|
+| `fade` | cross-fade through black |
+| `wipe` | a solid edge sweeping down, then off the bottom |
+| `iris` | four edges closing in on the centre and opening out |
+| `shutter` | horizontal slats drawing in from alternating sides |
+
+Adding one is a new entry with a `label`, a `durationSec` and a
+`draw(graphics, amount, covering)` -- `amount` runs 0 to 1 across each half
+and `covering` says which half it is, so an effect only has to be opaque at
+1 and transparent at 0. Effects cover the playfield and not the HUD bar, so
+the score and lives stay readable straight through. The debug panel's
+**Level transition** row plays any of them on demand, without having to
+clear a level to see it.
+
+Only the level-to-level step gets one. Finishing the run doesn't -- there
+is no next level to reveal, just the victory screen -- and neither does a
+level restarting after a lost life.
+
 ## Display size
 
 The playing surface is a fixed 800x420px, bordered on all four sides
@@ -177,6 +209,8 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
+- A level-to-level transition effect in campaign runs (fade / wipe / iris
+  / shutter, see "Level transitions" below) -- swappable by name.
 - 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
   "Weapons" below): the **harpoon**, which ends the moment it tops out,
   and the **grapple**, which anchors to the ceiling for 4s and keeps
@@ -241,7 +275,9 @@ Useful while tuning levels or ball behavior:
   be running; jump straight to any level -- all without replaying the
   whole game or affecting normal play when the panel is off. The power-up
   and weapon rows are both built from their registries (`POWERUP_TYPES`,
-  `WEAPON_TYPES`), so a new entry appears in the panel on its own.
+  `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
+  the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
+  any transition effect on demand.
 - Lives above the playfield's own ceiling, in a `#tool-bar` row shared
   with the level editor's own panel (editor on the left, debug on the
   right, see index.html/style.css) -- never overlapping actual gameplay
@@ -359,6 +395,9 @@ js/
                       popup") -- reuses the HUD's own digit spritesheet,
                       tinted to the ball's color; GameScene owns the live
                       instances (this.scorePopups)
+  LevelTransition.js The LEVEL_TRANSITIONS effect registry plus the
+                      overlay that runs one between campaign levels (see
+                      "Level transitions")
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
                       from a loaded A-Z font, then blinking READY/GO!

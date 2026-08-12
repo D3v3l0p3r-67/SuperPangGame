@@ -1,7 +1,7 @@
 import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC, LEVEL_INTRO_GO_SEC, LEVEL_INTRO_SET_SEC } from './constants.js';
 import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
-  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC,
+  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
 } from './config.js';
 import { POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
 import { Player } from './Player.js';
@@ -15,6 +15,7 @@ import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
+import { LevelTransition } from './LevelTransition.js';
 import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
@@ -184,6 +185,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.setupMobileFullscreen();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
+    this.transition = new LevelTransition(this);
     this.debug = new Debug(this);
     this.editor = new Editor(this);
   }
@@ -284,6 +286,9 @@ export class GameScene extends Phaser.Scene {
   // levelClear's unlock bookkeeping) branches on the isCustomLevel/
   // isPanicMode flags set here.
   beginRun(levelIndex, customDef, panicMode = false) {
+    // Quitting to the menu mid-transition leaves the overlay up; starting
+    // anything new clears it.
+    this.transition.stop();
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = levelIndex;
@@ -461,9 +466,17 @@ export class GameScene extends Phaser.Scene {
       // so the level's own author can immediately go again.
       this.pause();
     } else if (this.levelIndex + 1 < LEVELS.length) {
-      this.levelIndex += 1;
-      this.loadLevel(this.levelIndex);
-      this.startLevelIntro();
+      // The one real level-to-level step in a campaign run, and the only
+      // place a transition belongs: the screen is hidden, the next level
+      // is built underneath it, and it is drawn back off (see
+      // js/LevelTransition.js). Finishing the run doesn't get one -- there
+      // is no next level to reveal, only the victory screen, which is DOM
+      // and sits above the canvas the effect is drawn on anyway.
+      this.transition.start(LEVEL_TRANSITION, () => {
+        this.levelIndex += 1;
+        this.loadLevel(this.levelIndex);
+        this.startLevelIntro();
+      });
     } else {
       this.finishRun('victory');
     }
@@ -535,6 +548,10 @@ export class GameScene extends Phaser.Scene {
     this.stateTimer -= dt;
     // The minimum keeps a short tally (or none at all) from cutting the
     // player's 2s celebration animation short.
+    // Once the transition is running it owns the handover -- the state
+    // stays LEVEL_CLEAR until it has the screen covered, so without this
+    // the advance would be re-triggered on every frame until then.
+    if (this.transition.active) return;
     if (this.stateTimer <= 0 && this.levelClearElapsed >= LEVEL_CLEAR_MIN_SEC) this.advanceLevel();
   }
 
@@ -562,6 +579,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   finishRun(outcome) {
+    // A run can end while a transition is mid-flight (the last level
+    // cleared into a game over on the timer, say) -- drop the overlay
+    // rather than leave the playfield covered under the end screen.
+    this.transition.stop();
     this.audio.stopMusic();
     this.lastOutcome = outcome;
     if (outcome === 'gameover') this.audio.play('gameover');
@@ -696,6 +717,11 @@ export class GameScene extends Phaser.Scene {
     this.ui.render();
     this.hud.render();
     this.levelIntro.render();
+    // Ticked outside the state switch, and last: the transition spans the
+    // very change of state it wraps (LEVEL_CLEAR out, LEVEL_INTRO in), so
+    // it can't belong to either case, and it has to paint over everything
+    // the frame already drew.
+    this.transition.update(dt);
   }
 
   readInput() {
