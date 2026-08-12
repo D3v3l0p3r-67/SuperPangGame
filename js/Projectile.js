@@ -6,9 +6,20 @@ import { BORDER_THICKNESS, GROUND_Y } from './constants.js';
 // weapon's shotSpeed, see config.js) until something stops it -- a ball or
 // obstacle it overlaps (GameScene's onProjectileHit* handlers destroy it,
 // or decrement its pierce count first), or the ceiling, which caps
-// its length and ends it in updateBeam below. So it starts already
-// spanning feet-to-muzzle and, at full extension, runs the whole way from
-// the ground to the ceiling.
+// its length and either ends the shot or anchors it there (see the phases
+// below). So it starts already spanning feet-to-muzzle and, at full
+// extension, runs the whole way from the ground to the ceiling.
+//
+// PHASES. A shot is 'flying' while its head climbs. On reaching the
+// ceiling a weapon with no ceilingStickSec is done; one with it instead
+// goes 'stuck' -- held at full length for that many seconds, still lethal
+// along its entire length, so it works as a standing barrier balls can't
+// cross rather than a one-shot. Its last ceilingReleaseWarnSec seconds are
+// spent 'releasing', which exists purely to telegraph the end: the shot is
+// still solid, but drawn in its letting-go frame so a player can see the
+// barrier is about to disappear instead of being surprised by it.
+// Each phase has its own cell in the shot spritesheet (see assets.js's
+// WEAPON_SHOT_FRAMES).
 //
 // Growing the body rather than moving it is what makes the WHOLE beam
 // lethal along its length instead of only a leading edge -- a ball
@@ -22,8 +33,8 @@ import { BORDER_THICKNESS, GROUND_Y } from './constants.js';
 // unscaled, an Arcade body sized in world pixels also stays exactly the
 // size it was set to (a scaled sprite would multiply it again).
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, headY, width, speed, pierce, weaponType) {
-    super(scene, x, GROUND_Y, WEAPON_SHOTS_KEY, weaponShotFrame(weaponType));
+  constructor(scene, x, headY, width, speed, pierce, weaponType, stickSec = 0, releaseWarnSec = 0) {
+    super(scene, x, GROUND_Y, WEAPON_SHOTS_KEY, weaponShotFrame(weaponType, 'flying'));
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -42,6 +53,11 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.beamWidth = Math.max(SHOT_BEAM_WIDTH, Math.round(width));
     this.growSpeed = speed;
     this.hitsLeft = pierce;
+    this.weaponType = weaponType;
+    this.stickSec = stickSec;
+    this.releaseWarnSec = releaseWarnSec;
+    this.phase = 'flying';
+    this.stickLeft = 0;
     // Behind the player (depth 4), so the shot reads as coming from
     // behind the character rather than being painted across it -- but
     // still above the balls (3) and obstacles (1-2) it travels past.
@@ -69,15 +85,37 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.body.setOffset((WEAPON_SHOTS_FRAME.frameWidth - this.beamWidth) / 2, 0);
   }
 
+  // Swaps in the artwork for a phase. setFrame keeps the crop rect but
+  // re-derives the body from the new frame, so the length has to be
+  // re-applied afterwards to put the crop and hitbox back where they were.
+  setPhase(phase) {
+    if (this.phase === phase) return;
+    this.phase = phase;
+    this.setFrame(weaponShotFrame(this.weaponType, phase));
+    this.setLength(this.length);
+  }
+
   // Called once per frame from GameScene.updatePlaying. Returns false once
-  // the head has reached the ceiling and the beam should be destroyed.
+  // the beam is spent and should be destroyed -- on reaching the ceiling
+  // for a weapon that doesn't stick, or at the end of the stick for one
+  // that does.
   updateBeam(dt) {
-    const next = this.length + this.growSpeed * dt;
-    if (next >= this.maxLength) {
-      this.setLength(this.maxLength);
-      return false;
+    if (this.phase !== 'flying') {
+      this.stickLeft -= dt;
+      if (this.stickLeft <= this.releaseWarnSec) this.setPhase('releasing');
+      return this.stickLeft > 0;
     }
-    this.setLength(next);
+
+    const next = this.length + this.growSpeed * dt;
+    if (next < this.maxLength) {
+      this.setLength(next);
+      return true;
+    }
+
+    this.setLength(this.maxLength);
+    if (this.stickSec <= 0) return false;
+    this.stickLeft = this.stickSec;
+    this.setPhase(this.stickSec <= this.releaseWarnSec ? 'releasing' : 'stuck');
     return true;
   }
 

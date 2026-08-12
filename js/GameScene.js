@@ -916,7 +916,10 @@ export class GameScene extends Phaser.Scene {
     // height a shot has always appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
-    const proj = new Projectile(this, tipX, tipY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType);
+    const proj = new Projectile(
+      this, tipX, tipY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType,
+      base.ceilingStickSec ?? 0, base.ceilingReleaseWarnSec ?? 0,
+    );
     this.projectiles.add(proj);
     // "Special/rapid" shot sound while a weapon power-up is boosting the
     // harpoon (rapid_shot: more shots in the air at once); the plain

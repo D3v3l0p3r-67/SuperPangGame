@@ -90,6 +90,41 @@ weapon's `maxActiveShots` (see `tryFire`), which is what `rapid_shot`
 raises -- it changes how many shots may be in the air at once, never how
 the trigger reads.
 
+## Weapons
+
+Every weapon is the same kind of thing: a BEAM whose foot stays on the
+ground the player fired from and whose head climbs (`js/Projectile.js`).
+The whole length is lethal, not just the leading edge, so a ball drifting
+into the middle of an already-extended shot still pops. Which weapon a
+level gives the player is the level file's `weapon` field; both are
+offered by the **LEVEL EDITOR**'s Weapon dropdown, so either can be tried
+without editing a file.
+
+| | Harpoon | Grapple |
+|---|---|---|
+| climb speed | 440 px/s | 400 px/s |
+| shots in the air at once | 2 | 2 |
+| on reaching the ceiling | ends | anchors for 4s |
+
+The **grapple** is the reason the beam has phases. Topping out doesn't end
+it: it hangs from the ceiling for `ceilingStickSec` (4s), staying lethal
+along its full ground-to-ceiling length the whole time, which makes it a
+standing barrier balls cannot cross rather than a single strike. Its last
+`ceilingReleaseWarnSec` (1s) is spent in a third, "letting go" state --
+still solid, just drawn differently, so the barrier's expiry is
+telegraphed instead of sudden. Each phase has its own cell in the shot
+spritesheet (`assets.js`'s `WEAPON_SHOT_FRAMES`), so the three states are
+visibly different rather than something the player has to infer.
+
+Both weapons allow two shots in the air at once, which the grapple needs:
+with a single slot, an anchored shot would lock the player out of firing
+for its whole 4 seconds.
+
+Giving a weapon `ceilingStickSec` is all it takes to make it stick --
+`js/Projectile.js` reads it off the weapon definition, so a third weapon
+needs no new code, only a `WEAPON_TYPES` entry, its shot cells, and a HUD
+icon.
+
 ## Display size
 
 The playing surface is a fixed 800x420px, bordered on all four sides
@@ -128,6 +163,10 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
+- 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
+  "Weapons" below): the **harpoon**, which ends the moment it tops out,
+  and the **grapple**, which anchors to the ceiling for 4s and keeps
+  killing along its whole length while it hangs there.
 - 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
   multiplier, time freeze, shield. A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
@@ -423,10 +462,9 @@ elements" above).
 `background` names an `assets/backgrounds/<name>.webp` image (see
 "Swapping graphics" below) drawn behind the whole playfield; `weapon`
 names a `js/config.js` `WEAPON_TYPES` key the player starts the level
-with (currently only `"harpoon"` exists, so every level uses it, but the
-field is real and level-specific -- adding a second weapon type is purely
-a new `WEAPON_TYPES` entry plus an `assets/hud/weapon_<key>.webp` icon, no
-per-level plumbing needed). Both are optional and default to
+with -- `"harpoon"` or `"grapple"` (see "Weapons" below); adding a third
+is purely a new `WEAPON_TYPES` entry plus an `assets/hud/weapon_<key>.webp`
+icon, no per-level plumbing needed. Both are optional and default to
 `"default"`/`"harpoon"` respectively if omitted, so older hand-written
 level files without them still load. The in-game **LEVEL EDITOR** has a
 **Background**/**Weapon** dropdown for both (top panel) -- picking a
@@ -670,9 +708,9 @@ in place, keeping the same filename and pixel dimensions:
   per-key-file convention as obstacle tiles/power-up icons. The icon is
   always centered on the frame (`Hud.js` reads the frame's own width/
   height), so the two can be swapped independently as long as the icon
-  stays smaller than the frame. Adding a second weapon type later is just
-  dropping in its icon file, once `WEAPON_TYPES` actually has more than
-  one entry to choose from. While `rapid_shot` is active, the socket
+  stays smaller than the frame. Adding a weapon type is just dropping in
+  its icon file alongside its `WEAPON_TYPES` entry. While `rapid_shot` is
+  active, the socket
   shows that power-up's own icon (from
   `assets/powerups/`, see "Adding elements" below) instead, reverting to
   the plain weapon icon once it expires.

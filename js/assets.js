@@ -139,13 +139,19 @@ export const WEAPON_SHOTS_PATH = 'assets/weapons/shots.webp';
 export const WEAPON_SHOTS_FRAME = { frameWidth: 36, frameHeight: 400 };
 export const SHOT_BEAM_WIDTH = 6;
 
-// weapon type (see config.js's WEAPON_TYPES) -> its cell index above.
-// Only the first cell is used today; the other three are authored ready
-// for whenever a second weapon type exists.
-export const WEAPON_SHOT_FRAMES = { harpoon: 0 };
+// weapon type (see config.js's WEAPON_TYPES) -> the cell index above for
+// each phase of that weapon's shot. A weapon that can't stick to the
+// ceiling only ever needs `flying`; the grapple uses all three, so its
+// three states are visibly different shots rather than one graphic whose
+// behaviour you have to infer.
+export const WEAPON_SHOT_FRAMES = {
+  harpoon: { flying: 0 },
+  grapple: { flying: 1, stuck: 2, releasing: 3 },
+};
 
-export function weaponShotFrame(type) {
-  return WEAPON_SHOT_FRAMES[type] ?? 0;
+export function weaponShotFrame(type, phase = 'flying') {
+  const frames = WEAPON_SHOT_FRAMES[type] ?? WEAPON_SHOT_FRAMES.harpoon;
+  return frames[phase] ?? frames.flying;
 }
 
 // Loading screen: the splash shown while BootScene loads everything else,
