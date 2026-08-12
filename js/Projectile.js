@@ -42,7 +42,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.beamWidth = Math.max(SHOT_BEAM_WIDTH, Math.round(width));
     this.growSpeed = speed;
     this.hitsLeft = pierce;
-    this.setDepth(6);
+    // Behind the player (depth 4), so the shot reads as coming from
+    // behind the character rather than being painted across it -- but
+    // still above the balls (3) and obstacles (1-2) it travels past.
+    this.setDepth(3.5);
 
     // Already spanning from the ground up to the muzzle at the instant it
     // is fired, rather than starting as a stub at the muzzle.

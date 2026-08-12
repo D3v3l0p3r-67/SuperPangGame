@@ -1,5 +1,8 @@
-import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
-import { PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE } from './config.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC, LEVEL_INTRO_GO_SEC, LEVEL_INTRO_SET_SEC } from './constants.js';
+import {
+  PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
+  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC,
+} from './config.js';
 import { POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
@@ -23,11 +26,19 @@ import {
 } from './assets.js';
 import { hexColor } from './colors.js';
 
-// How long the cleared-level celebration is held before advancing. Must
-// stay in step with the player's levelclear animation (6 frames at 3fps =
-// 2s, see assets.js's PLAYER_ANIM_FRAMES/BootScene's FRAME_RATE) so the
-// level doesn't change mid-celebration.
-const LEVEL_CLEAR_SEC = 2;
+// Shortest the cleared-level screen ever lasts, so the player's
+// celebration animation (6 frames at 3fps = 2s, see assets.js's
+// PLAYER_ANIM_FRAMES.levelclear) always finishes even when there's no
+// time bonus to count off. A level with time left runs longer than this:
+// the tally takes as long as it takes, and LEVEL_CLEAR_PAUSE_SEC is held
+// after it before the next level loads.
+const LEVEL_CLEAR_MIN_SEC = 2;
+const LEVEL_CLEAR_PAUSE_SEC = 1;
+
+// How long leftover shots/power-ups/score popups take to fade away once a
+// level is cleared (see fadeOutLeftovers). Under LEVEL_CLEAR_MIN_SEC, so
+// the fade always finishes before the next level can load.
+const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
 
 // One ball bounce, resolved from whichever set of contact flags the
@@ -86,6 +97,12 @@ export class GameScene extends Phaser.Scene {
     this.elapsedMs = 0;
     this.levelTimer = 0;
     this.stateTimer = 0;
+    // Cleared-level time-bonus tally -- see levelClear/updateLevelClear.
+    this.timeBonusSecondsLeft = 0;
+    this.timeBonusPartialPoint = 0;
+    this.timeBonusTickTimer = 0;
+    this.levelClearElapsed = 0;
+    this.levelClearPhase = 'pause';
     this.justSubmittedEntry = null;
     this.lastOutcome = null;
     this.isCustomLevel = false;
@@ -224,6 +241,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   get remainingLevelTime() {
+    // While a cleared level is tallying its time bonus, the HUD's clock
+    // follows the draining bonus counter instead of the (now frozen) level
+    // timer -- that's what makes the time visibly count down into the
+    // score (see updateLevelClear).
+    if (this.state === GAME_STATES.LEVEL_CLEAR) return Math.max(0, Math.ceil(this.timeBonusSecondsLeft));
     const def = this.currentLevelDef;
     if (!def || !def.timeLimitSec) return 0;
     return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
@@ -241,6 +263,11 @@ export class GameScene extends Phaser.Scene {
   // removing them from the group -- shared by the editor entry/exit
   // paths here and by LevelManager's own level (re)load.
   clearEntities() {
+    // A level-clear fade (see fadeOutLeftovers) normally finishes well
+    // before this runs, but quitting or restarting mid-fade would leave
+    // a tween animating an object that no longer exists -- so drop any
+    // tween still targeting these before destroying them.
+    this.tweens.killTweensOf([...this.projectiles.getChildren(), ...this.powerups.getChildren()]);
     this.obstacles.clear(true, true);
     this.balls.clear(true, true);
     this.projectiles.clear(true, true);
@@ -359,6 +386,13 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.LEVEL_INTRO;
     this.stateTimer = LEVEL_INTRO_SEC;
     this.physics.pause();
+    // One cue per countdown word. READY sounds here as the intro opens;
+    // SET and GO! are fired from update() (see the LEVEL_INTRO case) at
+    // the exact thresholds LevelIntro.js swaps the text at, so word and
+    // sound always land together however long the countdown is.
+    this.setSoundPlayed = false;
+    this.goSoundPlayed = false;
+    this.audio.play('ready');
   }
 
   // Fully (re)loads the current level: balls, obstacles, projectiles,
@@ -425,10 +459,16 @@ export class GameScene extends Phaser.Scene {
 
   levelClear() {
     const def = this.currentLevelDef;
-    if (def.timeLimitSec) {
-      const remaining = Math.max(0, def.timeLimitSec - this.levelTimer);
-      this.score += Math.round(remaining * 10);
-    }
+    // The time bonus is no longer added in one jump -- it's counted off
+    // second by second during LEVEL_CLEAR so the clock visibly drains
+    // into the score (see updateLevelClear).
+    this.timeBonusSecondsLeft = def.timeLimitSec
+      ? Math.max(0, def.timeLimitSec - this.levelTimer)
+      : 0;
+    this.timeBonusPartialPoint = 0;
+    this.timeBonusTickTimer = 0; // ticks from the very first tally frame
+    this.levelClearElapsed = 0;
+    this.levelClearPhase = this.timeBonusSecondsLeft > 0 ? 'tally' : 'pause';
     // Custom/editor levels aren't part of LEVELS and never unlock anything.
     if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
     this.audio.stopMusic();
@@ -438,8 +478,75 @@ export class GameScene extends Phaser.Scene {
     // player input, so without this it would keep sliding at whatever
     // speed it happened to be moving at when the last ball popped.
     this.player.playLevelClearAnim();
+    this.fadeOutLeftovers();
     this.state = GAME_STATES.LEVEL_CLEAR;
-    this.stateTimer = LEVEL_CLEAR_SEC;
+    this.stateTimer = LEVEL_CLEAR_PAUSE_SEC;
+  }
+
+  // The cleared-level screen: first the leftover clock is counted off into
+  // the score a bit at a time (the HUD's TIME row reads timeBonusSecondsLeft
+  // while this runs, see remainingLevelTime, so one visibly drains as the
+  // other climbs), then LEVEL_CLEAR_PAUSE_SEC of stillness, and only then
+  // does the next level load. Points accrue fractionally and are handed to
+  // the score in whole units, so the HUD's integer readout climbs smoothly
+  // instead of in one jump at the end.
+  updateLevelClear(dt) {
+    this.levelClearElapsed += dt;
+
+    if (this.levelClearPhase === 'tally') {
+      const drained = Math.min(this.timeBonusSecondsLeft, TIME_BONUS_COUNTDOWN_PER_SEC * dt);
+      this.timeBonusSecondsLeft -= drained;
+      this.timeBonusPartialPoint += drained * TIME_BONUS_POINTS_PER_SEC;
+      const whole = Math.floor(this.timeBonusPartialPoint);
+      this.score += whole;
+      this.timeBonusPartialPoint -= whole;
+
+      // The counting sound, on its own fixed interval so it ticks at a
+      // steady rate rather than once per frame (frame-rate dependent) or
+      // once per point (thousands a second).
+      // Reset rather than subtract the interval: after a dropped frame the
+      // timer can be several intervals overdue, and carrying that debt
+      // forward would fire a burst of ticks catching up.
+      this.timeBonusTickTimer -= dt;
+      if (this.timeBonusTickTimer <= 0) {
+        this.audio.play('scoretick');
+        this.timeBonusTickTimer = TIME_BONUS_TICK_SEC;
+      }
+
+      if (this.timeBonusSecondsLeft > 0) return;
+      this.timeBonusSecondsLeft = 0;
+      this.levelClearPhase = 'pause';
+      this.stateTimer = LEVEL_CLEAR_PAUSE_SEC;
+      return;
+    }
+
+    this.stateTimer -= dt;
+    // The minimum keeps a short tally (or none at all) from cutting the
+    // player's 2s celebration animation short.
+    if (this.stateTimer <= 0 && this.levelClearElapsed >= LEVEL_CLEAR_MIN_SEC) this.advanceLevel();
+  }
+
+  // Anything still lying around when the level ends -- a shot mid-flight,
+  // uncollected power-ups -- fades away over LEFTOVER_FADE_SEC instead of
+  // blinking out of existence the instant the level does. Their bodies go
+  // first, so a power-up can't still be collected (or a beam still pop
+  // something) while it's visibly on its way out. The fade is deliberately
+  // shorter than LEVEL_CLEAR_MIN_SEC so it always finishes before the next
+  // level loads and clearEntities() takes the objects away underneath it.
+  fadeOutLeftovers() {
+    for (const go of [...this.projectiles.getChildren(), ...this.powerups.getChildren()]) {
+      if (go.body) go.body.enable = false;
+      this.tweens.add({
+        targets: go,
+        alpha: 0,
+        duration: LEFTOVER_FADE_SEC * 1000,
+        onComplete: () => go.destroy(),
+      });
+    }
+    // The last ball's "+N" is still on screen at this exact moment (that
+    // pop is what cleared the level), so it fades on the same clock rather
+    // than hanging frozen -- update() stops driving popups outside PLAYING.
+    for (const popup of this.scorePopups) popup.fadeOut(LEFTOVER_FADE_SEC * 1000);
   }
 
   finishRun(outcome) {
@@ -530,6 +637,16 @@ export class GameScene extends Phaser.Scene {
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
         this.stateTimer -= dt;
+        // The same thresholds LevelIntro.js uses to swap the countdown
+        // word, so each sound lands on the frame its word appears.
+        if (!this.setSoundPlayed && this.stateTimer <= LEVEL_INTRO_GO_SEC + LEVEL_INTRO_SET_SEC) {
+          this.setSoundPlayed = true;
+          this.audio.play('set');
+        }
+        if (!this.goSoundPlayed && this.stateTimer <= LEVEL_INTRO_GO_SEC) {
+          this.goSoundPlayed = true;
+          this.audio.play('go');
+        }
         if (this.stateTimer <= 0) {
           this.physics.resume();
           this.state = GAME_STATES.PLAYING;
@@ -549,8 +666,7 @@ export class GameScene extends Phaser.Scene {
         }
         break;
       case GAME_STATES.LEVEL_CLEAR:
-        this.stateTimer -= dt;
-        if (this.stateTimer <= 0) this.advanceLevel();
+        this.updateLevelClear(dt);
         break;
       default:
         break;
@@ -620,6 +736,11 @@ export class GameScene extends Phaser.Scene {
       ball.body.moves = !this.ballsFrozen;
       ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
       ball.setFrozen(this.ballsFrozen);
+      // Physics has already stepped by the time scene update runs, so this
+      // captures the speed the ball is travelling at going INTO the next
+      // step -- i.e. its impact speed, which Arcade wipes before the
+      // collision callback can read it (see Ball.rememberVerticalSpeed).
+      ball.rememberVerticalSpeed();
       // Panic Mode ceiling-drop balls (see spawnPanicBall) spawn centered
       // on the ceiling border's own inner edge, depth-sorted behind it and
       // with world-bounds collision off, so they visibly slide out from

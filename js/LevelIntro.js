@@ -1,4 +1,4 @@
-import { VIRTUAL_W, GAME_STATES, COLORS, LEVEL_INTRO_GO_SEC } from './constants.js';
+import { VIRTUAL_W, GAME_STATES, COLORS, LEVEL_INTRO_SEC, LEVEL_INTRO_GO_SEC, LEVEL_INTRO_SET_SEC } from './constants.js';
 import * as assets from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -43,8 +43,9 @@ function buildDigitsRow(scene, container, value, x, y) {
 }
 
 // The graphic level-intro overlay: "LEVEL <n>", the level's name, then a
-// blinking "READY" for LEVEL_INTRO_READY_SEC followed by a solid "GO!"
-// for LEVEL_INTRO_GO_SEC (see constants.js/GameScene.startLevelIntro) --
+// three-beat countdown -- blinking "READY", then blinking "SET", then a
+// solid "GO!", one per phase (see constants.js's LEVEL_INTRO_*_SEC;
+// GameScene.startLevelIntro sounds a cue on each) --
 // entirely composed from loaded images (assets/intro/font_alpha.webp +
 // the HUD's digit strip), same "no drawn text" rule as Hud.js. Drawn with
 // no dimming behind it, over the frozen (see GameScene.startLevelIntro)
@@ -55,6 +56,7 @@ export class LevelIntro {
     this.container = scene.add.container(0, 0).setDepth(25).setVisible(false);
     this.rowImages = [];
     this.readyImages = [];
+    this.setImages = [];
     this.goImages = [];
     this.builtFor = null; // "<levelNumber>:<name>" cache key
   }
@@ -70,9 +72,10 @@ export class LevelIntro {
     if (this.builtFor === key) return;
     this.builtFor = key;
 
-    for (const img of [...this.rowImages, ...this.readyImages, ...this.goImages]) img.destroy();
+    for (const img of [...this.rowImages, ...this.readyImages, ...this.setImages, ...this.goImages]) img.destroy();
     this.rowImages = [];
     this.readyImages = [];
+    this.setImages = [];
     this.goImages = [];
 
     const centerX = VIRTUAL_W / 2;
@@ -91,9 +94,15 @@ export class LevelIntro {
     for (const img of nameRow.images) img.x += nameX;
     this.rowImages.push(...nameRow.images);
 
+    // All three countdown words share the same row -- only one is ever
+    // visible at a time (see render()), each centred on its own width.
     const readyRow = buildTextRow(g, this.container, 'READY', 0, 132, 3);
     for (const img of readyRow.images) img.x += centerX - readyRow.width / 2;
     this.readyImages = readyRow.images;
+
+    const setRow = buildTextRow(g, this.container, 'SET', 0, 132, 3);
+    for (const img of setRow.images) img.x += centerX - setRow.width / 2;
+    this.setImages = setRow.images;
 
     const goRow = buildTextRow(g, this.container, 'GO!', 0, 132, 3);
     for (const img of goRow.images) img.x += centerX - goRow.width / 2;
@@ -111,10 +120,26 @@ export class LevelIntro {
     this.ensureBuilt();
     this.container.setVisible(true);
 
+    // The countdown runs backwards through the phases as stateTimer drains:
+    // READY while more than SET+GO is left, SET while more than GO is, then
+    // GO for the last stretch.
     const isGoPhase = g.stateTimer <= LEVEL_INTRO_GO_SEC;
+    const isSetPhase = !isGoPhase && g.stateTimer <= LEVEL_INTRO_GO_SEC + LEVEL_INTRO_SET_SEC;
+    const isReadyPhase = !isGoPhase && !isSetPhase;
+
     for (const img of this.goImages) img.setVisible(isGoPhase);
 
-    const readyVisible = !isGoPhase && Math.floor((g.stateTimer * 1000) / READY_BLINK_MS) % 2 === 0;
-    for (const img of this.readyImages) img.setVisible(readyVisible);
+    // READY and SET blink (the waiting beats); GO! above stays solid. The
+    // blink is timed from the START OF ITS OWN PHASE rather than from the
+    // raw countdown, so each word is always visible on the very frame its
+    // phase begins -- which is the frame GameScene sounds its cue on. Timed
+    // off the shared countdown instead, a word could open on the blink's
+    // "off" half and appear a moment after its own sound.
+    const phaseElapsed = isReadyPhase
+      ? LEVEL_INTRO_SEC - g.stateTimer
+      : LEVEL_INTRO_GO_SEC + LEVEL_INTRO_SET_SEC - g.stateTimer;
+    const blinkOn = Math.floor((phaseElapsed * 1000) / READY_BLINK_MS) % 2 === 0;
+    for (const img of this.readyImages) img.setVisible(isReadyPhase && blinkOn);
+    for (const img of this.setImages) img.setVisible(isSetPhase && blinkOn);
   }
 }

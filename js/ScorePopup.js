@@ -19,6 +19,7 @@ const END_SCALE = 0.5; // 0.75 * 2/3, same growth ratio as before
 // and dropping any that report .dead.
 export class ScorePopup {
   constructor(scene, x, y, value, colorHex) {
+    this.scene = scene;
     const digits = String(Math.max(0, Math.round(value)));
     const frameW = HUD_DIGITS_LARGE_FRAME.frameWidth;
     const totalW = digits.length * frameW;
@@ -37,6 +38,7 @@ export class ScorePopup {
   }
 
   update(dt) {
+    if (this.fading) return; // the level-clear fade owns alpha now
     this.age += dt * 1000;
     const t = Math.min(1, this.age / LIFESPAN_MS);
     this.container.y -= (RISE_PX / LIFESPAN_MS) * dt * 1000;
@@ -45,8 +47,26 @@ export class ScorePopup {
     if (this.age >= LIFESPAN_MS) this.destroy();
   }
 
+  // Hands the remaining fade over to a tween running for `durationMs`,
+  // for when a level is cleared (see GameScene.fadeOutLeftovers): the
+  // last ball's popup is typically still on screen at that moment, and
+  // GameScene stops calling update() outside PLAYING, so without this it
+  // would simply hang frozen mid-air until the next level loaded.
+  fadeOut(durationMs) {
+    if (this.dead || this.fading) return;
+    this.fading = true;
+    this.scene.tweens.add({
+      targets: this.container,
+      alpha: 0,
+      duration: durationMs,
+      onComplete: () => this.destroy(),
+    });
+  }
+
   destroy() {
-    this.container.destroy();
+    if (this.dead) return;
     this.dead = true;
+    this.scene.tweens.killTweensOf(this.container);
+    this.container.destroy();
   }
 }

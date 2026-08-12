@@ -41,11 +41,13 @@ export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;
 
 // Level-intro timing, shared between GameScene (which counts stateTimer
-// down through it) and LevelIntro.js (which reads it back to know
-// whether to show blinking READY or solid GO!).
-export const LEVEL_INTRO_READY_SEC = 2;
+// down through it, firing one sound cue per phase) and LevelIntro.js
+// (which reads it back to know which of the three words to show).
+// READY and SET blink; GO! is solid.
+export const LEVEL_INTRO_READY_SEC = 1;
+export const LEVEL_INTRO_SET_SEC = 1;
 export const LEVEL_INTRO_GO_SEC = 1;
-export const LEVEL_INTRO_SEC = LEVEL_INTRO_READY_SEC + LEVEL_INTRO_GO_SEC;
+export const LEVEL_INTRO_SEC = LEVEL_INTRO_READY_SEC + LEVEL_INTRO_SET_SEC + LEVEL_INTRO_GO_SEC;
 
 export const COLORS = {
   bgTop: '#0b0e2a',
