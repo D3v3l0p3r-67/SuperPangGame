@@ -124,7 +124,9 @@ visibly different rather than something the player has to infer. All three
 cells draw the same rope and shank and differ only in the head -- a closed
 point while it climbs, the claws thrown flat against the ceiling while it
 holds, and sprung off it as it lets go -- so the phases read as one object
-changing rather than three unrelated shots.
+changing rather than three unrelated shots. The two live states are drawn
+in the harpoon's own pale slate; only the release frame carries colour, so
+the one thing on the rope that stands out is the warning.
 
 One shot in the air at a time is the base state for both weapons; the
 `rapid_shot` power-up grants a second slot for its duration. For the
