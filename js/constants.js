@@ -5,15 +5,12 @@
 // right/floor) by BORDER_THICKNESS -- see GameScene.drawBorder / the
 // world bounds inset in GameScene.create.
 export const VIRTUAL_W = 800;
-// PLAYFIELD_H is the bordered play area (gameplay + floor strip), same as
-// the old fixed canvas height. HUD_H is a dedicated bar reserved below it
-// for the HUD (see GameScene.drawBackground + Hud.js), matching the
-// reference layout instead of overlaying the HUD on top of gameplay.
-// VIRTUAL_H is the *total* canvas height passed to Phaser (800x500 with
-// the HUD included).
-export const PLAYFIELD_H = 420;
-export const HUD_H = 80;
-export const VIRTUAL_H = PLAYFIELD_H + HUD_H;
+// VIRTUAL_H is the *total* canvas height passed to Phaser (800x500). It
+// splits into the bordered play area (PLAYFIELD_H) and a dedicated HUD bar
+// below it (HUD_H) -- see GameScene.drawBackground + Hud.js -- rather than
+// overlaying the HUD on top of gameplay. Both are derived below, from the
+// grid, instead of being picked by hand.
+export const VIRTUAL_H = 500;
 
 // Thickness of the border/wall/floor/ceiling frame around the playfield,
 // on all four sides alike (see GameScene.create's physics bounds inset
@@ -21,7 +18,6 @@ export const VIRTUAL_H = PLAYFIELD_H + HUD_H;
 // OBSTACLE_BLOCK_SIZE below -- the border can change thickness without
 // affecting the obstacle/ball placement grid, and vice versa.
 export const BORDER_THICKNESS = 16;
-export const GROUND_Y = PLAYFIELD_H - BORDER_THICKNESS;
 
 // Base cell size obstacles are composed of -- a breakable obstacle is a
 // group of independent OBSTACLE_BLOCK_SIZE x OBSTACLE_BLOCK_SIZE blocks
@@ -29,6 +25,26 @@ export const GROUND_Y = PLAYFIELD_H - BORDER_THICKNESS;
 // rest of the shape. Also the level editor's placement/alignment grid
 // (see editor.js's snapObstacleOrigin).
 export const OBSTACLE_BLOCK_SIZE = 16;
+
+// How much of VIRTUAL_H the HUD asks for. It is a floor, not the final
+// figure: whatever the playfield can't use in whole cells is handed to the
+// HUD instead (Hud.js centres its content in HUD_H, so a few px either way
+// changes nothing there).
+const MIN_HUD_H = 80;
+
+// The interior -- ceiling to ground -- is a whole number of obstacle
+// blocks, and everything else follows from it. Rounding down is what makes
+// the grid line up with the drawn border at BOTH ends: a leftover fraction
+// of a cell would have to surface somewhere, and wherever it did it would
+// show, either as a gap under the ceiling or as obstacles that can't rest
+// on the floor. It would also leave one row a different height from every
+// other, which breaks the player's step-up (see Player.js -- every row has
+// to be exactly one step above the one below).
+const INTERIOR_H = Math.floor((VIRTUAL_H - MIN_HUD_H - BORDER_THICKNESS * 2) / OBSTACLE_BLOCK_SIZE) * OBSTACLE_BLOCK_SIZE;
+
+export const GROUND_Y = BORDER_THICKNESS + INTERIOR_H;
+export const PLAYFIELD_H = GROUND_Y + BORDER_THICKNESS;
+export const HUD_H = VIRTUAL_H - PLAYFIELD_H;
 
 // The only display sizes the game can render at -- see DisplayZoom.js.
 // Deliberately NOT continuously responsive to the browser window: picking

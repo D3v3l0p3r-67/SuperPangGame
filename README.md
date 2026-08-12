@@ -254,12 +254,22 @@ level restarting after a lost life.
 
 ## Display size
 
-The playing surface is a fixed 800x420px, bordered on all four sides
-(top/left/right/floor) by a 16px wall (`BORDER_THICKNESS` in
-`js/constants.js`) -- independent of the 8x8 obstacle/ball placement grid
-(`OBSTACLE_BLOCK_SIZE`, 16x16 -- also the smallest ball's size), which is
-unaffected. A dedicated 80px HUD strip sits below the bordered playfield
-(`HUD_H`), never overlapping gameplay -- 800x500px total.
+The canvas is a fixed 800x500px. It splits into the bordered playing
+surface and a HUD strip below it, and the split is derived rather than
+picked: the interior -- ceiling to ground -- is rounded down to a whole
+number of 16x16 obstacle/ball placement cells (`OBSTACLE_BLOCK_SIZE`, also
+the smallest ball's size), which works out to 800x384, or 24 rows. Add the
+16px wall on all four sides (`BORDER_THICKNESS` in `js/constants.js`,
+deliberately its own constant) and the playfield is 800x416 with the ground
+line at y=400; whatever is left over goes to the HUD strip, which never
+overlaps gameplay.
+
+Rounding the interior to whole cells is what makes the placement grid line
+up with the drawn border at both ends. A leftover fraction of a cell would
+have to show somewhere -- a gap under the ceiling, or obstacles unable to
+rest on the floor -- and it would leave one row a different height from
+every other, which would break the player's step-up (every row has to be
+exactly one step above the one below).
 
 The canvas does **not** continuously resize with the browser window --
 there's no "fit to window" scaling. Instead, Options -> Size picks one of
@@ -307,7 +317,8 @@ seam between the canvas and the page behind it.
   loses only the block that's actually shot.
 - The **LEVEL EDITOR** places obstacles on rows counted up from the
   ground, so the bottom row rests on the floor and a stack of them is a
-  staircase the player can climb.
+  staircase the player can climb. The interior is a whole number of rows
+  (see "Display size"), so the top row is flush against the ceiling too.
 - The player walks up a ledge one obstacle block (`PLAYER_STEP_UP_PX`,
   16px) high without jumping -- it cannot jump at all -- so a run of
   stacked blocks is a staircase. Anything taller, or without room to

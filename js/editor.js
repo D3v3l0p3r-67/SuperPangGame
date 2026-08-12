@@ -75,21 +75,14 @@ function backgroundNames() {
 // Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
 // are independent constants -- see constants.js.
 //
-// The inner playfield is not a whole number of grid cells tall (800x420
-// with a 16px border/grid leaves 388px, and 388 isn't a multiple of 16),
-// so 4px has to go somewhere. It goes at the TOP: rows are counted UP FROM
-// THE GROUND rather than down from the ceiling.
-//
-// That is the whole reason the bottom row was unreachable. Counting down
-// from the ceiling, the last row that still fit ended at y=384 -- a 20px
-// strip above the ground that nothing could be placed in, so a wall could
-// never be built standing ON the ground. Counting up from the ground, the
-// bottom row is 388..404, flush with it.
-//
-// It also has to be this way round for the player's step-up (see
-// Player.js): every row is then exactly one step above the row below, so a
-// stack of blocks is a staircase. Anchored to the ceiling, the bottom row
-// would have sat 20px above the next one up and broken the climb.
+// Rows are counted UP FROM THE GROUND rather than down from the ceiling,
+// so the bottom row always rests exactly on the ground and a wall can be
+// built standing ON it. GROUND_Y is snapped to the grid (see constants.js),
+// which makes the interior a whole number of cells tall, so counting up
+// from the ground reaches the ceiling flush as well -- both ends line up
+// with the drawn border and every row is exactly one step above the row
+// below it, which is what the player's step-up needs to read a stack of
+// blocks as a staircase (see Player.js).
 function gridSnap(bt, grid, rawMax) {
   return bt + Math.floor((rawMax - bt) / grid) * grid;
 }

@@ -241,7 +241,7 @@ export class GameScene extends Phaser.Scene {
       this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
       this.add.tileSprite(0, 0, t, GROUND_Y, wallTexture),
       this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, wallTexture),
-      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, wallTexture),
+      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, PLAYFIELD_H - GROUND_Y, wallTexture),
     ];
     for (const strip of strips) {
       strip.setOrigin(0, 0);
