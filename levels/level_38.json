@@ -1,0 +1,81 @@
+{
+  "id": 38,
+  "name": "Cloud Ladder",
+  "timeLimitSec": 90,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 80,
+      "y": 304,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 240,
+      "y": 240,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 400,
+      "y": 176,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 560,
+      "y": 112,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 640,
+      "y": 304,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 480,
+      "y": 240,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 176,
+      "w": 96,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 328,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 96,
+      "y": 352,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 704,
+      "y": 352,
+      "vx": -90
+    }
+  ]
+}

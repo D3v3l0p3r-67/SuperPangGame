@@ -1,0 +1,81 @@
+{
+  "id": 20,
+  "name": "Throne of Dawn",
+  "timeLimitSec": 90,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 48,
+      "y": 272,
+      "w": 112,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 640,
+      "y": 272,
+      "w": 112,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 192,
+      "y": 208,
+      "w": 112,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 496,
+      "y": 208,
+      "w": 112,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 272,
+      "y": 128,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 432,
+      "y": 128,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 368,
+      "y": 64,
+      "w": 64,
+      "h": 32
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 200,
+      "y": 336,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 600,
+      "y": 336,
+      "vx": -80
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 400,
+      "y": 240,
+      "vx": 120
+    }
+  ]
+}

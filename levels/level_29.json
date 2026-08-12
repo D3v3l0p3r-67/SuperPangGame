@@ -1,0 +1,88 @@
+{
+  "id": 29,
+  "name": "Southern Cross",
+  "timeLimitSec": 95,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 64,
+      "y": 288,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 256,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 256,
+      "y": 224,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 352,
+      "y": 192,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 448,
+      "y": 224,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 544,
+      "y": 256,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 640,
+      "y": 288,
+      "w": 64,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 384,
+      "y": 160,
+      "w": 32,
+      "h": 96
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 120,
+      "y": 352,
+      "vx": 75
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 680,
+      "y": 352,
+      "vx": -75
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 400,
+      "y": 96,
+      "vx": 120
+    }
+  ]
+}

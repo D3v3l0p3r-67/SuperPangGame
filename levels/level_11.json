@@ -1,0 +1,88 @@
+{
+  "id": 11,
+  "name": "Bazaar Arches",
+  "timeLimitSec": 35,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 80,
+      "y": 160,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 80,
+      "y": 176,
+      "w": 16,
+      "h": 48
+    },
+    {
+      "type": "platform",
+      "x": 192,
+      "y": 176,
+      "w": 16,
+      "h": 48
+    },
+    {
+      "type": "platform",
+      "x": 336,
+      "y": 160,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 336,
+      "y": 176,
+      "w": 16,
+      "h": 48
+    },
+    {
+      "type": "platform",
+      "x": 448,
+      "y": 176,
+      "w": 16,
+      "h": 48
+    },
+    {
+      "type": "platform",
+      "x": 592,
+      "y": 160,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 592,
+      "y": 176,
+      "w": 16,
+      "h": 48
+    },
+    {
+      "type": "platform",
+      "x": 704,
+      "y": 176,
+      "w": 16,
+      "h": 48
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 120,
+      "y": 296,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 680,
+      "y": 296,
+      "vx": -90
+    }
+  ]
+}

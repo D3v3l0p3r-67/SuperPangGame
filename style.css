@@ -236,12 +236,16 @@ body {
   border-color: var(--accent);
 }
 
+/* A grid rather than a single column: at 50 levels a one-per-row list is
+   a very long scroll for something you are meant to pick from at a
+   glance. auto-fill means it collapses back to one column on a narrow
+   screen without a media query. */
 #level-select-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
   gap: 0.6cqmin;
-  width: min(85cqw, 340px);
-  max-height: 45cqh;
+  width: min(94cqw, 700px);
+  max-height: 52cqh;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -249,6 +253,7 @@ body {
 .level-select-btn {
   display: flex;
   align-items: center;
+  overflow: hidden;   /* a long name clips inside its own cell, never over its neighbour */
   background: var(--panel);
   border: 2px solid var(--panel-border);
   padding: 1cqmin 2.4cqmin;

@@ -1,0 +1,53 @@
+{
+  "id": 43,
+  "name": "Skyline",
+  "timeLimitSec": 95,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 112,
+      "y": 128,
+      "w": 48,
+      "h": 192
+    },
+    {
+      "type": "platform",
+      "x": 272,
+      "y": 128,
+      "w": 48,
+      "h": 192
+    },
+    {
+      "type": "platform",
+      "x": 432,
+      "y": 128,
+      "w": 48,
+      "h": 192
+    },
+    {
+      "type": "platform",
+      "x": 592,
+      "y": 128,
+      "w": 48,
+      "h": 192
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 80,
+      "y": 80,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 720,
+      "y": 328,
+      "vx": -80
+    }
+  ]
+}

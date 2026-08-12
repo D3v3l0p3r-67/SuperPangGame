@@ -1,0 +1,39 @@
+{
+  "id": 46,
+  "name": "Ice Shelf",
+  "timeLimitSec": 65,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 64,
+      "y": 240,
+      "w": 192,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 528,
+      "y": 240,
+      "w": 192,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 328,
+      "vx": 85
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 120,
+      "y": 296,
+      "vx": 105
+    }
+  ]
+}

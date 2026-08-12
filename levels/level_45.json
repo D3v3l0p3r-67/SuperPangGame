@@ -1,0 +1,74 @@
+{
+  "id": 45,
+  "name": "Liberty Watch",
+  "timeLimitSec": 105,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 128,
+      "y": 112,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 288,
+      "y": 112,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 512,
+      "y": 112,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 672,
+      "y": 112,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 352,
+      "y": 64,
+      "w": 96,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 208,
+      "y": 328,
+      "vx": 75
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 592,
+      "y": 328,
+      "vx": -75
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 80,
+      "y": 296,
+      "vx": 110
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 720,
+      "y": 344,
+      "vx": -110
+    }
+  ]
+}

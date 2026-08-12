@@ -1,0 +1,53 @@
+{
+  "id": 47,
+  "name": "Frozen Sound",
+  "timeLimitSec": 95,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 48,
+      "y": 272,
+      "w": 224,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 512,
+      "y": 272,
+      "w": 224,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 288,
+      "y": 176,
+      "w": 224,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 328,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 96,
+      "y": 328,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 704,
+      "y": 328,
+      "vx": -90
+    }
+  ]
+}

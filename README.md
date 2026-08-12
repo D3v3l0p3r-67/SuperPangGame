@@ -151,26 +151,35 @@ The itinerary is `levels/regions.json`, read at boot into `js/regions.js`'s
 is the route. Each entry names an `assets/backgrounds/<background>.webp`,
 an `audio.json` music key, and where the region sits on the world map:
 
-| region | landmark | music |
-|---|---|---|
-| Europe | Eiffel Tower | `music_europe` |
-| Africa | pyramids and sphinx | `music_africa` |
-| Asia | pagoda and Mt Fuji | `music_asia` |
-| America | Statue of Liberty | `music_america` |
+| # | region | landmark | levels |
+|---|---|---|---|
+| 1 | Europe | Eiffel Tower | 1-5 |
+| 2 | Africa | pyramids and sphinx | 6-10 |
+| 3 | Middle East | dome and minarets | 11-15 |
+| 4 | India | Taj Mahal | 16-20 |
+| 5 | Asia | pagoda and Mt Fuji | 21-25 |
+| 6 | Oceania | Opera House and harbour bridge | 26-30 |
+| 7 | Pacific | moai and a volcano | 31-35 |
+| 8 | South America | terraced peaks | 36-40 |
+| 9 | America | Statue of Liberty | 41-45 |
+| 10 | Arctic | icebergs under an aurora | 46-50 |
 
-The four tracks are the same three-voice chiptune as the generic ones but
-each in its own scale and tempo (Europe minor, Asia pentatonic, Africa
-percussion-led, America a blues shuffle), so the change of place is
-audible as well as visible.
+Each region has its own track: the same three-voice chiptune as the
+generic ones, but each in its own scale and tempo (Europe minor, Asia
+pentatonic, Africa percussion-led, America a blues shuffle, Middle East
+harmonic minor, Arctic the slowest and sparsest of the ten), so the change
+of place is audible as well as visible. They are encoded at 22 kHz --
+square/triangle/noise material has nothing above ~8 kHz to lose, and ten
+tracks at full rate came to over 8 MB, which is a lot to put in front of a
+browser game.
 
 Adding a continent is an entry in `regions.json` plus its background and
 its `.ogg` -- no code. `regionIndexForLevel` clamps rather than wraps, so
 levels past the end of the route stay on the last continent instead of
 flying back to the start mid-run.
 
-**With the 10 levels that ship, a run visits two continents (Europe, then
-Africa) and flies once.** The other two are authored and ready; adding
-levels extends the journey into them with no further work.
+The 50 levels and 10 regions line up exactly: five levels on each
+continent, nine flights across a run.
 
 Panic Mode and editor playtests are not on the itinerary and keep the
 default background and the generic `music02`/`music01`.
@@ -250,11 +259,26 @@ seam between the canvas and the page behind it.
 
 ## Features
 
-- 10 hand-tuned levels with increasing difficulty (more/larger balls, more
-  hex balls and obstacles mixed in, tighter time bonuses). Level 1 has no
-  obstacles at all -- 8 smallest-size balls (4 heading left, 4 right, each
-  bouncing off a wall before its path can ever reach the player) for a
-  gentle but active first look at movement, shooting, and ball physics.
+- 50 levels of increasing difficulty (more and larger balls, more hex
+  balls and obstacles mixed in, tighter clocks), grouped five to a
+  continent with a structural idea of its own for each: arches in the
+  Middle East, strict left-right symmetry in India, pagoda tiers in Asia,
+  a rising swell of shelves in Oceania, standing stones in the Pacific,
+  climbing terraces in South America, a grid of slabs in America, long ice
+  overhangs in the Arctic. Level 1 has no obstacles at all -- 8
+  smallest-size balls (4 heading left, 4 right, each bouncing off a wall
+  before its path can ever reach the player) for a gentle but active first
+  look at movement, shooting, and ball physics.
+- Every level is checked for solvability before it ships. The player
+  cannot jump: the beam leaves their feet and climbs straight up, so a
+  ball is shootable exactly when the column between it and the floor is
+  clear. Two layout mistakes break that -- an obstacle standing on the
+  ground (which could never be shot, and would split the floor for good)
+  and a run of obstacles spanning wall to wall (which would trap whatever
+  rests on it out of reach) -- and neither is allowed. On top of the
+  geometry check, every level's balls are simulated with no player and no
+  shooting, and each one must reach a position where that column is
+  clear.
 - 2 ball shapes: round (sizes 1-5) and hex (sizes 1-3 only), each with
   fixed, deterministic physics; splitting one size smaller (one left, one
   right) per hit.
@@ -262,10 +286,10 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
-- A campaign run is a journey across continents: every
-  `LEVELS_PER_REGION` (5) levels the background, the landmark in it and
-  the music all change together, and the leg between them is flown on a
-  world map (see "Regions" below).
+- 50 campaign levels across 10 continents: every `LEVELS_PER_REGION` (5)
+  levels the background, the landmark in it and the music all change
+  together, and the leg between them is flown on a world map (see
+  "Regions" below).
 - A level-to-level transition effect in campaign runs (fade / wipe / iris
   / shutter, see "Level transitions" below) -- swappable by name.
 - 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see

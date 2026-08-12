@@ -1,0 +1,60 @@
+{
+  "id": 39,
+  "name": "Lost City",
+  "timeLimitSec": 100,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 64,
+      "y": 288,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 256,
+      "y": 224,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 448,
+      "y": 160,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 352,
+      "y": 96,
+      "w": 96,
+      "h": 32
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 160,
+      "y": 352,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 640,
+      "y": 328,
+      "vx": -80
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 400,
+      "y": 264,
+      "vx": 110
+    }
+  ]
+}

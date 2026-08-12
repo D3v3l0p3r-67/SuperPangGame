@@ -1,0 +1,46 @@
+{
+  "id": 33,
+  "name": "Volcano Rim",
+  "timeLimitSec": 70,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 144,
+      "y": 160,
+      "w": 32,
+      "h": 160
+    },
+    {
+      "type": "platform",
+      "x": 624,
+      "y": 160,
+      "w": 32,
+      "h": 160
+    },
+    {
+      "type": "platform",
+      "x": 304,
+      "y": 144,
+      "w": 192,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 328,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 96,
+      "y": 328,
+      "vx": 90
+    }
+  ]
+}

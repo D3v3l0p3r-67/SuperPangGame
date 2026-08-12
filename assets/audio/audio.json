@@ -24,7 +24,13 @@
   "music02": { "file": "music02.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
   "music_europe": { "file": "music_europe.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
   "music_africa": { "file": "music_africa.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_middle_east": { "file": "music_middle_east.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_india": { "file": "music_india.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
   "music_asia": { "file": "music_asia.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_oceania": { "file": "music_oceania.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_pacific": { "file": "music_pacific.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_south_america": { "file": "music_south_america.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
   "music_america": { "file": "music_america.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
+  "music_arctic": { "file": "music_arctic.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false },
   "music_hurry": { "file": "music_hurry.ogg", "category": "music", "volume": 0.5, "mode": "loop", "overlap": false }
 }

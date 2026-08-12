@@ -1,0 +1,74 @@
+{
+  "id": 49,
+  "name": "Aurora Field",
+  "timeLimitSec": 120,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 48,
+      "y": 256,
+      "w": 176,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 576,
+      "y": 256,
+      "w": 176,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 272,
+      "y": 192,
+      "w": 256,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 176,
+      "y": 96,
+      "w": 32,
+      "h": 64
+    },
+    {
+      "type": "crate",
+      "x": 592,
+      "y": 96,
+      "w": 32,
+      "h": 64
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 128,
+      "y": 328,
+      "vx": 75
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 672,
+      "y": 328,
+      "vx": -75
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 400,
+      "y": 328,
+      "vx": 85
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 400,
+      "y": 120,
+      "vx": 115
+    }
+  ]
+}

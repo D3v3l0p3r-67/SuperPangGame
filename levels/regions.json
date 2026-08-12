@@ -4,27 +4,99 @@
     "name": "EUROPE",
     "background": "europe",
     "music": "music_europe",
-    "map": { "x": 228, "y": 45 }
+    "map": {
+      "x": 228,
+      "y": 45
+    }
   },
   {
     "id": "africa",
     "name": "AFRICA",
     "background": "africa",
     "music": "music_africa",
-    "map": { "x": 220, "y": 109 }
+    "map": {
+      "x": 220,
+      "y": 109
+    }
+  },
+  {
+    "id": "middle_east",
+    "name": "MIDDLE EAST",
+    "background": "middle_east",
+    "music": "music_middle_east",
+    "map": {
+      "x": 244,
+      "y": 69
+    }
+  },
+  {
+    "id": "india",
+    "name": "INDIA",
+    "background": "india",
+    "music": "music_india",
+    "map": {
+      "x": 284,
+      "y": 77
+    }
   },
   {
     "id": "asia",
     "name": "ASIA",
     "background": "asia",
     "music": "music_asia",
-    "map": { "x": 348, "y": 61 }
+    "map": {
+      "x": 348,
+      "y": 61
+    }
+  },
+  {
+    "id": "oceania",
+    "name": "OCEANIA",
+    "background": "oceania",
+    "music": "music_oceania",
+    "map": {
+      "x": 332,
+      "y": 125
+    }
+  },
+  {
+    "id": "pacific",
+    "name": "PACIFIC",
+    "background": "pacific",
+    "music": "music_pacific",
+    "map": {
+      "x": 44,
+      "y": 133
+    }
+  },
+  {
+    "id": "south_america",
+    "name": "SOUTH AMERICA",
+    "background": "south_america",
+    "music": "music_south_america",
+    "map": {
+      "x": 84,
+      "y": 133
+    }
   },
   {
     "id": "america",
     "name": "AMERICA",
     "background": "america",
     "music": "music_america",
-    "map": { "x": 68, "y": 53 }
+    "map": {
+      "x": 68,
+      "y": 53
+    }
+  },
+  {
+    "id": "arctic",
+    "name": "ARCTIC",
+    "background": "arctic",
+    "music": "music_arctic",
+    "map": {
+      "x": 148,
+      "y": 29
+    }
   }
 ]

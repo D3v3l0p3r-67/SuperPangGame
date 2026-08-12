@@ -1,0 +1,60 @@
+{
+  "id": 32,
+  "name": "Island Hop",
+  "timeLimitSec": 55,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 112,
+      "y": 192,
+      "w": 32,
+      "h": 128
+    },
+    {
+      "type": "platform",
+      "x": 256,
+      "y": 192,
+      "w": 32,
+      "h": 128
+    },
+    {
+      "type": "platform",
+      "x": 512,
+      "y": 192,
+      "w": 32,
+      "h": 128
+    },
+    {
+      "type": "platform",
+      "x": 656,
+      "y": 192,
+      "w": 32,
+      "h": 128
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 400,
+      "y": 328,
+      "vx": 85
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 96,
+      "y": 344,
+      "vx": 105
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 704,
+      "y": 344,
+      "vx": -105
+    }
+  ]
+}

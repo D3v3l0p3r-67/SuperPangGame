@@ -215,7 +215,7 @@ export function backgroundTexturePath(name) {
 // manifest to keep in sync. Raise MAX_LEVEL_FILES if there are ever more
 // levels than that.
 export const LEVELS_DIR = 'levels/';
-export const MAX_LEVEL_FILES = 20;
+export const MAX_LEVEL_FILES = 50;
 
 export function levelFileKey(n) {
   return `level_${String(n).padStart(2, '0')}`;

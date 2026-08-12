@@ -1,0 +1,74 @@
+{
+  "id": 18,
+  "name": "Mirror Pools",
+  "timeLimitSec": 70,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 48,
+      "y": 288,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 672,
+      "y": 288,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 224,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 560,
+      "y": 224,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 272,
+      "y": 160,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 448,
+      "y": 160,
+      "w": 80,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 288,
+      "vx": 70
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 96,
+      "y": 192,
+      "vx": 110
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 704,
+      "y": 192,
+      "vx": -110
+    }
+  ]
+}
