@@ -496,19 +496,28 @@ dimensions:
 - **Score popup**: not a separate asset -- the floating "+N" points
   readout a pop leaves behind (see `js/ScorePopup.js`) reuses the HUD's
   own large score-digit spritesheet (`assets/hud/digits_large.webp`, see
-  "Swapping HUD graphics" below), tinted to the popped ball's `color`,
-  drawn at half that spritesheet's native size (so it doesn't dominate
-  over a small ball's pop effect). Appears 16px above the pop point --
-  clear of the pop effect above, which is centered right on the pop point
-  -- then over 300ms drifts up another 10px, grows slightly, and fades
-  out, all tuned in `js/ScorePopup.js`'s constants.
+  "Swapping HUD graphics" below), tinted to the popped ball's `color`.
+  It opens just clear of the popped ball's top edge (the pop point plus
+  the ball's own radius, so a big ball never has its readout appear inside
+  it) at a third of the spritesheet's native size, then over 500ms rises
+  64px, grows to full size and fades to nothing -- clamped at the ceiling,
+  since a ball popped right under the border has less than 64px of room
+  above it. All tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
   file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (32x64)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
   played once when a run ends without a game over), dead (1, played once
-  per hit). Every frame is authored facing LEFT; Player.js mirrors it for
+  per hit). The walk cycle carries its own vertical bob: the two
+  double-support frames (both feet down) are drawn with the whole upper
+  body 2px lower and the legs correspondingly shorter, so the head rides
+  up and down as it does in a real gait. It is baked into the art, not
+  applied to the sprite's position -- the entity and its hitbox never
+  move, and the weapon barrel is still drawn to the top of the cell on
+  every frame (it is a long pole running past the sprite, so its visible
+  top edge belongs at the cell boundary however the hand holding it
+  moves). Every frame is authored facing LEFT; Player.js mirrors it for
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
   the same 32x(64 x 8) total size and frame order.
