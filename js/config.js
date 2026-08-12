@@ -46,3 +46,8 @@ export const POWERUP_TTL_MS = 7000;
 // takes to watch, never how many points it awards.
 export const TIME_BONUS_POINTS_PER_SEC = 100;
 export const TIME_BONUS_COUNTDOWN_PER_SEC = 30;
+// Gap between the blips of the counting sound played while that tally
+// runs. Deliberately its own interval rather than one per awarded point
+// (which at 100/s x 30 would be 3000 sounds a second) or one per frame
+// (which would change pitch with the frame rate).
+export const TIME_BONUS_TICK_SEC = 0.07;

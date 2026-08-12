@@ -1,7 +1,7 @@
 import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
 import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
-  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC,
+  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC,
 } from './config.js';
 import { POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
 import { Player } from './Player.js';
@@ -100,6 +100,7 @@ export class GameScene extends Phaser.Scene {
     // Cleared-level time-bonus tally -- see levelClear/updateLevelClear.
     this.timeBonusSecondsLeft = 0;
     this.timeBonusPartialPoint = 0;
+    this.timeBonusTickTimer = 0;
     this.levelClearElapsed = 0;
     this.levelClearPhase = 'pause';
     this.justSubmittedEntry = null;
@@ -458,6 +459,7 @@ export class GameScene extends Phaser.Scene {
       ? Math.max(0, def.timeLimitSec - this.levelTimer)
       : 0;
     this.timeBonusPartialPoint = 0;
+    this.timeBonusTickTimer = 0; // ticks from the very first tally frame
     this.levelClearElapsed = 0;
     this.levelClearPhase = this.timeBonusSecondsLeft > 0 ? 'tally' : 'pause';
     // Custom/editor levels aren't part of LEVELS and never unlock anything.
@@ -491,6 +493,19 @@ export class GameScene extends Phaser.Scene {
       const whole = Math.floor(this.timeBonusPartialPoint);
       this.score += whole;
       this.timeBonusPartialPoint -= whole;
+
+      // The counting sound, on its own fixed interval so it ticks at a
+      // steady rate rather than once per frame (frame-rate dependent) or
+      // once per point (thousands a second).
+      // Reset rather than subtract the interval: after a dropped frame the
+      // timer can be several intervals overdue, and carrying that debt
+      // forward would fire a burst of ticks catching up.
+      this.timeBonusTickTimer -= dt;
+      if (this.timeBonusTickTimer <= 0) {
+        this.audio.play('scoretick');
+        this.timeBonusTickTimer = TIME_BONUS_TICK_SEC;
+      }
+
       if (this.timeBonusSecondsLeft > 0) return;
       this.timeBonusSecondsLeft = 0;
       this.levelClearPhase = 'pause';
