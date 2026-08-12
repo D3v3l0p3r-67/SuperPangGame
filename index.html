@@ -16,7 +16,11 @@
   </div>
   <div id="game-container">
     <div id="ui-layer">
-    <div id="screen-menu" class="screen">
+    <!-- Starts hidden so it can't sit over the loading screen (see
+         BootScene.showLoadingScreen) with its near-opaque .screen backdrop
+         dimming it. ui.js's first render() reveals it the moment the game
+         reaches MENU, which is exactly when loading has finished. -->
+    <div id="screen-menu" class="screen hidden">
       <h1 id="game-title"><div id="game-title-line1"></div><div id="game-title-line2"></div></h1>
       <button id="btn-start" class="menu-btn"></button>
       <button id="btn-start-panic" class="menu-btn"></button>

@@ -101,6 +101,7 @@ export class GameScene extends Phaser.Scene {
     this.timeBonusSecondsLeft = 0;
     this.timeBonusPartialPoint = 0;
     this.timeBonusTickTimer = 0;
+    this.introLeadInSec = 0; // see startLevelIntro/beginRun
     this.levelClearElapsed = 0;
     this.levelClearPhase = 'pause';
     this.justSubmittedEntry = null;
@@ -299,9 +300,15 @@ export class GameScene extends Phaser.Scene {
     // own panicPopCount/panicSpawnAt reset for what DOES restart on a hit).
     this.panicWaveIndex = 0;
     this.effects.reset(this);
-    this.audio.play('superpang');
+    // The run-start fanfare used to play straight over the countdown's own
+    // cues. The countdown now waits it out: its title card is up (the
+    // LEVEL/name rows) while the fanfare rings, and READY only sounds once
+    // it's finished. Only a NEW run gets this -- advancing or restarting a
+    // level within one doesn't replay the fanfare, so those intros start
+    // immediately as before.
+    const fanfare = this.audio.play('superpang');
     this.loadLevel(panicMode ? PANIC_LEVEL : (customDef ?? levelIndex));
-    this.startLevelIntro();
+    this.startLevelIntro(fanfare?.duration ?? 0);
   }
 
   startNewGame() {
@@ -382,17 +389,22 @@ export class GameScene extends Phaser.Scene {
   // countdown -- Arcade Physics keeps stepping every frame regardless of
   // scene state unless explicitly paused, so without this balls would
   // already be falling/bouncing while the countdown is still on screen.
-  startLevelIntro() {
+  // `leadInSec` holds the countdown (and its cues) for that long first,
+  // showing only the LEVEL/name title card -- used to let the run-start
+  // fanfare finish before READY interrupts it (see beginRun).
+  startLevelIntro(leadInSec = 0) {
     this.state = GAME_STATES.LEVEL_INTRO;
     this.stateTimer = LEVEL_INTRO_SEC;
+    this.introLeadInSec = leadInSec;
     this.physics.pause();
-    // One cue per countdown word. READY sounds here as the intro opens;
-    // SET and GO! are fired from update() (see the LEVEL_INTRO case) at
-    // the exact thresholds LevelIntro.js swaps the text at, so word and
-    // sound always land together however long the countdown is.
+    // One cue per countdown word. READY sounds as the countdown proper
+    // opens -- here, or when the lead-in expires (see update's LEVEL_INTRO
+    // case); SET and GO! fire from there too, at the exact thresholds
+    // LevelIntro.js swaps the text at, so word and sound always land
+    // together however long the countdown is.
     this.setSoundPlayed = false;
     this.goSoundPlayed = false;
-    this.audio.play('ready');
+    if (leadInSec <= 0) this.audio.play('ready');
   }
 
   // Fully (re)loads the current level: balls, obstacles, projectiles,
@@ -636,6 +648,13 @@ export class GameScene extends Phaser.Scene {
 
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
+        // Lead-in: hold the countdown (and the physics freeze) while the
+        // run-start fanfare finishes, then open with READY.
+        if (this.introLeadInSec > 0) {
+          this.introLeadInSec -= dt;
+          if (this.introLeadInSec <= 0) this.audio.play('ready');
+          break;
+        }
         this.stateTimer -= dt;
         // The same thresholds LevelIntro.js uses to swap the countdown
         // word, so each sound lands on the frame its word appears.

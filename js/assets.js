@@ -135,6 +135,20 @@ export function weaponShotFrame(type) {
   return WEAPON_SHOT_FRAMES[type] ?? 0;
 }
 
+// Loading screen: the splash shown while BootScene loads everything else,
+// plus a "%" glyph for the progress readout (the intro font has no percent
+// sign, and this is the only place one is needed -- sized to
+// HUD_DIGITS_SMALL_FRAME so it lines up with the digits beside it).
+//
+// These, and the small HUD digit strip the readout borrows, are loaded a
+// scene EARLIER than everything else (ElementsScene, see BootScene's note)
+// -- the loading screen has to be on screen before the load it reports on
+// can start.
+export const LOADING_TEXTURE_KEY = 'loading-splash';
+export const LOADING_TEXTURE_PATH = 'assets/ui/loading.webp';
+export const PERCENT_TEXTURE_KEY = 'loading-percent';
+export const PERCENT_TEXTURE_PATH = 'assets/ui/percent.webp';
+
 // Particle (the small square used for every burst effect) -- always
 // tinted at runtime to whatever color the effect needs (see GameScene.
 // spawnBurst), so the file itself should stay plain white. 2x2px.

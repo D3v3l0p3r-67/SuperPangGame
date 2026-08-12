@@ -2,6 +2,8 @@ import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } 
 import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
+import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
+import { hexColor } from './colors.js';
 import {
   ballTextureKey, ballTexturePath, HEX_SPIN_FRAMES, ballSpinAnimKey,
   ballPopTextureKey, ballPopTexturePath, BALL_POP_FRAMES, POP_FRAME_SCALE, ballPopAnimKey,
@@ -14,7 +16,8 @@ import {
   backgroundTextureKey, backgroundTexturePath, DEFAULT_BACKGROUND,
   audioPath,
   HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME,
-  HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME,
+  HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_FRAME,
+  LOADING_TEXTURE_KEY, PERCENT_TEXTURE_KEY,
   HUD_1P_KEY, HUD_1P_PATH, HUD_TIME_LABEL_KEY, HUD_TIME_LABEL_PATH,
   HUD_LEVEL_LABEL_KEY, HUD_LEVEL_LABEL_PATH, HUD_HI_LABEL_KEY, HUD_HI_LABEL_PATH,
   HUD_LIFE_KEY, HUD_LIFE_PATH, HUD_WEAPON_FRAME_KEY, HUD_WEAPON_FRAME_PATH,
@@ -31,6 +34,10 @@ import {
 // that physically-derived rate (SPIN_SPEED_MULTIPLIER: 1.5x, then a
 // further 30% on top of that -- 1.5 * 1.3 = 1.95).
 const SPIN_SPEED_MULTIPLIER = 1.95;
+
+// Shortest time the loading screen stays up before Game takes over -- see
+// the hold at the end of create().
+const LOADING_MIN_MS = 900;
 
 function hexSpinFrameRate(speed, radius) {
   const hSpeed = speed * Math.SQRT1_2;
@@ -51,6 +58,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
+    this.showLoadingScreen();
+
     for (const el of BALL_ELEMENTS) {
       // Hex balls spin (see Ball.js/assets.js's HEX_SPIN_FRAMES) so their
       // own texture is a spritesheet; round balls are one static image.
@@ -96,7 +105,9 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.load.spritesheet(HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME);
-    this.load.spritesheet(HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME);
+    // HUD_DIGITS_SMALL is deliberately NOT loaded here -- ElementsScene
+    // already loaded it, because this scene's own loading screen prints
+    // its progress percentage with it (see showLoadingScreen below).
     this.load.image(HUD_1P_KEY, HUD_1P_PATH);
     this.load.image(HUD_TIME_LABEL_KEY, HUD_TIME_LABEL_PATH);
     this.load.image(HUD_LEVEL_LABEL_KEY, HUD_LEVEL_LABEL_PATH);
@@ -110,6 +121,59 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME);
   }
 
+  // The first-load screen: the splash image (see assets.js's
+  // LOADING_TEXTURE_KEY) with a progress bar and a live percentage under
+  // it, all drawn from the three graphics ElementsScene loaded ahead of
+  // this scene. Built in preload() -- before this scene's own load starts
+  // -- so it is already on screen for the load it reports on, and torn
+  // down by Phaser itself when this scene stops and Game takes over.
+  //
+  // The percentage is composed from the HUD's own small digit strip plus a
+  // "%" glyph, keeping to the same "no drawn text, only loaded images"
+  // rule the HUD and level-intro follow.
+  showLoadingScreen() {
+    this.loadingShownAt = this.time.now; // see the hold in create()
+    this.add.image(VIRTUAL_W / 2, VIRTUAL_H / 2, LOADING_TEXTURE_KEY).setDepth(0);
+
+    const BAR_W = 400;
+    const BAR_H = 14;
+    const barX = (VIRTUAL_W - BAR_W) / 2;
+    const barY = 452;
+
+    this.add.rectangle(barX, barY, BAR_W, BAR_H, 0x000000, 0.65).setOrigin(0, 0).setDepth(1)
+      .setStrokeStyle(2, hexColor(COLORS.accent));
+    const fill = this.add.rectangle(barX + 2, barY + 2, 0, BAR_H - 4, hexColor(COLORS.accent))
+      .setOrigin(0, 0).setDepth(2);
+
+    // Pooled: at most 3 digits ("100") plus the % sign, shown/hidden as
+    // the number's width changes rather than recreated each update.
+    const digitW = HUD_DIGITS_SMALL_FRAME.frameWidth;
+    const pctY = barY + BAR_H + 8;
+    const digits = [0, 1, 2].map((i) => this.add.image(0, pctY, HUD_DIGITS_SMALL_KEY, 0)
+      .setOrigin(0, 0).setDepth(2).setVisible(false));
+    const percentSign = this.add.image(0, pctY, PERCENT_TEXTURE_KEY).setOrigin(0, 0).setDepth(2);
+
+    const render = (value) => {
+      const str = String(value);
+      const totalW = str.length * digitW + digitW;
+      let x = (VIRTUAL_W - totalW) / 2;
+      for (let i = 0; i < digits.length; i++) {
+        const has = i < str.length;
+        digits[i].setVisible(has);
+        if (!has) continue;
+        digits[i].setFrame(Number(str[i]));
+        digits[i].x = x;
+        x += digitW;
+      }
+      percentSign.x = x;
+      fill.width = (BAR_W - 4) * (value / 100);
+    };
+
+    render(0);
+    this.load.on(Phaser.Loader.Events.PROGRESS, (value) => render(Math.round(value * 100)));
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => render(100));
+  }
+
   create() {
     this.buildPlayerAnimations();
     this.buildBallAnimations();
@@ -119,7 +183,15 @@ export class BootScene extends Phaser.Scene {
       frameRate: 8,
       repeat: -1,
     });
-    this.scene.start('Game');
+
+    // Hold the finished loading screen briefly before handing over. On a
+    // fast (or cached) load the whole thing can complete in a few frames,
+    // and blinking a splash + "100%" past the player for two frames reads
+    // as a glitch rather than as a loading screen. Only ever ADDS time on
+    // an already-instant load -- a slow one has long since passed this.
+    const remaining = Math.max(0, LOADING_MIN_MS - (this.time.now - this.loadingShownAt));
+    if (remaining === 0) this.scene.start('Game');
+    else this.time.delayedCall(remaining, () => this.scene.start('Game'));
   }
 
   // One pop animation per (shape, size) ball (see assets.js's

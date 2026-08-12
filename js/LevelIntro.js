@@ -123,9 +123,13 @@ export class LevelIntro {
     // The countdown runs backwards through the phases as stateTimer drains:
     // READY while more than SET+GO is left, SET while more than GO is, then
     // GO for the last stretch.
-    const isGoPhase = g.stateTimer <= LEVEL_INTRO_GO_SEC;
-    const isSetPhase = !isGoPhase && g.stateTimer <= LEVEL_INTRO_GO_SEC + LEVEL_INTRO_SET_SEC;
-    const isReadyPhase = !isGoPhase && !isSetPhase;
+    // During a lead-in (GameScene holds the countdown while the run-start
+    // fanfare plays) the countdown hasn't begun -- only the LEVEL/name
+    // title card shows, so none of the three words are up yet.
+    const leadingIn = g.introLeadInSec > 0;
+    const isGoPhase = !leadingIn && g.stateTimer <= LEVEL_INTRO_GO_SEC;
+    const isSetPhase = !leadingIn && !isGoPhase && g.stateTimer <= LEVEL_INTRO_GO_SEC + LEVEL_INTRO_SET_SEC;
+    const isReadyPhase = !leadingIn && !isGoPhase && !isSetPhase;
 
     for (const img of this.goImages) img.setVisible(isGoPhase);
 

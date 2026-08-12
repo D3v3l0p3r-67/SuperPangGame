@@ -46,6 +46,11 @@ export class AudioManager {
   // for any category -- 'loop' entries (music) are ignored here and must
   // go through playMusic() instead, since they need singleton/switch
   // handling this method doesn't do.
+  //
+  // Returns the Phaser Sound it started (or undefined if the name isn't a
+  // one-shot), so a caller that needs to line something up with the sound
+  // can read its `duration` -- see GameScene.beginRun holding the level
+  // countdown until the run-start fanfare has finished.
   play(name) {
     const cfg = AUDIO_CONFIG[name];
     if (!cfg || cfg.mode === 'loop') return;
@@ -69,7 +74,7 @@ export class AudioManager {
       if (cfg.maxDurationMs) {
         this.scene.time.delayedCall(cfg.maxDurationMs, () => { if (snd.isPlaying) snd.stop(); });
       }
-      return;
+      return snd;
     }
 
     // Overlap-allowed: the shorthand manager play() creates and cleans up
@@ -79,6 +84,7 @@ export class AudioManager {
     if (cfg.maxDurationMs && snd) {
       this.scene.time.delayedCall(cfg.maxDurationMs, () => { if (snd.isPlaying) snd.stop(); });
     }
+    return snd;
   }
 
   // Music (mode: 'loop', category 'music'): only ever one track playing.
