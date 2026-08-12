@@ -122,6 +122,22 @@ export function obstacleTexturePath(name) {
   return `${OBSTACLE_TEXTURE_DIR}${name}.webp`;
 }
 
+// Ladders: one image per `texture` named by an elements/<ladder>.json (see
+// elements.js's LADDER_TYPES). Unlike the obstacle tiles above this is the
+// whole element at its authored size, not a repeating cell -- but it is
+// drawn to be seamless top-to-bottom anyway, since a tall ladder is
+// several of them stacked and the rung spacing has to carry across the
+// join.
+export const LADDER_TEXTURE_DIR = 'assets/ladders/';
+
+export function ladderTextureKey(name) {
+  return `ladder_${name}`;
+}
+
+export function ladderTexturePath(name) {
+  return `${LADDER_TEXTURE_DIR}${name}.webp`;
+}
+
 // Shots: one spritesheet holding every weapon's shot graphic side by side,
 // 4 cells of 36x400 (144x400 total). 400px tall because that's the full
 // height a shot ever reaches -- from the player's feet on the ground up to

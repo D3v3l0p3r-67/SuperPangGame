@@ -83,6 +83,12 @@ export const WEAPON_TYPES = {
 // or a wall built of stacked blocks would be a ladder.
 export const PLAYER_STEP_UP_PX = 16;
 
+// How fast the player climbs a ladder, in px/sec. Slower than walking
+// (PLAYER_CONFIG.speed): a ladder crosses the playfield's whole height,
+// and being able to cover that faster than the ground it skips would make
+// every ladder a shortcut rather than a route.
+export const PLAYER_CLIMB_SPEED = 110;
+
 export const MIN_BALL_SIZE = 1;
 
 export const POWERUP_DROP_CHANCE = 0.14;

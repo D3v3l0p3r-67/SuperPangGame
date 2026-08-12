@@ -1,0 +1,9 @@
+{
+  "id": "ladder",
+  "category": "ladder",
+  "type": "ladder",
+  "label": "Ladder",
+  "width": 48,
+  "height": 96,
+  "texture": "ladder"
+}

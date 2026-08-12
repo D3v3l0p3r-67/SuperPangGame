@@ -7,6 +7,8 @@
 export const touchInput = {
   left: false,
   right: false,
+  up: false,
+  down: false,
   shoot: false,
   pause: false,
 };
@@ -59,11 +61,10 @@ function bindTouchButton(id, action, { pulse = false } = {}) {
 // holding it centred) doesn't creep the player sideways.
 const JOYSTICK_DEADZONE = 0.28;
 
-// Turns the on-screen stick into the same left/right booleans the arrow
-// keys set. The player only ever moves horizontally, so only dx decides
-// direction -- but the knob follows the thumb on both axes (clamped
-// inside the base) so it reads as a real stick instead of one that
-// fights you vertically.
+// Turns the on-screen stick into the same four booleans the arrow keys
+// set. Left/right walk; up/down are the ladder controls (see Player.js),
+// and are what the vertical axis of the stick was always following
+// visually anyway.
 function bindJoystick() {
   const base = document.getElementById('touch-joystick');
   const knob = document.getElementById('touch-joystick-knob');
@@ -75,6 +76,8 @@ function bindJoystick() {
     activePointerId = null;
     touchInput.left = false;
     touchInput.right = false;
+    touchInput.up = false;
+    touchInput.down = false;
     knob.style.transform = 'translate(0, 0)';
   };
 
@@ -92,8 +95,11 @@ function bindJoystick() {
     knob.style.transform = `translate(${dx * scale}px, ${dy * scale}px)`;
 
     const nx = dx / radius;
+    const ny = dy / radius;
     touchInput.left = nx < -JOYSTICK_DEADZONE;
     touchInput.right = nx > JOYSTICK_DEADZONE;
+    touchInput.up = ny < -JOYSTICK_DEADZONE;
+    touchInput.down = ny > JOYSTICK_DEADZONE;
   };
 
   base.addEventListener('pointerdown', (e) => {

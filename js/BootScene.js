@@ -1,4 +1,4 @@
-import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
+import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
@@ -14,6 +14,7 @@ import {
   BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
+  ladderTextureKey, ladderTexturePath,
   WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
@@ -89,6 +90,11 @@ export class BootScene extends Phaser.Scene {
     const tileNames = new Set(OBSTACLE_TYPE_KEYS.map((type) => OBSTACLE_TYPES[type].tileTexture));
     for (const name of tileNames) {
       this.load.image(obstacleTextureKey(name), obstacleTexturePath(name));
+    }
+
+    const ladderNames = new Set(LADDER_TYPE_KEYS.map((type) => LADDER_TYPES[type].texture));
+    for (const name of ladderNames) {
+      this.load.image(ladderTextureKey(name), ladderTexturePath(name));
     }
 
     this.load.spritesheet(WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME);
