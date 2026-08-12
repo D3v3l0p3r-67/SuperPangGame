@@ -107,9 +107,15 @@ without editing a file.
 | on reaching the ceiling | ends | anchors for 4s |
 
 The **grapple** is the reason the beam has phases. Topping out doesn't end
-it: it hangs from the ceiling for `ceilingStickSec` (4s), staying lethal
+it: it catches hold for `ceilingStickSec` (4s), staying lethal
 along its full ground-to-ceiling length the whole time, which makes it a
-standing barrier balls cannot cross rather than a single strike. Its last
+standing barrier balls cannot cross rather than a single strike. It
+catches under an indestructible obstacle the same way it catches under the
+ceiling -- a block it could never shoot through is something to hang from,
+not something to waste the shot on -- so a level's layout gives the player
+places to string a barrier at other heights. Destructible blocks still
+take the hit and stop the shot, so the grapple can't be used to skip
+breaking them open. Its last
 `ceilingReleaseWarnSec` (1s) is spent in a third, "letting go" state --
 still solid, just drawn differently, so the barrier's expiry is
 telegraphed instead of sudden. Each phase has its own cell in the shot

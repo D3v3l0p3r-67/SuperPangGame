@@ -1009,6 +1009,15 @@ export class GameScene extends Phaser.Scene {
 
   onProjectileHitObstacle(projGO, obstacleGO) {
     if (!projGO.active) return;
+    // An already-hanging beam keeps hold of what it caught -- it mustn't
+    // spend itself, or chip away at anything, on a second contact.
+    if (projGO.isAnchored) return;
+    // A grapple catches under an indestructible block exactly as it does
+    // under the ceiling: a block it can never shoot through is something
+    // to hang from, not something to waste the shot on. Destructible
+    // blocks still take the hit and stop the shot, so the grapple can't be
+    // used to dodge breaking them open.
+    if (!obstacleGO.def.destructible && projGO.anchorAt(obstacleGO.body.bottom)) return;
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;
     const destroyed = obstacleGO.takeHit();

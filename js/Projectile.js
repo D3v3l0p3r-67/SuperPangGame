@@ -95,12 +95,30 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.setLength(this.length);
   }
 
+  // True once the beam has caught hold of something and stopped climbing.
+  get isAnchored() {
+    return this.phase !== 'flying';
+  }
+
+  // Catches the beam with its head at `headY` -- the underside of whatever
+  // stopped it, the ceiling or an indestructible obstacle alike -- and
+  // starts the stick timer. Returns false for a weapon that can't stick
+  // (or a beam already hanging), leaving the caller to spend the shot as
+  // it normally would.
+  anchorAt(headY) {
+    if (this.stickSec <= 0 || this.isAnchored) return false;
+    this.setLength(Math.max(0, Math.min(GROUND_Y - headY, this.maxLength)));
+    this.stickLeft = this.stickSec;
+    this.setPhase(this.stickSec <= this.releaseWarnSec ? 'releasing' : 'stuck');
+    return true;
+  }
+
   // Called once per frame from GameScene.updatePlaying. Returns false once
   // the beam is spent and should be destroyed -- on reaching the ceiling
   // for a weapon that doesn't stick, or at the end of the stick for one
   // that does.
   updateBeam(dt) {
-    if (this.phase !== 'flying') {
+    if (this.isAnchored) {
       this.stickLeft -= dt;
       if (this.stickLeft <= this.releaseWarnSec) this.setPhase('releasing');
       return this.stickLeft > 0;
@@ -113,10 +131,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.setLength(this.maxLength);
-    if (this.stickSec <= 0) return false;
-    this.stickLeft = this.stickSec;
-    this.setPhase(this.stickSec <= this.releaseWarnSec ? 'releasing' : 'stuck');
-    return true;
+    return this.anchorAt(GROUND_Y - this.maxLength);
   }
 
   registerHit() {
