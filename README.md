@@ -222,8 +222,14 @@ Useful while tuning levels or ball behavior:
 - A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
   clear every ball on the field instantly with **Remove all balls**; one
   quick-spawn button per power-up (bonus fruit, shield, every weapon
-  power-up, and all the others); jump straight to any level -- all without
-  replaying the whole game or affecting normal play when the panel is off.
+  power-up, and all the others); one button per weapon under **Give
+  weapon**, which hands it to the player directly -- a weapon is a
+  property of the level rather than something that drops, so there is no
+  pickup to spawn -- without cancelling a weapon power-up that happens to
+  be running; jump straight to any level -- all without replaying the
+  whole game or affecting normal play when the panel is off. The power-up
+  and weapon rows are both built from their registries (`POWERUP_TYPES`,
+  `WEAPON_TYPES`), so a new entry appears in the panel on its own.
 - Lives above the playfield's own ceiling, in a `#tool-bar` row shared
   with the level editor's own panel (editor on the left, debug on the
   right, see index.html/style.css) -- never overlapping actual gameplay
