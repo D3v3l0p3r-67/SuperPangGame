@@ -930,7 +930,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isPanicMode) this.advancePanicProgress();
     this.audio.play('balldestroy');
     this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
-    this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color));
+    this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color, ball.radius));
 
     const children = ball.getSplitChildren();
     const forcedPowerup = ball.forcedPowerup;
