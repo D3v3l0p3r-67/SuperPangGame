@@ -65,7 +65,7 @@ async function buildGraphicList() {
     }
   }
 
-  list.push({ label: 'Harpoon projectile', path: assets.PROJECTILE_TEXTURE_PATH });
+  list.push({ label: 'Weapon shots (4 cells of 36x400, one per weapon -- head at the top of each cell)', path: assets.WEAPON_SHOTS_PATH });
   list.push({ label: 'Burst particle (tinted at runtime -- keep plain white)', path: assets.PARTICLE_TEXTURE_PATH });
 
   list.push({ label: 'HUD -- score digits (large, 10 frames)', path: assets.HUD_DIGITS_LARGE_PATH });

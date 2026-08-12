@@ -763,9 +763,12 @@ export class GameScene extends Phaser.Scene {
     if (activeCount >= this.weaponState.maxActiveShots) return;
     const base = WEAPON_TYPES[this.weaponType];
     const width = base.width * this.weaponState.widthMultiplier;
+    // The beam's foot is planted on the ground (Projectile.js anchors it
+    // there itself); this is where its HEAD starts -- the muzzle, same
+    // height a shot has always appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
-    const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce);
+    const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce, this.weaponType);
     this.projectiles.add(proj);
     // "Special/rapid" shot sound whenever an active weapon power-up is
     // boosting the harpoon (rapid_shot: more simultaneous shots,

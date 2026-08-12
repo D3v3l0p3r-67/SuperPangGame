@@ -8,7 +8,7 @@ import {
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
-  PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
+  WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
   backgroundTextureKey, backgroundTexturePath, DEFAULT_BACKGROUND,
@@ -72,7 +72,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(obstacleTextureKey(name), obstacleTexturePath(name));
     }
 
-    this.load.image(PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH);
+    this.load.spritesheet(WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME);
     this.load.image(PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH);
 
     for (const type of POWERUP_TYPE_KEYS) {

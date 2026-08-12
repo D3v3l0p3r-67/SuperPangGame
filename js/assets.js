@@ -104,11 +104,31 @@ export function obstacleTexturePath(name) {
   return `${OBSTACLE_TEXTURE_DIR}${name}.webp`;
 }
 
-// Projectile (the harpoon shot) -- displayed at whatever width the active
-// weapon state calls for (see Projectile.js's setDisplaySize), so the
-// file's own pixel size is just its default/reference size (4x7).
-export const PROJECTILE_TEXTURE_KEY = 'projectile';
-export const PROJECTILE_TEXTURE_PATH = 'assets/projectile.webp';
+// Shots: one spritesheet holding every weapon's shot graphic side by side,
+// 4 cells of 36x400 (144x400 total). 400px tall because that's the full
+// height a shot ever reaches -- from the player's feet on the ground up to
+// the ceiling -- so the beam is drawn by CROPPING the top `length` pixels
+// of its cell as it grows (see Projectile.js) rather than by stretching a
+// small texture, which keeps the artwork at its authored pixel scale at
+// every length. Each design is therefore authored head-at-the-top, shaft
+// running down from it.
+//
+// SHOT_BEAM_WIDTH is the width of the drawn shot within its 36px cell
+// (the rest is empty margin); it's what the collision body is sized to,
+// so the hitbox matches the visible beam rather than the whole cell.
+export const WEAPON_SHOTS_KEY = 'weapon-shots';
+export const WEAPON_SHOTS_PATH = 'assets/weapons/shots.webp';
+export const WEAPON_SHOTS_FRAME = { frameWidth: 36, frameHeight: 400 };
+export const SHOT_BEAM_WIDTH = 6;
+
+// weapon type (see config.js's WEAPON_TYPES) -> its cell index above.
+// Only the first cell is used today; the other three are authored ready
+// for whenever a second weapon type exists.
+export const WEAPON_SHOT_FRAMES = { harpoon: 0 };
+
+export function weaponShotFrame(type) {
+  return WEAPON_SHOT_FRAMES[type] ?? 0;
+}
 
 // Particle (the small square used for every burst effect) -- always
 // tinted at runtime to whatever color the effect needs (see GameScene.

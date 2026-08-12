@@ -328,10 +328,32 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Shooting is the one control you hit constantly and often without
+   looking, so its touch target is twice the radius it appears to be. The
+   BUTTON is the doubled box (so the whole area is a real, reliably
+   hit-tested element) and is itself unpainted; the circle you actually
+   see is drawn by ::before at the original size, centred inside it. The
+   offsets subtract half the visible diameter so that circle still lands
+   exactly where it did when the button was its visible size.
+   --shoot-size is the visible diameter, matching .touch-btn's own clamp. */
 .touch-btn-primary {
+  --shoot-size: clamp(44px, 13cqmin, 72px);
+  width: calc(var(--shoot-size) * 2);
+  height: calc(var(--shoot-size) * 2);
+  right: calc(3cqmin - var(--shoot-size) / 2);
+  bottom: calc(16% + 1.5cqmin - var(--shoot-size) / 2);
+  background: none;
+  border: none;
+}
+
+.touch-btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 25%; /* a circle half the box's size -- i.e. the original button */
+  border-radius: 50%;
   background: rgba(233, 69, 96, 0.75);
-  right: 3cqmin;
-  bottom: calc(16% + 1.5cqmin);
+  border: 2px solid var(--panel-border);
+  box-sizing: border-box;
 }
 
 .touch-btn-small {
