@@ -1,22 +1,33 @@
 import { OBSTACLE_TYPES } from './elements.js';
 import { obstacleTextureKey } from './assets.js';
-import { hexColor } from './colors.js';
 
 // A single rectangular block balls collide with from any side, via a
 // static Arcade body. LevelManager decomposes each level-authored
-// obstacle into one or more of these (normally one per 8x8 cell, see
-// OBSTACLE_BLOCK_SIZE) so a multi-cell breakable obstacle can lose
+// obstacle into one or more of these (normally one per
+// OBSTACLE_BLOCK_SIZE cell) so a multi-cell breakable obstacle can lose
 // individual blocks to gunfire while the rest of its shape stays solid,
 // and non-rectangular ("stepped") shapes are just a different set of
 // block positions -- this class itself doesn't need to know any of that,
 // it only ever renders/collides as one rectangle. Its type (from
-// OBSTACLE_TYPES in config.js) decides whether it can be destroyed and
-// how many shots it takes. Uses Phaser's plain Rectangle shape (not a
-// texture) so each block can be sized exactly with no stretching.
-export class Obstacle extends Phaser.GameObjects.Rectangle {
+// OBSTACLE_TYPES, see elements.js) decides whether it can be destroyed
+// and how many shots it takes.
+//
+// A TileSprite, so it IS its own artwork: the beveled-block wall texture
+// (see assets/obstacles) repeats across whatever w x h this block is,
+// exactly as the border frame does, with only the palette
+// (def.tileTexture) telling a crate from a wall -- so a crate reads as
+// "the same wall, brown material" rather than a distinct look.
+//
+// One game object, not two. This used to be an invisible Rectangle
+// carrying the body with a separate TileSprite drawn over it, which put
+// two entries on the display list per block -- 132 of level 50's 233,
+// half of them rendering nothing -- and left the two to be kept in step
+// by hand on every destroy.
+export class Obstacle extends Phaser.GameObjects.TileSprite {
   constructor(scene, type, x, y, w, h, powerup = null) {
     const def = OBSTACLE_TYPES[type];
-    super(scene, x + w / 2, y + h / 2, w, h, hexColor(def.color));
+    super(scene, x, y, w, h, obstacleTextureKey(def.tileTexture));
+    this.setOrigin(0, 0);
 
     scene.add.existing(this);
     scene.physics.add.existing(this, true); // static body
@@ -30,17 +41,6 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
     // GameScene.onProjectileHitObstacle. Meaningless (never read) for an
     // indestructible platform block, which never takes damage.
     this.forcedPowerup = powerup;
-
-    // Every obstacle -- breakable crate or unbreakable wall -- is the same
-    // beveled-block wall texture (see BootScene.buildWallTexture), tiled
-    // across whatever w x h this block is (matches GameScene.drawBorder's
-    // TileSprite approach); only the palette (def.tileTexture) differs, so
-    // a crate reads as "the same wall, brown material" rather than a
-    // distinct look. The Rectangle's own fill stays as a solid fallback
-    // color underneath, fully hidden once the tile covers it.
-    this.setFillStyle(hexColor(def.color), 0);
-    this.wallTile = scene.add.tileSprite(x, y, w, h, obstacleTextureKey(def.tileTexture)).setOrigin(0, 0);
-    this.wallTile.setDepth(2);
   }
 
   // Returns true if this hit destroyed the obstacle.
@@ -52,14 +52,6 @@ export class Obstacle extends Phaser.GameObjects.Rectangle {
       return true;
     }
     return false;
-  }
-
-  destroy(fromScene) {
-    if (this.wallTile) {
-      this.wallTile.destroy(fromScene);
-      this.wallTile = null;
-    }
-    super.destroy(fromScene);
   }
 }
 

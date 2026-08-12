@@ -23,9 +23,14 @@ export class Bonus extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(dt) {
-    if (this.y >= this.floorY) {
-      this.y = this.floorY;
-      this.body.setVelocityY(0);
+    // Landed: stop it ON the floor line. Through the BODY, not by writing
+    // this.y -- Arcade moves the sprite from the body, never the other way
+    // round, so setting the sprite alone would leave the pickup's actual
+    // collision box a few px below the icon the player is aiming at for as
+    // long as it sits there. (This body matches the sprite exactly -- no
+    // setSize/setOffset -- so reset lands it exactly.)
+    if (this.body.velocity.y !== 0 && this.body.center.y >= this.floorY) {
+      this.body.reset(this.x, this.floorY); // also stops it -- see Body.reset
     }
     this.ttl -= dt * 1000;
     if (this.ttl <= 0) this.destroy();

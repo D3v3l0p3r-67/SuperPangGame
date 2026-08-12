@@ -261,6 +261,27 @@ Only the level-to-level step gets one. Finishing the run doesn't -- there
 is no next level to reveal, just the victory screen -- and neither does a
 level restarting after a lost life.
 
+## Load
+
+Everything the game needs to reach the menu is fetched up front, with one
+deliberate exception: **music**. The 13 tracks are 4.7MB against 141KB for
+every sound effect in the game, only one of them ever plays at a time, and
+eight belong to continents a given run may never reach -- so loading them
+all before the menu can open spends most of the first load on audio that
+may never be heard.
+
+Instead `AudioManager.ensureMusicLoaded()` fetches a track the first time
+it is wanted, and `GameScene.loadLevel` asks for the coming level's track
+(and the hurry-up one, which cuts in mid-play with no cover of its own) as
+soon as the level is known -- so the fetch runs under the fanfare, the
+READY/SET/GO countdown, and on a continent change the whole world-map
+flight. `playMusic()` records the request first and honours it when the
+file lands, and only if that track is still the one wanted by then.
+
+Measured on this repo: **1796KB to the menu instead of 6456KB**, of which
+1327KB is Phaser itself. Each continent's track then arrives during the
+levels leading into it.
+
 ## Frame rate
 
 Arcade Physics advances in a fixed 1/60s step whatever the display is
@@ -546,8 +567,9 @@ js/
                       spin animation (setFrozen pauses/resumes it for
                       time_freeze)
   Projectile.js      Phaser.Physics.Arcade.Sprite for the harpoon shot
-  Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body,
-                      representing one obstacle block; destructible via
+  Obstacle.js         Phaser.GameObjects.TileSprite + static Arcade body,
+                      representing one obstacle block -- one object that
+                      both collides and draws itself; destructible via
                       takeHit()
   Bonus.js           Phaser.Physics.Arcade.Sprite for power-up pickups
   LevelManager.js    Owns the LEVELS array (populated by ElementsScene
@@ -568,7 +590,8 @@ js/
                       only thing in the game allowed to call Phaser's
                       Sound Manager -- every trigger elsewhere is
                       audio.play('<name>') / audio.playMusic('<name>'),
-                      never a filename/volume/loop flag
+                      never a filename/volume/loop flag. Music is fetched
+                      on demand rather than at boot -- see "Load" below
   input.js           Thin DOM bridge for the on-screen touch buttons only
                       (keyboard is native Phaser input, see GameScene)
   Hud.js             The graphic status bar (see "Swapping HUD graphics")
