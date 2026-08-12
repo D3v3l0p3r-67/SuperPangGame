@@ -286,6 +286,9 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
+- The level-select screen lists all 50 at once in three columns filled
+  top-to-bottom (1-17, 18-34, 35-50) with no scrollbar -- a scroller would
+  hide exactly the later levels you are most likely looking for.
 - 50 campaign levels across 10 continents: every `LEVELS_PER_REGION` (5)
   levels the background, the landmark in it and the music all change
   together, and the leg between them is flown on a world map (see

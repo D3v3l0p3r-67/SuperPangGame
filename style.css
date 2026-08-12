@@ -236,18 +236,32 @@ body {
   border-color: var(--accent);
 }
 
-/* A grid rather than a single column: at 50 levels a one-per-row list is
-   a very long scroll for something you are meant to pick from at a
-   glance. auto-fill means it collapses back to one column on a narrow
-   screen without a media query. */
+/* Three fixed columns filled TOP-TO-BOTTOM, not left-to-right: 1-17 down
+   the first column, then 18-34, then the rest -- which is how you look for
+   a level number. grid-auto-flow: column with an explicit row count is
+   what puts the numbers in that order.
+   Everything is sized to fit all fifty at once: no scrollbar, since a
+   scroller hides exactly the later levels you are most likely hunting
+   for. */
 #level-select-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
-  gap: 0.6cqmin;
-  width: min(94cqw, 700px);
-  max-height: 52cqh;
-  overflow-y: auto;
-  padding-right: 4px;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(17, auto);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35cqmin;
+  width: min(96cqw, 720px);
+}
+
+/* This one screen sits high rather than centred -- fifty rows leave no
+   slack to centre within, and the title would be pushed off the top. */
+#screen-level-select {
+  justify-content: flex-start;
+  gap: 0.8cqmin;
+  padding-top: 1.5cqmin;
+}
+
+#screen-level-select h2 {
+  margin: 0 0 0.5cqmin;
 }
 
 .level-select-btn {
@@ -255,8 +269,9 @@ body {
   align-items: center;
   overflow: hidden;   /* a long name clips inside its own cell, never over its neighbour */
   background: var(--panel);
-  border: 2px solid var(--panel-border);
-  padding: 1cqmin 2.4cqmin;
+  border: 1px solid var(--panel-border);
+  /* Deliberately tight: seventeen rows have to fit on screen at once. */
+  padding: 0.15cqmin 1.2cqmin;
   cursor: pointer;
   text-align: left;
 }
@@ -264,7 +279,6 @@ body {
 .level-select-btn:hover:not(:disabled),
 .level-select-btn:focus-visible:not(:disabled) {
   background: var(--panel-border);
-  border-width: 1px;
   outline: none;
 }
 
