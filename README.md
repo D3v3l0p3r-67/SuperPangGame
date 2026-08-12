@@ -305,6 +305,9 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
+- The **LEVEL EDITOR** places obstacles on rows counted up from the
+  ground, so the bottom row rests on the floor and a stack of them is a
+  staircase the player can climb.
 - The player walks up a ledge one obstacle block (`PLAYER_STEP_UP_PX`,
   16px) high without jumping -- it cannot jump at all -- so a run of
   stacked blocks is a staircase. Anything taller, or without room to

@@ -75,15 +75,21 @@ function backgroundNames() {
 // Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
 // are independent constants -- see constants.js.
 //
-// The clamp itself has to land ON a grid line, not just inside bounds:
-// GROUND_Y - BORDER_THICKNESS isn't necessarily a whole number of grid
-// cells below the top border (e.g. 800x420 with a 16px border/grid: the
-// inner playfield is 388px tall, and 388 isn't a multiple of 16), so a
-// naive `Math.min(gy, rawMax)` clamp could snap the bottom row to a
-// pixel offset the rest of the grid never uses -- visibly misaligned/
-// overlapping with the row above it. gridSnap() rounds each raw bound
-// down to the nearest cell that's actually still fully inside the
-// playfield, same as the floor() above does for an ordinary coordinate.
+// The inner playfield is not a whole number of grid cells tall (800x420
+// with a 16px border/grid leaves 388px, and 388 isn't a multiple of 16),
+// so 4px has to go somewhere. It goes at the TOP: rows are counted UP FROM
+// THE GROUND rather than down from the ceiling.
+//
+// That is the whole reason the bottom row was unreachable. Counting down
+// from the ceiling, the last row that still fit ended at y=384 -- a 20px
+// strip above the ground that nothing could be placed in, so a wall could
+// never be built standing ON the ground. Counting up from the ground, the
+// bottom row is 388..404, flush with it.
+//
+// It also has to be this way round for the player's step-up (see
+// Player.js): every row is then exactly one step above the row below, so a
+// stack of blocks is a staircase. Anchored to the ceiling, the bottom row
+// would have sat 20px above the next one up and broken the climb.
 function gridSnap(bt, grid, rawMax) {
   return bt + Math.floor((rawMax - bt) / grid) * grid;
 }
@@ -92,10 +98,15 @@ function snapObstacleOrigin(x, y) {
   const grid = OBSTACLE_BLOCK_SIZE;
   const bt = BORDER_THICKNESS;
   const gx = Math.floor((x - bt) / grid) * grid + bt;
-  const gy = Math.floor((y - bt) / grid) * grid + bt;
   const maxX = gridSnap(bt, grid, VIRTUAL_W - bt - grid);
-  const maxY = gridSnap(bt, grid, GROUND_Y - bt - grid);
-  return { x: Math.min(Math.max(gx, bt), maxX), y: Math.min(Math.max(gy, bt), maxY) };
+
+  // Which row up from the ground the pointer is in: 1 is the row resting
+  // on the ground, counting upward. ceil, so a pointer anywhere inside a
+  // row picks that row rather than the one below it.
+  const maxRows = Math.floor((GROUND_Y - bt) / grid);
+  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), 1), maxRows);
+
+  return { x: Math.min(Math.max(gx, bt), maxX), y: GROUND_Y - rows * grid };
 }
 
 function ballRadius(shape, size) {
@@ -426,7 +437,12 @@ export class Editor {
     if (this.scene.state !== GAME_STATES.EDITOR) return;
     const x = pointer.worldX;
     const y = pointer.worldY;
-    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > GROUND_Y - BORDER_THICKNESS) return;
+    // Down to GROUND_Y, not GROUND_Y - BORDER_THICKNESS: the bottom border
+    // is drawn just PAST the ground line (see GameScene.drawBorder), so
+    // the ground itself is the inner face there and the whole bottom row
+    // is inside the playfield. Subtracting the border thickness here as
+    // well was the other half of why nothing could be placed on the floor.
+    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > GROUND_Y) return;
 
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;
