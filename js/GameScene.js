@@ -1,4 +1,4 @@
-import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC } from './constants.js';
+import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC, LEVEL_INTRO_GO_SEC } from './constants.js';
 import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
   TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC,
@@ -386,6 +386,12 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.LEVEL_INTRO;
     this.stateTimer = LEVEL_INTRO_SEC;
     this.physics.pause();
+    // One sound as READY comes up, a second when it flips to GO! -- the
+    // GO one is fired from update() (see the LEVEL_INTRO case) at the
+    // exact threshold LevelIntro.js swaps the text at, so the two always
+    // land together however long the countdown is.
+    this.goSoundPlayed = false;
+    this.audio.play('ready');
   }
 
   // Fully (re)loads the current level: balls, obstacles, projectiles,
@@ -630,6 +636,12 @@ export class GameScene extends Phaser.Scene {
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
         this.stateTimer -= dt;
+        // Same threshold LevelIntro.js uses to swap READY for GO!, so the
+        // sound lands on the frame the text changes.
+        if (!this.goSoundPlayed && this.stateTimer <= LEVEL_INTRO_GO_SEC) {
+          this.goSoundPlayed = true;
+          this.audio.play('go');
+        }
         if (this.stateTimer <= 0) {
           this.physics.resume();
           this.state = GAME_STATES.PLAYING;
