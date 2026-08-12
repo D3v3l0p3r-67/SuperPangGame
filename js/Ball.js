@@ -43,8 +43,14 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
 
     // No setScale() needed -- the texture file is already the ball's true
     // pixel size (2x its radius), so the sprite and its circle body both
-    // use that native size directly.
-    this.body.setCircle(this.radius);
+    // use that native size directly. The collider is deliberately 1px
+    // shy of the drawn radius (2px narrower across) so contact needs a
+    // slight visual overlap rather than triggering on the outermost
+    // antialiased-looking edge pixel; `this.radius` stays the VISUAL
+    // radius, which is what spawn placement/the editor position against.
+    // The offset is left to setCircle's own default, which centres the
+    // circle in the frame for whatever radius it's given.
+    this.body.setCircle(Math.max(1, this.radius - 1));
     this.body.setAllowGravity(this.hasGravity);
     if (this.hasGravity) this.body.setGravityY(this.gravityAccel);
     this.body.setCollideWorldBounds(true);
@@ -69,6 +75,9 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     // Tracks which way the ball is currently headed horizontally,
     // independent of body.velocity.x -- see reassertHorizontal().
     this.hDir = Math.sign(this.body.velocity.x) || 1;
+
+    // Last frame's vertical speed -- see rememberVerticalSpeed().
+    this.lastVelocityY = this.body.velocity.y;
 
     // Hex balls spin (see setFrozen below); round balls fall/land, they
     // don't roll, so they stay on their single static frame.
@@ -132,11 +141,26 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     this.body.setVelocityY(this.hasGravity ? -this.bounceVelocity : -this.vSpeed);
   }
 
+  // Records the vertical speed the ball is currently travelling at, once
+  // per frame from GameScene.updatePlaying. Necessary because Arcade
+  // zeroes the colliding axis's velocity BEFORE the collision callback
+  // runs (see the class comment above), so by the time bounceOffBottom()
+  // is called the speed the ball actually arrived with is already gone --
+  // this keeps the last value from before that, which is it.
+  rememberVerticalSpeed() {
+    this.lastVelocityY = this.body.velocity.y;
+  }
+
   // Ball hit a surface above it (ceiling, or an obstacle's underside)
-  // while moving up. Round balls just start falling again under gravity;
-  // hex balls reflect at their fixed diagonal speed.
+  // while moving up. A round ball turns around immediately and leaves at
+  // the speed it was still climbing at, so the more climb the ceiling cut
+  // short, the faster it comes back down -- rather than stalling at zero
+  // and dribbling off the ceiling as it used to. That extra speed can't
+  // accumulate across bounces: landOnTop() puts the next climb back at
+  // the size's fixed bounceVelocity no matter how fast the ball landed.
+  // Hex balls have no gravity and just reflect at their fixed speed.
   bounceOffBottom() {
-    this.body.setVelocityY(this.hasGravity ? 0 : this.vSpeed);
+    this.body.setVelocityY(this.hasGravity ? Math.abs(this.lastVelocityY) : this.vSpeed);
   }
 
   bounceOffLeft() {

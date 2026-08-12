@@ -620,6 +620,11 @@ export class GameScene extends Phaser.Scene {
       ball.body.moves = !this.ballsFrozen;
       ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
       ball.setFrozen(this.ballsFrozen);
+      // Physics has already stepped by the time scene update runs, so this
+      // captures the speed the ball is travelling at going INTO the next
+      // step -- i.e. its impact speed, which Arcade wipes before the
+      // collision callback can read it (see Ball.rememberVerticalSpeed).
+      ball.rememberVerticalSpeed();
       // Panic Mode ceiling-drop balls (see spawnPanicBall) spawn centered
       // on the ceiling border's own inner edge, depth-sorted behind it and
       // with world-bounds collision off, so they visibly slide out from
