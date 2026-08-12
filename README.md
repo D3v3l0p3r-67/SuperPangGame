@@ -114,7 +114,11 @@ standing barrier balls cannot cross rather than a single strike. Its last
 still solid, just drawn differently, so the barrier's expiry is
 telegraphed instead of sudden. Each phase has its own cell in the shot
 spritesheet (`assets.js`'s `WEAPON_SHOT_FRAMES`), so the three states are
-visibly different rather than something the player has to infer.
+visibly different rather than something the player has to infer. All three
+cells draw the same rope and shank and differ only in the head -- a closed
+point while it climbs, the claws thrown flat against the ceiling while it
+holds, and sprung off it as it lets go -- so the phases read as one object
+changing rather than three unrelated shots.
 
 One shot in the air at a time is the base state for both weapons; the
 `rapid_shot` power-up grants a second slot for its duration. For the
