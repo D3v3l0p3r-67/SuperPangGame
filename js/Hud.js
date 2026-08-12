@@ -24,10 +24,11 @@ const MAX_POWERUP_SLOTS = 6;
 
 // Which active power-up (if any) the HUD weapon icon should reflect --
 // checked in this order, first match wins, matching GameScene.tryFire's
-// own "is this shot special" check (rapid_shot/wide_harpoon). Falls back
-// to the plain hudWeaponIconKey(weaponType) icon (see render()) when
-// neither is active.
-const WEAPON_ICON_POWERUP_TYPES = ['wide_harpoon', 'rapid_shot'];
+// own "is this shot special" check. Falls back to the plain
+// hudWeaponIconKey(weaponType) icon (see render()) when none is active.
+// A list rather than a single name so a future weapon power-up only needs
+// adding here.
+const WEAPON_ICON_POWERUP_TYPES = ['rapid_shot'];
 
 // The HUD's own pixel-art layout below is authored at a fixed design
 // width/height (all the individual x/y offsets -- 4, 74, 166, 196, 1, 14,
@@ -83,8 +84,8 @@ class DigitRow {
 //   Weapon frame + an icon centered inside it, 1.5x the digit-column
 //   art's scale so the currently-held weapon reads as the HUD's focal
 //   point -- the icon itself swaps to whichever weapon-affecting
-//   power-up (rapid_shot/wide_harpoon) is active, falling back to the
-//   plain weapon icon otherwise (see WEAPON_ICON_POWERUP_TYPES).
+//   power-up (rapid_shot) is active, falling back to the plain weapon
+//   icon otherwise (see WEAPON_ICON_POWERUP_TYPES).
 //   TIME and LEVEL on the right, each a label + the smaller digit strip
 //   so label and value line up at the same height.
 //   A row of active power-up icons + remaining whole seconds along the

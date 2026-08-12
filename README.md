@@ -82,11 +82,13 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
 
-Holding Shoot fires once per press -- release and press again for another
-shot -- unless the `rapid_shot` power-up is active, which auto-fires the
-whole time it's held (see `GameScene.updatePlaying`'s `wasShooting`
-tracking). Either way, an actual shot still only leaves if under the
-active weapon's `maxActiveShots` (see `tryFire`).
+Shoot fires once per press, for every weapon and power-up alike -- the
+key/button has to be released and pressed again for another shot, so
+holding it down does nothing (see `GameScene.updatePlaying`'s
+`wasShooting` tracking). A shot still only leaves if under the active
+weapon's `maxActiveShots` (see `tryFire`), which is what `rapid_shot`
+raises -- it changes how many shots may be in the air at once, never how
+the trigger reads.
 
 ## Display size
 
@@ -126,8 +128,8 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
-- 8 power-ups: bonus fruit, rapid shot, wide harpoon, speed boost, extra
-  life, score multiplier, time freeze, shield. A dropped power-up falls
+- 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
+  multiplier, time freeze, shield. A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
   shooting it with the harpoon.
@@ -142,8 +144,8 @@ seam between the canvas and the page behind it.
   active power-up icons + countdowns -- see "Swapping HUD graphics")
   always shows remaining level time, lives, score, level, top score, and
   every currently active power-up -- entirely drawn in Phaser, no DOM
-  overlay for any of it. Picking up `rapid_shot`/`wide_harpoon` swaps the
-  weapon socket's own icon to match for as long as it's active.
+  overlay for any of it. Picking up `rapid_shot` swaps the weapon socket's
+  own icon to match for as long as it's active.
 - Score, lives, a locally-persisted top-10 high score table, and per-level
   unlock progress (`localStorage`, with a versioned schema for safe future
   upgrades) -- see "Start Campaign vs. Start Level" below.
@@ -361,7 +363,7 @@ false` shapes this is instead a spin spritesheet, see below.
 balls/obstacles, a power-up needs actual *behavior* (what happens when
 it's collected), which a JSON file can't express -- so it names a `kind`
 from the fixed set in `js/elements.js`'s `POWERUP_BEHAVIORS`
-(`instant_score`, `weapon_max_shots`, `weapon_wide_pierce`,
+(`instant_score`, `weapon_max_shots`,
 `player_speed_multiplier`, `extra_life`, `score_multiplier`,
 `freeze_balls`, `player_shield`) plus a `params` object with that kind's
 own numbers:
@@ -652,8 +654,8 @@ in place, keeping the same filename and pixel dimensions:
   height), so the two can be swapped independently as long as the icon
   stays smaller than the frame. Adding a second weapon type later is just
   dropping in its icon file, once `WEAPON_TYPES` actually has more than
-  one entry to choose from. While `rapid_shot` or `wide_harpoon` is
-  active, the socket shows that power-up's own icon (from
+  one entry to choose from. While `rapid_shot` is active, the socket
+  shows that power-up's own icon (from
   `assets/powerups/`, see "Adding elements" below) instead, reverting to
   the plain weapon icon once it expires.
 - **Active power-up row**: no separate art of its own -- reuses each

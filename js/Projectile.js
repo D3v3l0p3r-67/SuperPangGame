@@ -5,7 +5,7 @@ import { BORDER_THICKNESS, GROUND_Y } from './constants.js';
 // the ground the player fired from and its head climbs upward (at the
 // weapon's shotSpeed, see config.js) until something stops it -- a ball or
 // obstacle it overlaps (GameScene's onProjectileHit* handlers destroy it,
-// or decrement pierce first for wide_harpoon), or the ceiling, which caps
+// or decrement its pierce count first), or the ceiling, which caps
 // its length and ends it in updateBeam below. So it starts already
 // spanning feet-to-muzzle and, at full extension, runs the whole way from
 // the ground to the ceiling.

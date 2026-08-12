@@ -114,8 +114,8 @@ export class GameScene extends Phaser.Scene {
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
-    // Tracks last frame's shoot input so a held key only fires once per
-    // press (see updatePlaying) unless rapid_shot is active.
+    // Tracks last frame's shoot input so a held key only ever fires once
+    // per press (see updatePlaying).
     this.wasShooting = false;
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
@@ -255,7 +255,6 @@ export class GameScene extends Phaser.Scene {
   get weaponLabel() {
     const parts = [];
     if (this.effects.active.has('rapid_shot')) parts.push('RAPID');
-    if (this.effects.active.has('wide_harpoon')) parts.push('WIDE');
     parts.push(WEAPON_TYPES[this.weaponType].label.toUpperCase());
     return parts.join(' ');
   }
@@ -738,12 +737,12 @@ export class GameScene extends Phaser.Scene {
     const inputState = this.readInput();
     this.player.update(dt, inputState);
 
-    // Holding the shoot input only fires once per press -- it has to be
-    // released and pressed again for another shot -- unless rapid_shot is
-    // active, which auto-fires the whole time it's held (still throttled
-    // by weaponState.maxActiveShots either way, see tryFire).
-    const rapidShotActive = this.effects.active.has('rapid_shot');
-    if (inputState.shoot && (rapidShotActive || !this.wasShooting)) this.tryFire();
+    // One shot per press, for every weapon and power-up alike: the input
+    // has to be released and pressed again before it fires again, so
+    // holding the key/button down does nothing. What rapid_shot changes is
+    // only how many shots may be in the air at once (weaponState
+    // .maxActiveShots, see tryFire) -- never how the trigger itself reads.
+    if (inputState.shoot && !this.wasShooting) this.tryFire();
     this.wasShooting = inputState.shoot;
 
     // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
@@ -911,19 +910,17 @@ export class GameScene extends Phaser.Scene {
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
     const base = WEAPON_TYPES[this.weaponType];
-    const width = base.width * this.weaponState.widthMultiplier;
     // The beam's foot is planted on the ground (Projectile.js anchors it
     // there itself); this is where its HEAD starts -- the muzzle, same
     // height a shot has always appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
-    const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce, this.weaponType);
+    const proj = new Projectile(this, tipX, tipY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType);
     this.projectiles.add(proj);
-    // "Special/rapid" shot sound whenever an active weapon power-up is
-    // boosting the harpoon (rapid_shot: more simultaneous shots,
-    // wide_harpoon: wider/piercing shot); the plain harpoon otherwise.
-    const isSpecialShot = this.effects.active.has('rapid_shot') || this.effects.active.has('wide_harpoon');
-    this.audio.play(isSpecialShot ? 'weaponshootm' : 'weaponshoot');
+    // "Special/rapid" shot sound while a weapon power-up is boosting the
+    // harpoon (rapid_shot: more shots in the air at once); the plain
+    // harpoon sound otherwise.
+    this.audio.play(this.effects.active.has('rapid_shot') ? 'weaponshootm' : 'weaponshoot');
     this.player.playShotAnim();
   }
 
