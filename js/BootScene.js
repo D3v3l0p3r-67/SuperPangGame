@@ -152,7 +152,10 @@ export class BootScene extends Phaser.Scene {
   // itself when they end (see Player.js's 'animationcomplete' handling).
   buildPlayerAnimations() {
     const LOOPING = new Set(['idle', 'move']);
-    const FRAME_RATE = { idle: 1, move: 8, shot: 14, victory: 1, dead: 1 };
+    // levelclear's rate is what makes its 6 frames (three idle/victory
+    // alternations, see assets.js) last exactly the LEVEL_CLEAR_SEC that
+    // GameScene holds the celebration for -- change one and change both.
+    const FRAME_RATE = { idle: 1, move: 8, shot: 14, victory: 1, dead: 1, levelclear: 3 };
     for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {
       this.anims.create({
         key: `player-${state}`,

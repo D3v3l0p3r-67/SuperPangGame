@@ -73,6 +73,11 @@ export const PLAYER_ANIM_FRAMES = {
   move: [2, 3, 4, 5],
   victory: [6],
   dead: [7],
+  // Clearing a level: alternate idle/victory three times on the spot (see
+  // GameScene.levelClear/Player.playLevelClearAnim). Six frames at the
+  // rate BootScene gives this state is exactly the LEVEL_CLEAR_SEC the
+  // scene holds the celebration for.
+  levelclear: [0, 6, 0, 6, 0, 6],
 };
 
 // Shield power-up effect: a PLAYER_SHIELD_FRAMES-frame looping animation

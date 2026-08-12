@@ -43,6 +43,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.on('animationcomplete-player-shot', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-victory', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
+    this.on('animationcomplete-player-levelclear', () => { this.oneShotAnim = null; });
 
     // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
     // instead of a drawn outline -- see update()/reset() for how it
@@ -99,6 +100,20 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   playVictoryAnim() {
     this.oneShotAnim = 'victory';
     this.play('player-victory', true);
+  }
+
+  // Level cleared: celebrate on the spot, alternating idle/victory three
+  // times (see assets.js's PLAYER_ANIM_FRAMES.levelclear). The velocity
+  // reset is the point of doing this here rather than just playing an
+  // animation -- update() stops being called once the scene leaves
+  // PLAYING (see GameScene.updatePlaying), so whatever velocity the
+  // player was last moving at would otherwise carry it on sliding across
+  // the screen for the whole celebration.
+  playLevelClearAnim() {
+    this.body.setVelocity(0, 0);
+    this.isMoving = false;
+    this.oneShotAnim = 'levelclear';
+    this.play('player-levelclear', true);
   }
 
   update(dt, inputState) {

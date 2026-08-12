@@ -23,7 +23,11 @@ import {
 } from './assets.js';
 import { hexColor } from './colors.js';
 
-const LEVEL_CLEAR_SEC = 1.6;
+// How long the cleared-level celebration is held before advancing. Must
+// stay in step with the player's levelclear animation (6 frames at 3fps =
+// 2s, see assets.js's PLAYER_ANIM_FRAMES/BootScene's FRAME_RATE) so the
+// level doesn't change mid-celebration.
+const LEVEL_CLEAR_SEC = 2;
 const HIT_FREEZE_SEC = 2;
 
 // One ball bounce, resolved from whichever set of contact flags the
@@ -429,6 +433,11 @@ export class GameScene extends Phaser.Scene {
     if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
     this.audio.stopMusic();
     this.audio.play('levelcomplete');
+    // Celebrate standing still rather than coasting onward: physics keeps
+    // running through LEVEL_CLEAR while update() no longer feeds the
+    // player input, so without this it would keep sliding at whatever
+    // speed it happened to be moving at when the last ball popped.
+    this.player.playLevelClearAnim();
     this.state = GAME_STATES.LEVEL_CLEAR;
     this.stateTimer = LEVEL_CLEAR_SEC;
   }
