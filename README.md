@@ -261,6 +261,31 @@ Only the level-to-level step gets one. Finishing the run doesn't -- there
 is no next level to reveal, just the victory screen -- and neither does a
 level restarting after a lost life.
 
+## Frame rate
+
+Arcade Physics advances in a fixed 1/60s step whatever the display is
+doing, and that is the one number any exact movement has to be measured
+against -- never the render frame. A velocity worked out as "distance
+divided by this frame's delta" is right only when a frame and a step are
+the same length: on a 144Hz display the frame is 6.9ms and the step is
+still 16.7ms, so every such correction lands 2.4x past its target, and the
+next one overshoots back further. That reads as the player skidding
+sideways on a ladder, or bouncing up and down on a stair tread, and it
+happens on faster displays only -- which is exactly the kind of fault that
+never shows up on the machine it was written on.
+
+So the player's movement splits in two. Travel is velocity, because it
+should take time. Arriving somewhere exact -- on a tread, on a ladder's
+centre line, at either end of one -- is a placement instead, and Player.js
+does it through `teleport()`, which is deliberately more than
+`body.reset()`: reset drops the body onto the game object's corner
+ignoring the body's own offset, and Arcade would then read that
+discrepancy as motion and shove the SPRITE by it on the next step (about
+6px sideways and 20px down, every time). `teleport()` restores the body's
+relationship to the sprite and re-baselines the previous-position record
+that the write-back is measured from. Everything it takes is read off the
+body, never the sprite, which lags it by a frame mid-step.
+
 ## Display size
 
 The canvas is a fixed 800x500px. It splits into the bordered playing
@@ -506,10 +531,14 @@ js/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
   Player.js          Phaser.Physics.Arcade.Sprite: explicit per-frame
-                      velocity from input, the shield effect sprite, and
-                      5 Phaser animations (idle/move/shot/victory/dead,
-                      see assets.js) -- facing is setFlipX, never a
-                      separate left/right asset
+                      velocity from input, the step-up and the ladder
+                      climb, the shield effect sprite, and 5 Phaser
+                      animations (idle/move/shot/victory/dead, see
+                      assets.js) -- facing is setFlipX, never a separate
+                      left/right asset. Travel is velocity; landing on an
+                      exact spot (a tread, a ladder's centre line or its
+                      ends) is a placement -- see teleport/placeFeet and
+                      the note under "Frame rate" below
   Ball.js            Phaser.Physics.Arcade.Sprite: reads its one
                       BALL_ELEMENTS entry (shape+size) for every physical
                       parameter, deterministic landOnTop()/bounce methods,

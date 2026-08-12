@@ -151,16 +151,57 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return this.body.bottom;
   }
 
-  // The velocity that covers exactly `distance` this frame -- how every
-  // correction in here is applied. Writing a position instead is what
-  // Arcade makes expensive: body.reset() drops the body onto the game
-  // object's top-left corner, ignoring the body's own offset, and the next
-  // step then shoves the SPRITE by that difference to restore the
-  // relationship. Each reset mid-play therefore walks the player a body
-  // offset sideways and down. See followGround for the same technique
-  // driving the walk.
-  velocityToCover(distance, dt) {
-    return dt > 0 ? distance / dt : 0;
+  // Puts the player down exactly at (x, y), sprite and body together.
+  //
+  // Body.reset() on its own is not enough, and getting this wrong is what
+  // an exact move costs in Arcade. reset() drops the body onto the game
+  // object's top-left corner and ignores the body's own offset (the hitbox
+  // is inset inside the sprite -- see the constructor), so the body ends
+  // up out of the relationship Arcade maintains for it. updateFromGameObject
+  // restores that -- but Arcade then writes the body back to the sprite by
+  // the DELTA from `prev`, so that repair would be read as motion and the
+  // SPRITE would be shoved by it on the next step. Re-baselining prev is
+  // what makes the move a move and not a nudge.
+  // Velocity is carried across on purpose: this is a placement, not a
+  // stop. Body.reset() halts the body, which would cancel the walk every
+  // time a step-up moved the feet -- the caller zeroes velocity itself
+  // where stopping is the point.
+  teleport(x, y) {
+    const { x: vx, y: vy } = this.body.velocity;
+    this.body.reset(x, y);
+    this.body.updateFromGameObject();
+    this.body.prev.set(this.body.position.x, this.body.position.y);
+    this.body.prevFrame.set(this.body.position.x, this.body.position.y);
+    this.body.setVelocity(vx, vy);
+  }
+
+  // Puts the player exactly where asked, in the terms the rest of this
+  // class thinks in: the body's centre line and the feet.
+  //
+  // Both are read off the BODY, never the sprite. Arcade writes the body
+  // back to the sprite once a frame, so mid-frame the sprite is a step
+  // behind -- anchoring a move to it would quietly rewind the walk by a
+  // frame every time a step-up moved the feet.
+  placeFeet(centerX, feetY) {
+    this.teleport(centerX, feetY - PLAYER_CONFIG.spriteHeight / 2);
+  }
+
+  // Puts the feet exactly on `y`, leaving the body's x where it is.
+  setFeet(y) {
+    this.placeFeet(this.body.center.x, y);
+  }
+
+  // How long one physics step lasts, in seconds -- NOT the render frame.
+  // Arcade advances by a fixed step whatever the display is doing, so a
+  // velocity meant to cover a known distance has to be measured against
+  // the step, not against the frame that set it. Measured against the
+  // frame, a display faster than the physics rate overshoots by the ratio
+  // between them (2.4x at 144Hz) and every correction lands further out
+  // than the last -- which is a player skidding back and forth rather than
+  // arriving.
+  get physicsStepSec() {
+    const world = this.scene.physics.world;
+    return world.fixedStep ? 1 / world.fps : 0;
   }
 
   // Would the player fit standing on a surface at `top`? This is what
@@ -212,15 +253,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return best;
   }
 
-  // Keeps the feet on that surface: up instantly (it is one step at most),
-  // down at a fall speed.
+  // Keeps the feet on that surface: up instantly, down at a fall speed.
   //
-  // Done by handing Arcade a velocity that covers exactly the distance
-  // wanted this frame, rather than by writing a position. Writing the
-  // sprite's y directly makes Arcade re-sync the body FROM the sprite,
-  // and the sprite's x is a frame behind the body's -- which silently
-  // undid the horizontal movement every frame and left the player unable
-  // to walk at all.
+  // Up is a placement rather than a velocity. It is one step at most (see
+  // supportSurface), it wants to be instant anyway, and asking a velocity
+  // to cover an exact distance is what made the player skid -- see
+  // physicsStepSec.
+  //
+  // Down stays a velocity, because a drop should read as a fall rather
+  // than a teleport; it is capped both by the fall speed and by what
+  // covers the remaining distance in ONE physics step, so it settles onto
+  // the surface instead of shooting past it and being pulled back.
   followGround(dt) {
     if (dt <= 0) return;
     const dy = this.supportSurface() - this.feetY;
@@ -228,10 +271,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.body.setVelocityY(0);
       return;
     }
-    // Up: whatever it takes, it is one step. Down: capped, so walking off
-    // a staircase falls rather than teleports.
-    const v = this.velocityToCover(dy, dt);
-    this.body.setVelocityY(dy < 0 ? v : Math.min(v, this.dropSpeed));
+    if (dy < 0) {
+      this.setFeet(this.feetY + dy);
+      this.body.setVelocityY(0);
+      return;
+    }
+    const step = this.physicsStepSec || dt;
+    this.body.setVelocityY(Math.min(dy / step, this.dropSpeed));
   }
 
   // The ladder a press of `dir` (-1 up, 1 down) would put the player on,
@@ -283,12 +329,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // is several elements stacked end to end, so the first thing an end
   // looks for is another ladder carrying on in the same direction -- the
   // seam between two of them has to be invisible to the player.
-  updateOnLadder(dir, dt) {
+  updateOnLadder(dir) {
     const l = this.ladder;
-    // Held on the ladder's centre line: no left/right control while
-    // climbing, and whatever the player was off by when they took hold is
-    // closed in the same frame.
-    this.body.setVelocityX(this.velocityToCover(l.centerX - this.body.center.x, dt));
+    // Held on the ladder's centre line -- there is no left/right control
+    // while climbing, so the only x this can ever have is the ladder's.
+    if (Math.abs(this.body.center.x - l.centerX) > 0.5) this.placeFeet(l.centerX, this.feetY);
+    this.body.setVelocityX(0);
     this.body.setVelocityY(dir * PLAYER_CLIMB_SPEED);
 
     if (dir > 0 && this.feetY >= l.bottom - LADDER_EPSILON) {
@@ -299,7 +345,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const next = this.ladderFor(dir);
       if (next) this.ladder = next;
       else if (Math.abs(this.supportSurface(l.top) - l.top) < 0.5) this.dismountLadder();
-      else this.body.setVelocityY(this.velocityToCover(l.top - this.feetY, dt));
+      else {
+        // Nothing to step off onto up here -- hold at the top instead.
+        this.placeFeet(l.centerX, l.top);
+        this.body.setVelocityY(0);
+      }
     }
   }
 
@@ -332,7 +382,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.isMoving = dir !== 0;
       // Physics has already stepped by the time this runs, so the feet are
       // where this frame left them -- which is what the end checks read.
-      this.updateOnLadder(dir, dt);
+      this.updateOnLadder(dir);
 
       this.updateInvulnerability(dt);
       if (!this.oneShotAnim) this.play(this.isMoving ? 'player-move' : 'player-idle', true);
