@@ -28,6 +28,11 @@ import { hexColor } from './colors.js';
 // 2s, see assets.js's PLAYER_ANIM_FRAMES/BootScene's FRAME_RATE) so the
 // level doesn't change mid-celebration.
 const LEVEL_CLEAR_SEC = 2;
+
+// How long leftover shots/power-ups take to fade away once a level is
+// cleared (see fadeOutLeftovers). Must stay under LEVEL_CLEAR_SEC so the
+// fade finishes before the next level loads.
+const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
 
 // One ball bounce, resolved from whichever set of contact flags the
@@ -241,6 +246,11 @@ export class GameScene extends Phaser.Scene {
   // removing them from the group -- shared by the editor entry/exit
   // paths here and by LevelManager's own level (re)load.
   clearEntities() {
+    // A level-clear fade (see fadeOutLeftovers) normally finishes well
+    // before this runs, but quitting or restarting mid-fade would leave
+    // a tween animating an object that no longer exists -- so drop any
+    // tween still targeting these before destroying them.
+    this.tweens.killTweensOf([...this.projectiles.getChildren(), ...this.powerups.getChildren()]);
     this.obstacles.clear(true, true);
     this.balls.clear(true, true);
     this.projectiles.clear(true, true);
@@ -438,8 +448,28 @@ export class GameScene extends Phaser.Scene {
     // player input, so without this it would keep sliding at whatever
     // speed it happened to be moving at when the last ball popped.
     this.player.playLevelClearAnim();
+    this.fadeOutLeftovers();
     this.state = GAME_STATES.LEVEL_CLEAR;
     this.stateTimer = LEVEL_CLEAR_SEC;
+  }
+
+  // Anything still lying around when the level ends -- a shot mid-flight,
+  // uncollected power-ups -- fades away over LEFTOVER_FADE_SEC instead of
+  // blinking out of existence the instant the level does. Their bodies go
+  // first, so a power-up can't still be collected (or a beam still pop
+  // something) while it's visibly on its way out. The fade is deliberately
+  // shorter than LEVEL_CLEAR_SEC so it always finishes before the next
+  // level loads and clearEntities() takes the objects away underneath it.
+  fadeOutLeftovers() {
+    for (const go of [...this.projectiles.getChildren(), ...this.powerups.getChildren()]) {
+      if (go.body) go.body.enable = false;
+      this.tweens.add({
+        targets: go,
+        alpha: 0,
+        duration: LEFTOVER_FADE_SEC * 1000,
+        onComplete: () => go.destroy(),
+      });
+    }
   }
 
   finishRun(outcome) {
