@@ -74,7 +74,8 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
-| Move | Arrow Left/Right or A/D | On-screen left/right buttons |
+| Move | Arrow Left/Right or A/D | Joystick left/right |
+| Climb a ladder | Arrow Up/Down or W/S | Joystick up/down |
 | Shoot | Space, Arrow Up, or W | On-screen shoot button |
 | Pause | Esc or P | On-screen pause button |
 | Fullscreen | Button in menu/pause screen | Same |
@@ -89,6 +90,14 @@ holding it down does nothing (see `GameScene.updatePlaying`'s
 weapon's `maxActiveShots` (see `tryFire`), which is what `rapid_shot`
 raises -- it changes how many shots may be in the air at once, never how
 the trigger reads.
+
+**Up is both the shoot key and the climb key.** A press of it means climb
+whenever there is a ladder to spend it on -- standing at the foot of one,
+or already holding one -- and means shoot otherwise, so away from ladders
+nothing about shooting has changed. Space and the touch button mean
+nothing but "shoot", which is what keeps shooting available with both
+hands on a ladder; they carry their own separate press-tracking for
+exactly that reason (see `GameScene.updatePlaying`).
 
 ## Weapons
 
@@ -324,6 +333,18 @@ seam between the canvas and the page behind it.
   ground, so the bottom row rests on the floor and a stack of them is a
   staircase the player can climb. The interior is a whole number of rows
   (see "Display size"), so the top row is flush against the ceiling too.
+- **Ladders** (48x96, three by six blocks) are climbable scenery rather
+  than obstacles: nothing collides with one, so balls and shots pass
+  straight through, and so does the player -- which is what lets a ladder
+  carry them up through the platform it ends against. Press up at the foot
+  of one (or down from its top, or from any platform it runs past) to take
+  hold; up and down then climb it, left and right do nothing, and shooting
+  still works with Space. The player stays on until an end: at the bottom
+  they step off onto whatever is under it, at the top onto whatever is up
+  there -- and if there is nothing to stand on at the top they simply stop
+  and keep holding rather than being dropped the whole way back down.
+  Ladders stack, so a taller run is several of them end to end and the
+  seams are invisible to the climb.
 - The player walks up a ledge one obstacle block (`PLAYER_STEP_UP_PX`,
   16px) high without jumping -- it cannot jump at all -- so a run of
   stacked blocks is a staircase. Anything taller, or without room to
@@ -428,6 +449,10 @@ assets/              Every graphic and sound in the game, as real files --
                       victory, dead) + shield.webp, the looping shield
                       effect -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
+  ladders/           <ladder texture>.webp, the whole element at its
+                      authored size (48x96) rather than a repeating tile,
+                      but drawn to be seamless top-to-bottom so stacked
+                      ladders keep their rung spacing across the join
   powerups/          <powerup type>.webp
   backgrounds/       <name>.webp, one per distinct levels/*.json
                       `background` field -- see "Swapping graphics" below
@@ -461,7 +486,10 @@ js/
                       level file to its texture/cache key and file path --
                       the one place every loader/consumer reads from, so
                       they can't disagree
-  elements.js        BALL_ELEMENTS/OBSTACLE_TYPES/POWERUP_TYPES -- empty
+  Ladder.js          Climbable scenery: a rectangle and a picture, with no
+                      physics body at all -- see Player.js for the climb
+  elements.js        BALL_ELEMENTS/OBSTACLE_TYPES/LADDER_TYPES/
+                      POWERUP_TYPES -- empty
                       until ElementsScene populates them from elements/
                       *.json (see registerElement); also POWERUP_BEHAVIORS,
                       the small set of generic (game, params) => void
@@ -547,7 +575,7 @@ js/
 
 ### Adding elements
 
-A ball size/shape, obstacle type, or power-up is a JSON file under
+A ball size/shape, obstacle type, ladder, or power-up is a JSON file under
 `elements/`, freely named (`round-ball-1.json`, `powerup-stoptime-5s
 .json`, ...) -- `js/elements.js`'s `registerElement()` reads its
 `category` field to know which registry to put it in. To add one: drop
@@ -589,6 +617,12 @@ false` shapes this is instead a spin spritesheet, see below.
 `hitPoints: null` means indestructible (infinite hit points, like
 `obstacle-platform.json`). `tileTexture` names an
 `assets/obstacles/<name>.webp` file (8x8, see "Swapping graphics").
+
+A `"category": "ladder"` element instead names a `texture` and its own
+`width`/`height` (whole obstacle blocks -- the editor snaps to them and
+`Player.js` measures the climb against them), backed by an
+`assets/ladders/<texture>.webp` image. It gets an editor brush of its own
+automatically, same as a ball size does.
 
 **Power-up** (`category: "powerup"`) -- one file per power-up. Unlike
 balls/obstacles, a power-up needs actual *behavior* (what happens when
@@ -639,9 +673,14 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "background": "default",
   "weapon": "harpoon",
   "obstacles": [{ "type": "crate", "x": 368, "y": 288, "w": 16, "h": 16, "powerup": "shield" }],
+  "ladders": [{ "type": "ladder", "x": 368, "y": 304 }],
   "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
+`ladders` is optional and only written when there is one -- every level
+that predates ladders simply has no such key. A ladder entry is a type and
+a top-left corner; its size comes from the element (see "Adding elements"),
+so a taller run is several entries stacked rather than a height field.
 An obstacle's `x`/`y`/`w`/`h` are on the 16x16 grid, and so is a ball,
 though a ball's `x`/`y` is its CENTRE rather than a corner -- the grid cell
 is its bounding box's top-left, so a ball sits on the grid when `x - radius`

@@ -1,10 +1,11 @@
 import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
-import { OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
+import { OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
 import { LEVELS } from './LevelManager.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
+import { Ladder } from './Ladder.js';
 import * as storage from './storage.js';
 
 const BRUSHES = [
@@ -53,6 +54,13 @@ function labelled(text, control) {
 // same registry the debug spawn panel uses.
 function ballBrushes() {
   return BALL_ELEMENTS.map((el) => ({ id: `ball-${el.shape}-${el.size}`, label: `${el.shape[0].toUpperCase()}${el.size}` }));
+}
+
+// Same idea for ladders: a new elements/<ladder>.json is a new brush, no
+// change here. Unlike every other brush a ladder is placed whole rather
+// than cell by cell -- it is a fixed-size element, not a tiling block.
+function ladderBrushes() {
+  return LADDER_TYPE_KEYS.map((type) => ({ id: `ladder-${type}`, label: LADDER_TYPES[type].label }));
 }
 
 // Every background name any loaded level actually uses, plus
@@ -129,6 +137,7 @@ export class Editor {
     this.brush = 'platform';
     this.blocks = new Map(); // "gx,gy" -> Obstacle instance
     this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
+    this.ladders = new Map(); // "gx,gy" (top-left cell) -> { type, x, y, sprite }
     this.dirX = 1; // next-placed ball's horizontal direction: 1 = right, -1 = left
     this.dirY = -1; // next-placed ball's vertical direction (hex only): -1 = up, 1 = down
     this.selectedPowerup = null; // next-placed crate/ball's guaranteed powerup drop, if any
@@ -154,7 +163,7 @@ export class Editor {
     const brushRow = document.createElement('div');
     brushRow.className = 'debug-btn-row';
     this.brushButtons = {};
-    for (const brush of [...BRUSHES.slice(0, 2), ...ballBrushes(), BRUSHES[2]]) {
+    for (const brush of [...BRUSHES.slice(0, 2), ...ladderBrushes(), ...ballBrushes(), BRUSHES[2]]) {
       const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.id);
       brushRow.appendChild(btn);
       this.brushButtons[brush.id] = btn;
@@ -327,6 +336,12 @@ export class Editor {
         }
       }
     }
+    for (const l of def.ladders || []) {
+      if (!LADDER_TYPE_KEYS.includes(l.type)) continue;
+      if (![l.x, l.y].every(Number.isFinite)) continue;
+      const snapped = snapObstacleOrigin(l.x, l.y);
+      this.setLadder(snapped.x, snapped.y, l.type);
+    }
     for (const b of def.balls || []) {
       if (!BALL_ELEMENTS.some((el) => el.shape === b.shape) || !Number.isFinite(b.size) || !Number.isFinite(b.x) || !Number.isFinite(b.y)) continue;
       // b.x/b.y are the ball's CENTER (the coordinate real gameplay spawns
@@ -348,6 +363,8 @@ export class Editor {
     this.blocks.clear();
     for (const ball of this.balls.values()) ball.sprite.destroy();
     this.balls.clear();
+    for (const ladder of this.ladders.values()) ladder.sprite.destroy();
+    this.ladders.clear();
   }
 
   keyFor(x, y) {
@@ -376,6 +393,33 @@ export class Editor {
     this.setBlock(x, y, type, this.selectedPowerup);
   }
 
+  // A ladder is placed whole, keyed by its top-left cell, and clamped so
+  // the WHOLE element stays inside the playfield -- the grid snap only
+  // guarantees that for the one cell under the cursor, and a ladder is six
+  // of them tall. It is deliberately allowed to overlap obstacles: a
+  // ladder running past (and through) a platform is the point of it.
+  setLadder(x, y, type) {
+    const { width, height } = LADDER_TYPES[type];
+    const lx = Math.min(x, VIRTUAL_W - BORDER_THICKNESS - width);
+    const ly = Math.min(Math.max(y, BORDER_THICKNESS), GROUND_Y - height);
+    const key = this.keyFor(lx, ly);
+    const existing = this.ladders.get(key);
+    if (existing) existing.sprite.destroy();
+    const sprite = new Ladder(this.scene, type, lx, ly);
+    this.scene.ladders.add(sprite);
+    this.ladders.set(key, { type, x: lx, y: ly, sprite });
+  }
+
+  // Which ladder covers a grid cell, if any -- a ladder is 3x6 cells, so
+  // erasing has to find it from any cell it spans, not just its corner.
+  ladderKeyAt(x, y) {
+    for (const [key, l] of this.ladders) {
+      const { width, height } = LADDER_TYPES[l.type];
+      if (x >= l.x && x < l.x + width && y >= l.y && y < l.y + height) return key;
+    }
+    return null;
+  }
+
   eraseAt(x, y) {
     const key = this.keyFor(x, y);
     const block = this.blocks.get(key);
@@ -388,6 +432,11 @@ export class Editor {
     if (ball) {
       ball.sprite.destroy();
       this.balls.delete(key);
+    }
+    const ladderKey = this.ladderKeyAt(x, y);
+    if (ladderKey) {
+      this.ladders.get(ladderKey).sprite.destroy();
+      this.ladders.delete(ladderKey);
     }
   }
 
@@ -455,13 +504,18 @@ export class Editor {
     }
 
     const isBallBrush = this.brush.startsWith('ball-');
-    if (isBallBrush && !isDown) return;
+    const isLadderBrush = this.brush.startsWith('ladder-');
+    // Whole-element brushes place one per discrete click; only the tiling
+    // block brushes paint continuously while the pointer is dragged.
+    if ((isBallBrush || isLadderBrush) && !isDown) return;
 
     if (this.brush === 'erase') {
       this.eraseAt(snapped.x, snapped.y);
     } else if (isBallBrush) {
       const [, shape, sizeStr] = this.brush.split('-');
       this.placeBall(x, y, shape, parseInt(sizeStr, 10));
+    } else if (isLadderBrush) {
+      this.setLadder(snapped.x, snapped.y, this.brush.slice('ladder-'.length));
     } else {
       this.placeBlock(snapped.x, snapped.y, this.brush);
     }
@@ -486,6 +540,13 @@ export class Editor {
       const cx = this.hoverCell.x + radius;
       const cy = this.hoverCell.y + radius;
       this.cursorGraphics.strokeCircle(cx, cy, radius);
+    } else if (this.brush.startsWith('ladder-')) {
+      const { width, height } = LADDER_TYPES[this.brush.slice('ladder-'.length)];
+      this.cursorGraphics.strokeRect(
+        Math.min(this.hoverCell.x, VIRTUAL_W - BORDER_THICKNESS - width),
+        Math.min(Math.max(this.hoverCell.y, BORDER_THICKNESS), GROUND_Y - height),
+        width, height,
+      );
     }
     if (this.statusEl) {
       // A transient message (e.g. an import error) takes over the status
@@ -495,7 +556,7 @@ export class Editor {
         this.statusEl.textContent = this.statusMessage;
       } else {
         this.statusMessage = null;
-        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.size}`;
+        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.size}  LADDERS ${this.ladders.size}`;
       }
     }
   }
@@ -518,7 +579,13 @@ export class Editor {
       return entry;
     });
     const timeLimitSec = Math.max(10, Math.min(300, parseInt(this.timeInput.value, 10) || 60));
-    return { id: 'custom', name: 'Custom Level', timeLimitSec, background: this.background, weapon: this.weapon, obstacles, balls };
+    const def = { id: 'custom', name: 'Custom Level', timeLimitSec, background: this.background, weapon: this.weapon, obstacles, balls };
+    // Only written when there is something to write: `ladders` is an
+    // optional key (see LevelManager), and emitting an empty array would
+    // rewrite every level that predates ladders for no reason.
+    const ladders = [...this.ladders.values()].map((l) => ({ type: l.type, x: l.x, y: l.y }));
+    if (ladders.length) def.ladders = ladders;
+    return def;
   }
 
   save() {

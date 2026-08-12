@@ -23,6 +23,16 @@ export const OBSTACLE_TYPE_KEYS = [];
 export const POWERUP_TYPES = {}; // type -> {label, color, durationMs, instant, pickupSound, apply(game), revert(game)}
 export const POWERUP_TYPE_KEYS = [];
 
+// Ladders are climbable scenery, not obstacles: nothing collides with one
+// (balls and shots pass straight through, and so does the player, which is
+// what lets a ladder carry the player through a platform it ends against
+// -- see Player.js). Its whole entry is therefore just a picture and the
+// size of that picture. width/height are what the editor snaps and what
+// Player.js measures the climb against, so they must stay whole obstacle
+// blocks.
+export const LADDER_TYPES = {}; // type -> {label, width, height, texture}
+export const LADDER_TYPE_KEYS = [];
+
 export function getBallElement(shape, size) {
   return BALL_ELEMENTS.find((el) => el.shape === shape && el.size === size);
 }
@@ -89,6 +99,14 @@ export function registerElement(el, harpoon) {
       tileTexture: el.tileTexture,
     };
     OBSTACLE_TYPE_KEYS.push(el.type);
+  } else if (el.category === 'ladder') {
+    LADDER_TYPES[el.type] = {
+      label: el.label,
+      width: el.width,
+      height: el.height,
+      texture: el.texture,
+    };
+    LADDER_TYPE_KEYS.push(el.type);
   } else if (el.category === 'powerup') {
     const behavior = POWERUP_BEHAVIORS[el.kind];
     const params = el.params || {};

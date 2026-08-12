@@ -1,5 +1,6 @@
 import { OBSTACLE_BLOCK_SIZE } from './constants.js';
 import { Ball } from './Ball.js';
+import { Ladder } from './Ladder.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 
 // Populated by BootScene.populateLevels() from levels/*.json (see
@@ -51,6 +52,12 @@ export function loadLevel(scene, idxOrDef) {
     }
   }
   refreshObstacleSeams(scene.obstacles);
+
+  // Optional, and defaulted here rather than required in the data: every
+  // level written before ladders existed simply has no `ladders` key.
+  for (const l of def.ladders || []) {
+    scene.ladders.add(new Ladder(scene, l.type, l.x, l.y));
+  }
 
   for (const b of def.balls) {
     const ball = new Ball(scene, b.shape, b.size, b.x, b.y, b.vx, b.vy, b.powerup || null);

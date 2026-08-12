@@ -124,6 +124,9 @@ export class GameScene extends Phaser.Scene {
     // Tracks last frame's shoot input so a held key only ever fires once
     // per press (see updatePlaying).
     this.wasShooting = false;
+    // Same, for the two climb controls -- see updatePlaying.
+    this.wasUp = false;
+    this.wasDown = false;
 
     this.cameras.main.setBackgroundColor(COLORS.bgTop);
     this.drawBackground();
@@ -149,6 +152,10 @@ export class GameScene extends Phaser.Scene {
     // Plain Groups are still valid collider/overlap targets in Arcade
     // Physics -- only bodies matter, not which Group class holds them.
     this.balls = this.add.group();
+    // Ladders collide with nothing at all (see Ladder.js) -- this group
+    // exists so they are cleared with everything else on a level change,
+    // and so Player.js has somewhere to look them up.
+    this.ladders = this.add.group();
     this.projectiles = this.add.group();
     this.powerups = this.add.group();
 
@@ -169,8 +176,10 @@ export class GameScene extends Phaser.Scene {
     // obstacle it can step onto (see Player.canStepOnto) is skipped rather
     // than collided with, and Player.followGround lifts the feet onto it.
     // Anything taller, or without headroom above it, still blocks.
+    // A climber passes through obstacles outright, which is what lets a
+    // ladder carry the player up through the platform it ends against.
     this.physics.add.collider(this.player, this.obstacles, null,
-      (playerGO, obstacleGO) => !playerGO.canStepOnto(obstacleGO.body), this);
+      (playerGO, obstacleGO) => !playerGO.ladder && !playerGO.canStepOnto(obstacleGO.body), this);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
     this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);
@@ -179,7 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.powerups, this.obstacles, this.onPowerupHitObstacle, null, this);
 
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys({ w: 'W', a: 'A', d: 'D', space: 'SPACE', p: 'P', esc: 'ESC' });
+    this.keys = this.input.keyboard.addKeys({ w: 'W', a: 'A', d: 'D', s: 'S', space: 'SPACE', p: 'P', esc: 'ESC' });
     // Event-based rather than a per-frame JustDown() poll, so the toggle
     // reacts the instant Phaser's input manager processes the keydown --
     // not gated behind this scene's own render-frame cadence.
@@ -290,6 +299,7 @@ export class GameScene extends Phaser.Scene {
     // tween still targeting these before destroying them.
     this.tweens.killTweensOf([...this.projectiles.getChildren(), ...this.powerups.getChildren()]);
     this.obstacles.clear(true, true);
+    this.ladders.clear(true, true);
     this.balls.clear(true, true);
     this.projectiles.clear(true, true);
     this.powerups.clear(true, true);
@@ -763,11 +773,18 @@ export class GameScene extends Phaser.Scene {
     this.worldMap.update(dt);
   }
 
+  // `up` is both the climb control and (as it always has been) the shoot
+  // key -- which of the two a press means is decided in updatePlaying,
+  // once Player.update has said whether it had a ladder to spend it on.
+  // `shoot` here is therefore only the keys that mean nothing else, so
+  // that shooting still works with both hands on the ladder.
   readInput() {
     return {
       left: this.cursors.left.isDown || this.keys.a.isDown || touchInput.left,
       right: this.cursors.right.isDown || this.keys.d.isDown || touchInput.right,
-      shoot: this.cursors.up.isDown || this.keys.w.isDown || this.keys.space.isDown || touchInput.shoot,
+      up: this.cursors.up.isDown || this.keys.w.isDown || touchInput.up,
+      down: this.cursors.down.isDown || this.keys.s.isDown || touchInput.down,
+      shoot: this.keys.space.isDown || touchInput.shoot,
     };
   }
 
@@ -801,6 +818,13 @@ export class GameScene extends Phaser.Scene {
     if (this.isPanicMode) this.updatePanicSpawner();
 
     const inputState = this.readInput();
+    // Getting ON a ladder is a press, never a hold: up is also the shoot
+    // key, so without this the player would be grabbed by every ladder
+    // they shot past.
+    inputState.upPressed = inputState.up && !this.wasUp;
+    inputState.downPressed = inputState.down && !this.wasDown;
+    this.wasUp = inputState.up;
+    this.wasDown = inputState.down;
     this.player.update(dt, inputState);
 
     // One shot per press, for every weapon and power-up alike: the input
@@ -808,7 +832,15 @@ export class GameScene extends Phaser.Scene {
     // holding the key/button down does nothing. What rapid_shot changes is
     // only how many shots may be in the air at once (weaponState
     // .maxActiveShots, see tryFire) -- never how the trigger itself reads.
-    if (inputState.shoot && !this.wasShooting) this.tryFire();
+    //
+    // The two ways to fire keep SEPARATE edges, because up is also the
+    // climb key. Up fires on a fresh press the player had no ladder to
+    // spend it on (Player.update has already decided that by the time this
+    // runs) -- which is also why it can't just be OR-ed into one trigger:
+    // sharing an edge with space would swallow a space press made while up
+    // was still held, i.e. every shot fired from a ladder.
+    const upFired = inputState.upPressed && !this.player.usedVerticalInput;
+    if (upFired || (inputState.shoot && !this.wasShooting)) this.tryFire();
     this.wasShooting = inputState.shoot;
 
     // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
