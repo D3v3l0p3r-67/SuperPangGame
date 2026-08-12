@@ -165,7 +165,12 @@ export class GameScene extends Phaser.Scene {
     // down (removed from this.obstacles, see onProjectileHitObstacle) does
     // that space open up. No callback needed, Arcade's own separation is
     // the entire effect.
-    this.physics.add.collider(this.player, this.obstacles);
+    // The process callback is what lets the player walk UP a low ledge: an
+    // obstacle it can step onto (see Player.canStepOnto) is skipped rather
+    // than collided with, and Player.followGround lifts the feet onto it.
+    // Anything taller, or without headroom above it, still blocks.
+    this.physics.add.collider(this.player, this.obstacles, null,
+      (playerGO, obstacleGO) => !playerGO.canStepOnto(obstacleGO.body), this);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
     this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);

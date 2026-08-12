@@ -1,4 +1,4 @@
-import { PLAYER_CONFIG } from './config.js';
+import { PLAYER_CONFIG, PLAYER_STEP_UP_PX } from './config.js';
 import { VIRTUAL_W, GROUND_Y } from './constants.js';
 import { PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES, PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_ANIM_KEY } from './assets.js';
 
@@ -9,6 +9,14 @@ import { PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES, PLAYER_SHIELD_TEXTURE_KEY, PLAY
 // whichever frame is currently showing, so every animation only needs to
 // be authored facing LEFT (see assets.js/BootScene's player animations);
 // facing right is the mirrored (flipped) case.
+// The feet settle within a fraction of a pixel of the surface rather than
+// exactly on it (followGround moves through velocity, and Arcade's
+// integration lands close, not exact). Comparing step heights without a
+// tolerance therefore fails by a hair -- a 16px tread reads as 16.4px and
+// is rejected as a wall. One pixel is far below the step height and well
+// above the residue.
+const STEP_EPSILON = 1;
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene) {
     const x = VIRTUAL_W / 2;
@@ -32,6 +40,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.facing = 1;
     this.isMoving = false;
+    // How fast the player drops when it walks off a ledge. Climbing is
+    // instant (a step is only PLAYER_STEP_UP_PX tall, and gliding up it
+    // would leave the player visibly inside the block for a few frames),
+    // but a drop can be several steps' worth, and teleporting down that
+    // far reads as a glitch.
+    this.dropSpeed = 460;
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
@@ -65,6 +79,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const x = VIRTUAL_W / 2;
     const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
     this.setPosition(x, y);
+    this.body.reset(x, y);
     this.body.setVelocity(0, 0);
     this.speedMultiplier = 1;
     this.shielded = false;
@@ -116,6 +131,84 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.play('player-levelclear', true);
   }
 
+  // The player's feet: the bottom of the hitbox, which is flush with the
+  // bottom of the sprite (see the constructor's setOffset).
+  get feetY() {
+    return this.body.bottom;
+  }
+
+  // Teleports the feet to `y` (spawn/reset only). Everything during play
+  // moves through velocity instead -- see followGround.
+  setFeet(y) {
+    this.body.reset(this.x, y - PLAYER_CONFIG.spriteHeight / 2);
+  }
+
+  // Would the player fit standing on a surface at `top`? This is what
+  // separates a STEP from a WALL. Without it, a wall built of stacked
+  // blocks would be a ladder: each block's top is one block above the one
+  // below, so the player would climb it a block at a time. Requiring room
+  // for the whole body above the surface means stairs work and walls don't.
+  canStandOn(top) {
+    const left = this.body.x;
+    const right = this.body.right;
+    const headY = top - this.body.height;
+    for (const o of this.scene.obstacles.getChildren()) {
+      const ob = o.body;
+      if (ob.right <= left || ob.x >= right) continue;
+      if (ob.bottom <= headY || ob.y >= top) continue;
+      return false;
+    }
+    return true;
+  }
+
+  // True when `obstacleBody` is a step this player can walk up rather than
+  // a wall it has to stop at -- at most PLAYER_STEP_UP_PX above the feet,
+  // with room to stand on top. GameScene uses this as the collider's
+  // process callback, so a steppable block simply doesn't block.
+  canStepOnto(obstacleBody) {
+    return obstacleBody.y >= this.feetY - PLAYER_STEP_UP_PX - STEP_EPSILON
+      && obstacleBody.y < this.feetY + STEP_EPSILON
+      && this.canStandOn(obstacleBody.y);
+  }
+
+  // The surface the player should be standing on right now: the highest
+  // one under its feet that it could actually step up onto, or the ground.
+  supportSurface() {
+    const left = this.body.x;
+    const right = this.body.right;
+    let best = GROUND_Y;
+    for (const o of this.scene.obstacles.getChildren()) {
+      const ob = o.body;
+      if (ob.right <= left || ob.x >= right) continue;
+      if (ob.y >= best) continue;                          // lower than what we have
+      if (ob.y < this.feetY - PLAYER_STEP_UP_PX - STEP_EPSILON) continue; // too high to step onto
+      if (!this.canStandOn(ob.y)) continue;                 // no headroom -- it's a wall
+      best = ob.y;
+    }
+    return best;
+  }
+
+  // Keeps the feet on that surface: up instantly (it is one step at most),
+  // down at a fall speed.
+  //
+  // Done by handing Arcade a velocity that covers exactly the distance
+  // wanted this frame, rather than by writing a position. Writing the
+  // sprite's y directly makes Arcade re-sync the body FROM the sprite,
+  // and the sprite's x is a frame behind the body's -- which silently
+  // undid the horizontal movement every frame and left the player unable
+  // to walk at all.
+  followGround(dt) {
+    if (dt <= 0) return;
+    const dy = this.supportSurface() - this.feetY;
+    if (Math.abs(dy) < 0.5) {
+      this.body.setVelocityY(0);
+      return;
+    }
+    // Up: whatever it takes, it is one step. Down: capped, so walking off
+    // a staircase falls rather than teleports.
+    this.body.setVelocityY(dy < 0 ? dy / dt : Math.min(dy / dt, this.dropSpeed));
+  }
+
   update(dt, inputState) {
     let vx = 0;
     if (inputState.left) vx -= 1;
@@ -138,6 +231,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Frames are authored facing left (see the class comment above), so
     // it's the RIGHT-facing case that needs the mirror now.
     this.setFlipX(this.facing > 0);
+
+    // After the horizontal move, not before: which surface is underfoot
+    // depends on where the player has just walked to.
+    this.followGround(dt);
 
     this.shieldEffect.setPosition(this.x, this.y);
     this.shieldEffect.setVisible(this.shielded);

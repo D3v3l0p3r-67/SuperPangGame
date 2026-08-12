@@ -76,6 +76,13 @@ export const WEAPON_TYPES = {
   },
 };
 
+// How high a ledge the player can walk straight up, without jumping (it
+// cannot jump at all). One obstacle block: anything taller is a wall to
+// stop at, a stack of these is a staircase to climb. See Player.js's
+// canStepOnto/supportSurface -- a step also needs room to stand on top,
+// or a wall built of stacked blocks would be a ladder.
+export const PLAYER_STEP_UP_PX = 16;
+
 export const MIN_BALL_SIZE = 1;
 
 export const POWERUP_DROP_CHANCE = 0.14;
