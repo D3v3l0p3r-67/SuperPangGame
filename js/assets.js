@@ -91,6 +91,19 @@ export const PLAYER_SHIELD_TEXTURE_PATH = 'assets/player/shield.webp';
 export const PLAYER_SHIELD_FRAMES = 3;
 export const PLAYER_SHIELD_ANIM_KEY = 'player-shield-loop';
 
+// Impact burst: played once at the point a ball actually touches the
+// player (see GameScene.onPlayerHitBall), the counterpart to the ball-pop
+// effect a shot ball leaves behind. Same two-beat shape and same vertical
+// frame layout as the ball-pop sheets (see BALL_POP_FRAMES above) --
+// PLAYER_HIT_SIZE wide by PLAYER_HIT_SIZE * PLAYER_HIT_FRAMES tall, frame
+// 0 on top -- so swapping it is just replacing the one file, as long as
+// the new art keeps that layout.
+export const PLAYER_HIT_TEXTURE_KEY = 'player-hit';
+export const PLAYER_HIT_TEXTURE_PATH = 'assets/player/hit.webp';
+export const PLAYER_HIT_FRAMES = 2;
+export const PLAYER_HIT_SIZE = 32;
+export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
+
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES) -- tiled
 // via TileSprite across whatever area a block/the border frame covers, so

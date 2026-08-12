@@ -526,6 +526,15 @@ dimensions:
   per frame, drawn centered on the player the whole time the `shield`
   power-up is active (`Player.js`'s `shieldEffect`). Distinct from the
   power-up's own pickup icon (`assets/powerups/shield.webp`, see below).
+- **Player hit burst**: `assets/player/hit.webp` -- a `PLAYER_HIT_FRAMES`
+  -frame (2) spritesheet, `PLAYER_HIT_SIZE` (32) square per frame stacked
+  vertically (frame 0 on top), played once where a ball actually touches
+  the player (`GameScene.onPlayerHitBall` -> `playPlayerHitEffect`). The
+  counterpart to the ball-pop burst below, and authored the same way: one
+  beat for the impact, one for it dissipating. It is centred on the point
+  of the ball's rim facing the player, not on either body's centre, so a
+  big ball bursts at the edge the two actually met at. Swapping it is just
+  replacing the file, as long as the new art keeps that 32x64 layout.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/

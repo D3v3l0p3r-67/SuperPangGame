@@ -23,6 +23,7 @@ import * as storage from './storage.js';
 import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
+  PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -1035,7 +1036,28 @@ export class GameScene extends Phaser.Scene {
   onPlayerHitBall(playerGO, ballGO) {
     if (this.state !== GAME_STATES.PLAYING || !ballGO.active) return;
     if (this.ballsFrozen) return; // time_freeze: frozen balls can't hurt the player
+    this.playPlayerHitEffect(playerGO, ballGO);
     this.hitPlayer();
+  }
+
+  // The impact burst, played where the ball actually touched -- the
+  // counterpart to playBallPopEffect below, which marks the other kind of
+  // collision. The contact point is taken as the point on the ball's rim
+  // facing the player rather than either body's centre: at the frame the
+  // overlap fires, that lands on the surface the two met at, so a big ball
+  // bursts at its edge instead of from somewhere inside itself.
+  playPlayerHitEffect(playerGO, ballGO) {
+    const dx = playerGO.x - ballGO.x;
+    const dy = playerGO.y - ballGO.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const sprite = this.add.sprite(
+      ballGO.x + (dx / dist) * ballGO.radius,
+      ballGO.y + (dy / dist) * ballGO.radius,
+      PLAYER_HIT_TEXTURE_KEY,
+    );
+    sprite.setDepth(7); // above the player (4) and the ball-pop burst (6)
+    sprite.play(PLAYER_HIT_ANIM_KEY);
+    sprite.once('animationcomplete', () => sprite.destroy());
   }
 
   // Running out of time counts as exactly the same hit as a ball touching
