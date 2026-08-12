@@ -16,6 +16,8 @@ import { UI } from './ui.js';
 import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
 import { LevelTransition } from './LevelTransition.js';
+import { WorldMapInterlude } from './WorldMapInterlude.js';
+import { regionForLevel, regionIndexForLevel, crossesRegion } from './regions.js';
 import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
@@ -186,6 +188,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
     this.transition = new LevelTransition(this);
+    this.worldMap = new WorldMapInterlude(this);
     this.debug = new Debug(this);
     this.editor = new Editor(this);
   }
@@ -289,6 +292,7 @@ export class GameScene extends Phaser.Scene {
     // Quitting to the menu mid-transition leaves the overlay up; starting
     // anything new clears it.
     this.transition.stop();
+    this.worldMap.stop();
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = levelIndex;
@@ -425,7 +429,13 @@ export class GameScene extends Phaser.Scene {
     this.player.reset();
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
-    this.backgroundImage.setTexture(backgroundTextureKey(def.background || DEFAULT_BACKGROUND));
+    // A campaign level takes its look and its music from the continent
+    // it is played on (see js/regions.js), not from its own file -- that's
+    // what makes five levels in a row feel like one place. Editor/custom
+    // levels and Panic Mode aren't on the itinerary and keep their own.
+    const region = typeof idxOrDef === 'number' ? regionForLevel(idxOrDef) : null;
+    this.backgroundImage.setTexture(backgroundTextureKey(
+      region?.background || def.background || DEFAULT_BACKGROUND));
     this.effects.reset(this);
     this.levelTimer = 0;
     // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
@@ -442,11 +452,12 @@ export class GameScene extends Phaser.Scene {
     // A key still held from before this level started (e.g. mashed
     // through the level-clear screen) shouldn't read as a fresh press.
     this.wasShooting = true;
-    // Editor/custom levels and the first half of LEVELS play music01, the
-    // rest play music02 -- stored, not started yet: music only actually
-    // starts once the balls do (LEVEL_INTRO -> PLAYING, see update()),
-    // never during the frozen "READY"/"GO!" countdown.
-    this.pendingMusicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
+    // Stored, not started yet: music only actually starts once the balls
+    // do (LEVEL_INTRO -> PLAYING, see update()), never during the frozen
+    // "READY"/"GO!" countdown. A campaign level plays its continent's
+    // track; Panic Mode and editor playtests, being off the itinerary,
+    // keep the two generic ones.
+    this.pendingMusicName = region?.music ?? (this.isPanicMode ? 'music02' : 'music01');
     return def;
   }
 
@@ -472,10 +483,21 @@ export class GameScene extends Phaser.Scene {
       // js/LevelTransition.js). Finishing the run doesn't get one -- there
       // is no next level to reveal, only the victory screen, which is DOM
       // and sits above the canvas the effect is drawn on anyway.
+      const from = this.levelIndex;
+      const to = from + 1;
       this.transition.start(LEVEL_TRANSITION, () => {
-        this.levelIndex += 1;
-        this.loadLevel(this.levelIndex);
-        this.startLevelIntro();
+        this.levelIndex = to;
+        this.loadLevel(to);
+        // Crossing to a new continent: the transition uncovers onto the
+        // world map instead of onto the level, and the level's own intro
+        // waits until the plane has landed and the map has faded.
+        if (crossesRegion(from, to)) {
+          this.audio.stopMusic();
+          this.worldMap.start(regionIndexForLevel(from), regionIndexForLevel(to),
+            () => this.startLevelIntro());
+        } else {
+          this.startLevelIntro();
+        }
       });
     } else {
       this.finishRun('victory');
@@ -551,7 +573,7 @@ export class GameScene extends Phaser.Scene {
     // Once the transition is running it owns the handover -- the state
     // stays LEVEL_CLEAR until it has the screen covered, so without this
     // the advance would be re-triggered on every frame until then.
-    if (this.transition.active) return;
+    if (this.transition.active || this.worldMap.active) return;
     if (this.stateTimer <= 0 && this.levelClearElapsed >= LEVEL_CLEAR_MIN_SEC) this.advanceLevel();
   }
 
@@ -583,6 +605,7 @@ export class GameScene extends Phaser.Scene {
     // cleared into a game over on the timer, say) -- drop the overlay
     // rather than leave the playfield covered under the end screen.
     this.transition.stop();
+    this.worldMap.stop();
     this.audio.stopMusic();
     this.lastOutcome = outcome;
     if (outcome === 'gameover') this.audio.play('gameover');
@@ -722,6 +745,7 @@ export class GameScene extends Phaser.Scene {
     // it can't belong to either case, and it has to paint over everything
     // the frame already drew.
     this.transition.update(dt);
+    this.worldMap.update(dt);
   }
 
   readInput() {

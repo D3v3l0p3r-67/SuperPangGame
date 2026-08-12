@@ -1,0 +1,30 @@
+[
+  {
+    "id": "europe",
+    "name": "EUROPE",
+    "background": "europe",
+    "music": "music_europe",
+    "map": { "x": 228, "y": 45 }
+  },
+  {
+    "id": "africa",
+    "name": "AFRICA",
+    "background": "africa",
+    "music": "music_africa",
+    "map": { "x": 220, "y": 109 }
+  },
+  {
+    "id": "asia",
+    "name": "ASIA",
+    "background": "asia",
+    "music": "music_asia",
+    "map": { "x": 348, "y": 61 }
+  },
+  {
+    "id": "america",
+    "name": "AMERICA",
+    "background": "america",
+    "music": "music_america",
+    "map": { "x": 68, "y": 53 }
+  }
+]

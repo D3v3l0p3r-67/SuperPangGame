@@ -139,6 +139,59 @@ Giving a weapon `ceilingStickSec` is all it takes to make it stick --
 needs no new code, only a `WEAPON_TYPES` entry, its shot cells, and a HUD
 icon.
 
+## Regions
+
+A campaign run travels. Every `LEVELS_PER_REGION` (`js/config.js`, 5)
+levels it arrives on a new continent, and the background -- built around
+that continent's landmark -- and the background music change together, so
+five levels in a row read as one place rather than five unrelated screens.
+
+The itinerary is `levels/regions.json`, read at boot into `js/regions.js`'s
+`REGIONS`, the same kind of registry as `LEVELS` and `BALL_ELEMENTS`. Order
+is the route. Each entry names an `assets/backgrounds/<background>.webp`,
+an `audio.json` music key, and where the region sits on the world map:
+
+| region | landmark | music |
+|---|---|---|
+| Europe | Eiffel Tower | `music_europe` |
+| Africa | pyramids and sphinx | `music_africa` |
+| Asia | pagoda and Mt Fuji | `music_asia` |
+| America | Statue of Liberty | `music_america` |
+
+The four tracks are the same three-voice chiptune as the generic ones but
+each in its own scale and tempo (Europe minor, Asia pentatonic, Africa
+percussion-led, America a blues shuffle), so the change of place is
+audible as well as visible.
+
+Adding a continent is an entry in `regions.json` plus its background and
+its `.ogg` -- no code. `regionIndexForLevel` clamps rather than wraps, so
+levels past the end of the route stay on the last continent instead of
+flying back to the start mid-run.
+
+**With the 10 levels that ship, a run visits two continents (Europe, then
+Africa) and flies once.** The other two are authored and ready; adding
+levels extends the journey into them with no further work.
+
+Panic Mode and editor playtests are not on the itinerary and keep the
+default background and the generic `music02`/`music01`.
+
+### The flight between them
+
+Crossing to a new continent doesn't just cut. The level transition covers
+the screen as usual, but uncovers onto a world map
+(`js/WorldMapInterlude.js`) with the whole route marked on it, and a plane
+flies the leg just earned along a bowed dotted trail that fills in behind
+it. The destination's name is composed from the same loaded font the
+level-intro uses. Once the plane lands the map fades, and only then does
+the new level's own "LEVEL n / READY / SET / GO" begin.
+
+Like the transition it wraps, the interlude is not a game state -- it
+spans the same `LEVEL_CLEAR`-to-`LEVEL_INTRO` handover and is ticked from
+`update()` outside the state switch. Marker positions in `regions.json`
+are in the map image's **own** pixels; the interlude scales them to
+however large it draws the map, so re-authoring `assets/ui/worldmap.webp`
+at another size doesn't invalidate them.
+
 ## Level transitions
 
 Clearing a campaign level doesn't cut straight to the next one: the
@@ -209,6 +262,10 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
+- A campaign run is a journey across continents: every
+  `LEVELS_PER_REGION` (5) levels the background, the landmark in it and
+  the music all change together, and the leg between them is flown on a
+  world map (see "Regions" below).
 - A level-to-level transition effect in campaign runs (fade / wipe / iris
   / shutter, see "Level transitions" below) -- swappable by name.
 - 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
@@ -398,6 +455,10 @@ js/
   LevelTransition.js The LEVEL_TRANSITIONS effect registry plus the
                       overlay that runs one between campaign levels (see
                       "Level transitions")
+  regions.js         The REGIONS registry (populated by ElementsScene from
+                      levels/regions.json) and which region a level is in
+  WorldMapInterlude.js The world map + plane flight played when a campaign
+                      run crosses to a new continent (see "Regions")
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
                       from a loaded A-Z font, then blinking READY/GO!

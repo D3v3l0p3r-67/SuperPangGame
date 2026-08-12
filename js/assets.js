@@ -230,6 +230,20 @@ export function levelFilePath(n) {
 // updatePanicSpawner) -- deliberately loaded under a fixed name rather than
 // through the level_NN probe above, so it never counts as (or displaces) a
 // campaign level.
+// The campaign's route: which continents it visits, in order, and the
+// background/music/map position of each -- see js/regions.js.
+export const REGIONS_KEY = 'regions';
+export const REGIONS_PATH = `${LEVELS_DIR}regions.json`;
+
+// The between-regions interlude's two graphics: the world map it draws the
+// route on, and the plane that flies it. The map is authored at exactly
+// half the playfield so it scales 2x cleanly (see js/WorldMapInterlude.js,
+// which reads the texture's own width to place the route markers).
+export const WORLDMAP_TEXTURE_KEY = 'worldmap';
+export const WORLDMAP_TEXTURE_PATH = 'assets/ui/worldmap.webp';
+export const PLANE_TEXTURE_KEY = 'plane';
+export const PLANE_TEXTURE_PATH = 'assets/ui/plane.webp';
+
 export const PANIC_LEVEL_KEY = 'panic-level';
 export const PANIC_LEVEL_PATH = `${LEVELS_DIR}panic.json`;
 

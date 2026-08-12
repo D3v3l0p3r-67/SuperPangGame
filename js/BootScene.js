@@ -2,6 +2,7 @@ import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } 
 import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
+import { REGIONS } from './regions.js';
 import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
 import { hexColor } from './colors.js';
 import {
@@ -15,6 +16,7 @@ import {
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
   backgroundTextureKey, backgroundTexturePath, DEFAULT_BACKGROUND,
+  WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH, PLANE_TEXTURE_KEY, PLANE_TEXTURE_PATH,
   audioPath,
   HUD_DIGITS_LARGE_KEY, HUD_DIGITS_LARGE_PATH, HUD_DIGITS_LARGE_FRAME,
   HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_FRAME,
@@ -77,6 +79,8 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
     this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
     this.load.spritesheet(PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, { frameWidth: PLAYER_HIT_SIZE, frameHeight: PLAYER_HIT_SIZE });
+    this.load.image(WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH);
+    this.load.image(PLANE_TEXTURE_KEY, PLANE_TEXTURE_PATH);
 
     const tileNames = new Set(OBSTACLE_TYPE_KEYS.map((type) => OBSTACLE_TYPES[type].tileTexture));
     for (const name of tileNames) {
@@ -93,7 +97,11 @@ export class BootScene extends Phaser.Scene {
     // DEFAULT_BACKGROUND is always loaded (the level editor's own starting
     // background, before any level-specific one is chosen), plus every
     // distinct `background` a loaded level actually names.
-    const backgroundNames = new Set([DEFAULT_BACKGROUND, ...LEVELS.map((lvl) => lvl.background).filter(Boolean)]);
+    const backgroundNames = new Set([
+      DEFAULT_BACKGROUND,
+      ...LEVELS.map((lvl) => lvl.background).filter(Boolean),
+      ...REGIONS.map((r) => r.background).filter(Boolean),
+    ]);
     for (const name of backgroundNames) {
       this.load.image(backgroundTextureKey(name), backgroundTexturePath(name));
     }

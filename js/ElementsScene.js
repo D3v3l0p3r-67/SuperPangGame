@@ -1,11 +1,13 @@
 import { WEAPON_TYPES } from './config.js';
 import { registerElement } from './elements.js';
 import { LEVELS, PANIC_LEVEL } from './LevelManager.js';
+import { REGIONS } from './regions.js';
 import { AUDIO_CONFIG } from './audio.js';
 import {
   ELEMENTS_INDEX_PATH, ELEMENTS_INDEX_KEY, elementFileKey, elementFilePath,
   levelFileKey, levelFilePath, MAX_LEVEL_FILES,
   PANIC_LEVEL_KEY, PANIC_LEVEL_PATH,
+  REGIONS_KEY, REGIONS_PATH,
   AUDIO_CONFIG_PATH, AUDIO_CONFIG_KEY,
   LOADING_TEXTURE_KEY, LOADING_TEXTURE_PATH, PERCENT_TEXTURE_KEY, PERCENT_TEXTURE_PATH,
   HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME,
@@ -45,6 +47,11 @@ export class ElementsScene extends Phaser.Scene {
 
     this.load.json(PANIC_LEVEL_KEY, PANIC_LEVEL_PATH);
 
+    // The campaign's route. Read here rather than in BootScene because
+    // BootScene's preload has to already know which region backgrounds and
+    // music tracks exist in order to load them.
+    this.load.json(REGIONS_KEY, REGIONS_PATH);
+
     // Single self-contained config -- unlike elements/index.json (a
     // manifest naming OTHER files still to be loaded), audio.json already
     // holds every sound's full playback config, so it needs no second
@@ -61,6 +68,7 @@ export class ElementsScene extends Phaser.Scene {
     }
 
     Object.assign(PANIC_LEVEL, this.cache.json.get(PANIC_LEVEL_KEY) || {});
+    REGIONS.push(...(this.cache.json.get(REGIONS_KEY) || []));
     Object.assign(AUDIO_CONFIG, this.cache.json.get(AUDIO_CONFIG_KEY) || {});
 
     const elementIds = this.cache.json.get(ELEMENTS_INDEX_KEY) || [];

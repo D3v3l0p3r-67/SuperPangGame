@@ -86,3 +86,9 @@ export const TIME_BONUS_TICK_SEC = 0.07;
 // change the effect; each effect carries its own duration, so there is
 // nothing else to keep in step.
 export const LEVEL_TRANSITION = 'shutter';
+
+// How many campaign levels are played on each continent before the run
+// moves on to the next one (see js/regions.js and the world-map interlude
+// that plays on the change). With the route in levels/regions.json this is
+// what decides how far into a run each new place turns up.
+export const LEVELS_PER_REGION = 5;
