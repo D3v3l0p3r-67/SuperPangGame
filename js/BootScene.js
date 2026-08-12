@@ -8,7 +8,7 @@ import {
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
-  PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH,
+  WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME,
   PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH,
   powerupTextureKey, powerupTexturePath,
   backgroundTextureKey, backgroundTexturePath, DEFAULT_BACKGROUND,
@@ -72,7 +72,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(obstacleTextureKey(name), obstacleTexturePath(name));
     }
 
-    this.load.image(PROJECTILE_TEXTURE_KEY, PROJECTILE_TEXTURE_PATH);
+    this.load.spritesheet(WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME);
     this.load.image(PARTICLE_TEXTURE_KEY, PARTICLE_TEXTURE_PATH);
 
     for (const type of POWERUP_TYPE_KEYS) {
@@ -152,7 +152,10 @@ export class BootScene extends Phaser.Scene {
   // itself when they end (see Player.js's 'animationcomplete' handling).
   buildPlayerAnimations() {
     const LOOPING = new Set(['idle', 'move']);
-    const FRAME_RATE = { idle: 1, move: 8, shot: 14, victory: 1, dead: 1 };
+    // levelclear's rate is what makes its 6 frames (three idle/victory
+    // alternations, see assets.js) last exactly the LEVEL_CLEAR_SEC that
+    // GameScene holds the celebration for -- change one and change both.
+    const FRAME_RATE = { idle: 1, move: 8, shot: 14, victory: 1, dead: 1, levelclear: 3 };
     for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {
       this.anims.create({
         key: `player-${state}`,

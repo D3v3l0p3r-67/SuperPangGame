@@ -111,6 +111,20 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     this.hDir = Math.sign(this.body.velocity.x) || 1;
   }
 
+  // Panic Mode also overrides vertical motion during that same pinned
+  // descent -- gravity off, vy set to a constant rate so every size can
+  // hit its own prescribed time to a shared release height regardless of
+  // sharing one gravityAccel (see GameScene.spawnPanicBall). Called
+  // alongside activateDrift() once release fires, to hand vertical motion
+  // back to whatever "normal" means for this ball: gravity balls just need
+  // gravity switched back on (their current vy carries over smoothly into
+  // it); non-gravity (hex) balls have no gravity to correct their vy later,
+  // so it has to be set back to their fixed vSpeed immediately.
+  resumeNormalFall() {
+    if (this.hasGravity) this.body.setAllowGravity(true);
+    else this.body.setVelocityY(this.vSpeed);
+  }
+
   // Ball landed on a surface below it (ground or an obstacle top). Round
   // balls always leave at exactly bounceVelocity regardless of how fast
   // they were falling; hex balls reflect at their fixed diagonal speed.

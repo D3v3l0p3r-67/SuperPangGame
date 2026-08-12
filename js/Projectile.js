@@ -1,24 +1,81 @@
-import { PROJECTILE_TEXTURE_KEY } from './assets.js';
+import { WEAPON_SHOTS_KEY, WEAPON_SHOTS_FRAME, SHOT_BEAM_WIDTH, weaponShotFrame } from './assets.js';
+import { BORDER_THICKNESS, GROUND_Y } from './constants.js';
 
+// The shot is a BEAM, not a travelling bullet: its foot stays planted on
+// the ground the player fired from and its head climbs upward (at the
+// weapon's shotSpeed, see config.js) until something stops it -- a ball or
+// obstacle it overlaps (GameScene's onProjectileHit* handlers destroy it,
+// or decrement pierce first for wide_harpoon), or the ceiling, which caps
+// its length and ends it in updateBeam below. So it starts already
+// spanning feet-to-muzzle and, at full extension, runs the whole way from
+// the ground to the ceiling.
+//
+// Growing the body rather than moving it is what makes the WHOLE beam
+// lethal along its length instead of only a leading edge -- a ball
+// drifting into the middle of an already-extended beam still gets popped.
+//
+// Rendering is by CROP, never by scaling: the artwork is authored at the
+// exact height a full-extension shot reaches (see assets.js's
+// WEAPON_SHOTS_FRAME) with its head at the top of the cell, so showing the
+// top `length` pixels of that cell puts the head at the climbing edge with
+// the shaft trailing below it, at 1:1 pixel scale the whole way up. Left
+// unscaled, an Arcade body sized in world pixels also stays exactly the
+// size it was set to (a scaled sprite would multiply it again).
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, y, width, speed, pierce) {
-    super(scene, x, y, PROJECTILE_TEXTURE_KEY);
+  constructor(scene, x, headY, width, speed, pierce, weaponType) {
+    super(scene, x, GROUND_Y, WEAPON_SHOTS_KEY, weaponShotFrame(weaponType));
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.body.setAllowGravity(false);
-    this.body.setSize(width, 14);
-    this.setDisplaySize(width, 14);
-    this.body.setVelocityY(-speed);
-    // Both are required: onWorldBounds only controls whether the event
-    // fires, setCollideWorldBounds is what actually makes the body stop
-    // at (and report reaching) the boundary in the first place.
-    this.body.setCollideWorldBounds(true);
-    this.body.onWorldBounds = true;
+    // Top-centre: the sprite is positioned by its head, which is the end
+    // that actually moves, so growth is a position + crop update with no
+    // origin maths per frame.
+    this.setOrigin(0.5, 0);
 
+    this.body.setAllowGravity(false);
+    // The beam is driven entirely by updateBeam(), so Arcade shouldn't be
+    // integrating a velocity for it.
+    this.body.moves = false;
+
+    this.beamX = x;
+    this.beamWidth = Math.max(SHOT_BEAM_WIDTH, Math.round(width));
+    this.growSpeed = speed;
     this.hitsLeft = pierce;
     this.setDepth(6);
+
+    // Already spanning from the ground up to the muzzle at the instant it
+    // is fired, rather than starting as a stub at the muzzle.
+    this.setLength(Math.min(GROUND_Y - headY, this.maxLength));
+  }
+
+  get maxLength() {
+    return GROUND_Y - BORDER_THICKNESS;
+  }
+
+  setLength(length) {
+    this.length = length;
+    const headY = GROUND_Y - length;
+
+    this.setPosition(this.beamX, headY);
+    // Show the top `length` px of the cell: head at the top, shaft below.
+    this.setCrop(0, 0, WEAPON_SHOTS_FRAME.frameWidth, length);
+
+    // Hitbox tracks the drawn beam, not the cell's empty side margins.
+    this.body.setSize(this.beamWidth, length, false);
+    this.body.setOffset((WEAPON_SHOTS_FRAME.frameWidth - this.beamWidth) / 2, 0);
+  }
+
+  // Called once per frame from GameScene.updatePlaying. Returns false once
+  // the head has reached the ceiling and the beam should be destroyed.
+  updateBeam(dt) {
+    const next = this.length + this.growSpeed * dt;
+    if (next >= this.maxLength) {
+      this.setLength(this.maxLength);
+      return false;
+    }
+    this.setLength(next);
+    return true;
   }
 
   registerHit() {

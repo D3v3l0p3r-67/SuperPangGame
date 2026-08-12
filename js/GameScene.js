@@ -23,7 +23,11 @@ import {
 } from './assets.js';
 import { hexColor } from './colors.js';
 
-const LEVEL_CLEAR_SEC = 1.6;
+// How long the cleared-level celebration is held before advancing. Must
+// stay in step with the player's levelclear animation (6 frames at 3fps =
+// 2s, see assets.js's PLAYER_ANIM_FRAMES/BootScene's FRAME_RATE) so the
+// level doesn't change mid-celebration.
+const LEVEL_CLEAR_SEC = 2;
 const HIT_FREEZE_SEC = 2;
 
 // One ball bounce, resolved from whichever set of contact flags the
@@ -87,6 +91,9 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = false;
     this.customLevelDef = null;
     this.isPanicMode = false;
+    this.pausedFromEditor = false;
+    this.panicWaveIndex = 0;
+    this.panicPopCount = 0;
     this.weaponType = 'harpoon';
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
     // Tracks last frame's shoot input so a held key only fires once per
@@ -155,6 +162,7 @@ export class GameScene extends Phaser.Scene {
 
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
+    this.ui.setupMobileFullscreen();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
     this.debug = new Debug(this);
@@ -257,6 +265,12 @@ export class GameScene extends Phaser.Scene {
     this.isCustomLevel = customDef !== null;
     this.customLevelDef = customDef;
     this.isPanicMode = panicMode;
+    // Only a genuinely fresh run starts back at wave 1 -- a same-run
+    // restart after losing a life (restartLevel(), which calls loadLevel()
+    // directly rather than through here) deliberately leaves this alone,
+    // so the run picks back up on whatever wave it was on (see loadLevel's
+    // own panicPopCount/panicSpawnAt reset for what DOES restart on a hit).
+    this.panicWaveIndex = 0;
     this.effects.reset(this);
     this.audio.play('superpang');
     this.loadLevel(panicMode ? PANIC_LEVEL : (customDef ?? levelIndex));
@@ -292,9 +306,43 @@ export class GameScene extends Phaser.Scene {
   enterEditor() {
     this.audio.stopMusic();
     this.clearEntities();
+    // Editing isn't a run of anything -- clear both run-mode flags so a
+    // playtest that came before (which set isCustomLevel, see beginRun)
+    // can't leave the pause menu offering run-only actions like RESTART
+    // LEVEL while what's actually on screen is the editor.
+    this.isCustomLevel = false;
+    this.isPanicMode = false;
+    this.pausedFromEditor = false;
     this.state = GAME_STATES.EDITOR;
     this.physics.pause();
     this.editor.enable();
+  }
+
+  // Escape while editing opens the same pause menu gameplay uses (it did
+  // nothing at all before), with a LEVEL EDITOR entry back to editing --
+  // see ui.js's setScreen. The editor's panel is hidden while the menu is
+  // up so the two aren't stacked on screen at once; disable() only hides
+  // UI, so the level being edited stays in the scene untouched, unsaved
+  // edits included (see Editor.reshowPanel).
+  pauseFromEditor() {
+    this.editor.disable();
+    this.pausedFromEditor = true;
+    this.pause();
+  }
+
+  // Back to editing from the pause menu, by either route: resuming an
+  // editor session Escape interrupted (the level is still in the scene, so
+  // just show the panel again), or leaving a playtest of an editor level
+  // (which replaced the scene's contents, so the editor has to reload the
+  // level it saved to storage on Play -- what enterEditor does).
+  returnToEditor() {
+    if (this.pausedFromEditor) {
+      this.pausedFromEditor = false;
+      this.editor.reshowPanel();
+      this.state = GAME_STATES.EDITOR;
+      return; // physics stays paused, exactly as enterEditor leaves it
+    }
+    this.enterEditor();
   }
 
   exitEditor() {
@@ -331,12 +379,12 @@ export class GameScene extends Phaser.Scene {
     this.levelTimer = 0;
     // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
     // panicSpawnAt is the levelTimer value at which the next ceiling-drop
-    // ball is due; panicWaveIndex/panicPopCount track wave progress by
-    // balls popped, not elapsed time. All re-derived from scratch on every
-    // load, including a post-hit restart, so a life lost always sends the
-    // run back to the easy opening wave rather than resuming mid-ramp.
+    // ball is due; panicPopCount tracks progress within the CURRENT wave.
+    // Both reset on every load, including a post-hit restart, so a life
+    // lost restarts the wave you were actually on ("that level's balls
+    // start falling again") rather than dumping progress. panicWaveIndex
+    // itself is deliberately NOT touched here -- see beginRun().
     this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
-    this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
@@ -385,6 +433,11 @@ export class GameScene extends Phaser.Scene {
     if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
     this.audio.stopMusic();
     this.audio.play('levelcomplete');
+    // Celebrate standing still rather than coasting onward: physics keeps
+    // running through LEVEL_CLEAR while update() no longer feeds the
+    // player input, so without this it would keep sliding at whatever
+    // speed it happened to be moving at when the last ball popped.
+    this.player.playLevelClearAnim();
     this.state = GAME_STATES.LEVEL_CLEAR;
     this.stateTimer = LEVEL_CLEAR_SEC;
   }
@@ -406,6 +459,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   goToMenu() {
+    // Quitting straight from an Escape-in-the-editor pause has to finish
+    // that exit properly -- pauseFromEditor only hid the panel, so the
+    // level being edited is still sitting in the scene and would otherwise
+    // stay visible behind the main menu.
+    if (this.pausedFromEditor) {
+      this.pausedFromEditor = false;
+      this.clearEntities();
+    }
     this.audio.stopMusic();
     this.state = GAME_STATES.MENU;
   }
@@ -431,11 +492,19 @@ export class GameScene extends Phaser.Scene {
 
   pause() {
     this.physics.pause();
+    this.audio.pauseMusic();
     this.state = GAME_STATES.PAUSED;
   }
 
   resumeFromPause() {
+    // Resuming a pause that came from the editor means going back to
+    // editing, not starting to play whatever level was loaded before.
+    if (this.pausedFromEditor) {
+      this.returnToEditor();
+      return;
+    }
     this.physics.resume();
+    this.audio.resumeMusic();
     this.state = GAME_STATES.PLAYING;
   }
 
@@ -449,7 +518,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   handlePauseKey() {
-    if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) this.togglePause();
+    if (this.state === GAME_STATES.EDITOR) this.pauseFromEditor();
+    else if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) this.togglePause();
   }
 
   update(time, delta) {
@@ -560,15 +630,26 @@ export class GameScene extends Phaser.Scene {
         ball.body.setCollideWorldBounds(true);
         ball.emergeY = undefined;
       }
-      // Pinned to vx=0 so it falls straight down first; the instant it's
-      // dropped clear (a size-scaled distance -- see spawnPanicBall), give
-      // it normal drift, same as any other ball from then on.
+      // Pinned to vx=0 and a controlled constant descent (see
+      // spawnPanicBall) so it visibly falls straight down first; the
+      // instant it reaches the shared release height, give it normal
+      // drift and hand its vertical motion back to normal ball behavior.
       if (ball.dropReleaseY !== undefined && ball.body.y >= ball.dropReleaseY) {
         ball.activateDrift();
+        ball.resumeNormalFall();
         ball.dropReleaseY = undefined;
       }
     }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
+
+    // Laser beams grow upward from the muzzle they were fired at until
+    // something stops them -- a ball/obstacle overlap (handled by the
+    // collision callbacks) or the ceiling, which updateBeam reports by
+    // returning false. Iterated over a copy since destroy() mutates the
+    // group's own child list mid-loop.
+    for (const proj of [...this.projectiles.getChildren()]) {
+      if (!proj.updateBeam(dt)) proj.destroy();
+    }
 
     for (let i = this.scorePopups.length - 1; i >= 0; i--) {
       const popup = this.scorePopups[i];
@@ -610,7 +691,7 @@ export class GameScene extends Phaser.Scene {
   updatePanicSpawner() {
     const wave = this.panicWave;
     if (!wave || this.levelTimer < this.panicSpawnAt) return;
-    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn.releaseDropRadiusMult ?? 3);
+    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn);
     this.panicSpawnAt = this.levelTimer + wave.intervalSec;
   }
 
@@ -620,13 +701,19 @@ export class GameScene extends Phaser.Scene {
   // border strip at spawn, none of it poking into the playfield yet (see
   // the emergeY check in updatePlaying) -- so it visibly slides out
   // through the border as it falls, rather than just appearing already
-  // mostly exposed (which centering on the border line used to do for any
-  // ball wider than the border is thick). Clearing the border this way
-  // always takes exactly one full diameter of travel, so bigger balls
-  // already take longer to become fully visible purely from their own
-  // size; dropReleaseY adds a further radius-scaled delay on top of that
-  // before it picks up normal drift, per releaseDropRadiusMult.
-  spawnPanicBall(wave, releaseDropRadiusMult) {
+  // mostly exposed.
+  //
+  // Becoming "active" (normal drift + normal falling, see resumeNormalFall)
+  // happens at a fixed HEIGHT shared by every size (releaseHeightPx below
+  // the border, measured to the ball's own center) but after a size-scaled
+  // TIME (releaseDelayBaseSec + (size-1)*releaseDelayStepSec) -- every
+  // round size shares the same gravityAccel (see elements/round-ball-*
+  // .json), so hitting two independent targets (same end height, different
+  // elapsed time) means the descent speed has to be deliberately overridden
+  // rather than left to each ball's own gravity: gravity is switched off
+  // for the descent and vy is set to exactly travelDistance/delaySec,
+  // restored to normal (resumeNormalFall) only once release fires.
+  spawnPanicBall(wave, spawn) {
     const entries = wave.shapes;
     const totalWeight = entries.reduce((sum, e) => sum + (e.weight ?? 1), 0);
     let roll = Math.random() * totalWeight;
@@ -640,19 +727,29 @@ export class GameScene extends Phaser.Scene {
     const bt = BORDER_THICKNESS;
     const x = Phaser.Math.Between(bt + el.radius, VIRTUAL_W - bt - el.radius);
     const y = bt - el.radius;
-    // Gravity balls start at vy=0 and pick up speed naturally (their own
-    // gravityAccel), which is already the "falls slowly at first" look --
-    // hex balls have no gravity, so they need an explicit fixed downward
-    // speed or they'd just hang motionless at the ceiling.
-    const vy = el.hasGravity ? 0 : el.speed * Math.SQRT1_2;
+    const bodyY = y - el.radius; // Arcade's circle-body top-left == center - radius
+
+    const releaseHeightPx = spawn.releaseHeightPx ?? 48;
+    const delaySec = (spawn.releaseDelayBaseSec ?? 1) + (el.size - 1) * (spawn.releaseDelayStepSec ?? 0.5);
+    // Distance from THIS ball's own bodyY to the shared release height
+    // (measured by ball CENTER, bt + releaseHeightPx, so it's identical
+    // across sizes) -- working in bodyY terms throughout keeps this
+    // consistent with the >= comparison in updatePlaying's release check.
+    const travelPx = releaseHeightPx + el.radius;
+    const vy = travelPx / delaySec;
+
     const ball = new Ball(this, choice.shape, choice.size, x, y, 0, vy);
+    // Gravity would otherwise accelerate the descent, missing both the
+    // fixed height and the fixed time -- overridden with a constant
+    // velocity for the whole pre-release descent instead (see above).
+    ball.body.setAllowGravity(false);
     // World bounds sit at exactly y = bt -- collision would otherwise
     // immediately shove a ball spawned above that line back down, undoing
     // the "still emerging through the ceiling" look before it even starts.
     ball.body.setCollideWorldBounds(false);
     ball.setDepth(0.4); // below the ceiling border's own depth (0.5) while emerging
     ball.emergeY = bt; // body.y (top edge) reaching this means the whole ball has cleared the border
-    ball.dropReleaseY = ball.emergeY + el.radius * releaseDropRadiusMult;
+    ball.dropReleaseY = bodyY + travelPx;
     this.balls.add(ball);
   }
 
@@ -675,9 +772,12 @@ export class GameScene extends Phaser.Scene {
     if (activeCount >= this.weaponState.maxActiveShots) return;
     const base = WEAPON_TYPES[this.weaponType];
     const width = base.width * this.weaponState.widthMultiplier;
+    // The beam's foot is planted on the ground (Projectile.js anchors it
+    // there itself); this is where its HEAD starts -- the muzzle, same
+    // height a shot has always appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
-    const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce);
+    const proj = new Projectile(this, tipX, tipY, width, base.shotSpeed, this.weaponState.pierce, this.weaponType);
     this.projectiles.add(proj);
     // "Special/rapid" shot sound whenever an active weapon power-up is
     // boosting the harpoon (rapid_shot: more simultaneous shots,
@@ -751,10 +851,12 @@ export class GameScene extends Phaser.Scene {
 
   // -- Collision handlers -------------------------------------------------
 
+  // Only balls reach here now: the laser beam doesn't move (it grows in
+  // place, see Projectile.js), so it never collides with the world bounds
+  // -- reaching the ceiling is length-capped in updateBeam instead.
   onWorldBounds(body, up, down, left, right) {
     const go = body.gameObject;
     if (go instanceof Ball) resolveBallBounce(go, { up, down, left, right });
-    else if (go instanceof Projectile && up) go.destroy();
   }
 
   // Arcade's body.touching exposes the same up/down/left/right contact

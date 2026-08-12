@@ -2,6 +2,7 @@ import { GAME_STATES, COLORS } from './constants.js';
 import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom } from './DisplayZoom.js';
+import { isMobileDevice } from './input.js';
 
 // zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
 // bindEvents/updateZoomButtons below).
@@ -31,7 +32,7 @@ const ELEMENT_IDS = [
   'touch-controls',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
-  'btn-resume', 'btn-pause-restart', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
+  'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
 
@@ -69,6 +70,7 @@ const STATIC_LABELS = [
   ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
   ['btn-pause-restart', 'RESTART LEVEL', 'button', COLORS.text],
+  ['btn-pause-editor', 'LEVEL EDITOR', 'button', COLORS.text],
   ['btn-quit', 'QUIT TO MENU', 'button', COLORS.text],
   ['btn-restart', 'PLAY AGAIN', 'button', COLORS.text],
   ['btn-menu', 'MAIN MENU', 'button', COLORS.text],
@@ -98,7 +100,20 @@ export class UI {
     this.el = {};
     for (const id of ELEMENT_IDS) this.el[id] = document.getElementById(id);
 
+    // Browsers only let a genuine user-activation gesture (click/tap/
+    // keydown) unlock WebAudio -- a hover is never sufficient, no matter
+    // how bindMenuSfx() below calls resumeContext() on mouseover, so
+    // nothing plays on hover until *some* qualifying gesture has happened
+    // anywhere on the page, however unrelated to an actual menu button.
+    // Listened for once, as early and broadly as possible (document-wide,
+    // capture phase -- not scoped to #ui-layer or to buttons at all), so
+    // audio unlocks the instant the very first click/tap/key happens
+    // rather than only once the user happens to click a specific button.
+    document.addEventListener('pointerdown', () => this.audio.resumeContext(), { once: true, capture: true });
+    document.addEventListener('keydown', () => this.audio.resumeContext(), { once: true, capture: true });
+
     this.bindEvents();
+    this.bindMenuSfx();
     this.applySettingsToControls();
     this.setupPixelLabels();
   }
@@ -155,6 +170,7 @@ export class UI {
 
     this.el['btn-resume'].addEventListener('click', () => this.game.resume());
     this.el['btn-pause-restart'].addEventListener('click', () => this.game.restartLevel());
+    this.el['btn-pause-editor'].addEventListener('click', () => this.game.returnToEditor());
     this.el['btn-quit'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-menu'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-victory-menu'].addEventListener('click', () => this.game.goToMenu());
@@ -187,6 +203,38 @@ export class UI {
     }
   }
 
+  // A short hover/click blip on every menu button (main menu, pause,
+  // level select, ...), including the level-select/high-score rows built
+  // dynamically in renderLevelSelect()/renderHighScores() -- delegated
+  // from #ui-layer once here instead of wiring each button individually,
+  // so a screen that builds new buttons later still gets it for free.
+  // Touch controls are deliberately excluded: they're in-game controls,
+  // not menu navigation, and don't have a "hover" concept anyway.
+  //
+  // mouseover (not mouseenter/pointerenter) is used because it bubbles,
+  // which is what makes delegation possible at all -- lastHoverBtn tracks
+  // the currently-hovered button so moving the pointer around inside the
+  // same button (over its inner pixel-text canvas, say) doesn't retrigger
+  // the sound on every sub-element crossed.
+  bindMenuSfx() {
+    const uiLayer = document.getElementById('ui-layer');
+    let lastHoverBtn = null;
+    uiLayer.addEventListener('mouseover', (e) => {
+      const btn = e.target.closest('button:not(.touch-btn)');
+      if (!btn || btn.disabled) { lastHoverBtn = null; return; }
+      if (btn === lastHoverBtn) return;
+      lastHoverBtn = btn;
+      this.audio.resumeContext();
+      this.audio.play('uihover');
+    });
+    uiLayer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button:not(.touch-btn)');
+      if (!btn || btn.disabled) return;
+      this.audio.resumeContext();
+      this.audio.play('uiclick');
+    });
+  }
+
   applySettingsToControls() {
     const s = this.storage.loadSettings();
     this.el['chk-mute'].checked = s.muted;
@@ -212,10 +260,52 @@ export class UI {
     this.game.submitHighScore(raw || 'AAA');
   }
 
+  // Phones only (see input.js's isMobileDevice) -- this used to key off
+  // `(pointer: coarse)`, which also matches touchscreen laptops and
+  // desktops with a touch monitor, where a keyboard is right there and
+  // the overlay is just clutter sitting on top of the playfield.
   showTouchControlsIfNeeded() {
-    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
-      this.el['touch-controls'].classList.remove('hidden');
-    }
+    if (isMobileDevice()) this.el['touch-controls'].classList.remove('hidden');
+  }
+
+  // On a phone the browser's own chrome eats a lot of an already small
+  // screen, so landscape (the orientation this game is actually shaped
+  // for -- the playfield is 800x500) goes fullscreen by default.
+  //
+  // It can't simply be requested on load: the Fullscreen API only honours
+  // a request made during a user gesture, so this arms one-shot gesture
+  // listeners instead and fires on whatever the player touches first. The
+  // same arming re-runs on every rotation into landscape, so turning the
+  // phone sideways mid-session still gets there on the next touch, and
+  // any rejected request is swallowed rather than surfacing as an
+  // unhandled promise (a request can still be refused, e.g. if the
+  // gesture doesn't qualify).
+  setupMobileFullscreen() {
+    if (!isMobileDevice()) return;
+
+    const isLandscape = () => (window.matchMedia
+      ? window.matchMedia('(orientation: landscape)').matches
+      : window.innerWidth > window.innerHeight);
+
+    const request = () => {
+      if (!isLandscape() || document.fullscreenElement) return;
+      const container = document.getElementById('game-container');
+      const requestFs = container.requestFullscreen || container.webkitRequestFullscreen || container.msRequestFullscreen;
+      try {
+        Promise.resolve(requestFs?.call(container)).catch(() => {});
+      } catch {
+        /* refused -- the manual Fullscreen button in Options/pause still works */
+      }
+    };
+
+    const armOnce = () => {
+      document.addEventListener('pointerdown', request, { once: true, capture: true });
+      document.addEventListener('keydown', request, { once: true, capture: true });
+    };
+
+    armOnce();
+    window.addEventListener('orientationchange', armOnce);
+    window.matchMedia?.('(orientation: landscape)').addEventListener?.('change', armOnce);
   }
 
   render() {
@@ -240,6 +330,12 @@ export class UI {
       // the difficulty ramp over without spending a life) -- not a general
       // "restart" offered mid-campaign.
       this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.isPanicMode);
+      // Back to editing -- offered whenever this pause came from the
+      // editor at all: either Escape pressed while actually editing (
+      // pausedFromEditor) or Escape during a playtest of an editor level
+      // (isCustomLevel), which is exactly when "return to the editor" is
+      // a place you can meaningfully go back to.
+      this.el['btn-pause-editor'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.pausedFromEditor);
     } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {

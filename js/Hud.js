@@ -185,7 +185,11 @@ export class Hud {
       this.topHighScore = storage.loadHighScores()[0]?.score ?? 0;
     }
 
-    const visible = VISIBLE_STATES.has(g.state);
+    // PAUSED is a HUD-visible state, but a pause opened from the level
+    // editor (see GameScene.pauseFromEditor) isn't a run -- score/lives/
+    // time would just be leftovers from whatever was played last, which
+    // is worse than showing nothing, and the editor never shows a HUD.
+    const visible = VISIBLE_STATES.has(g.state) && !g.pausedFromEditor;
     this.container.setVisible(visible);
     if (!visible) return;
 
