@@ -1,0 +1,46 @@
+{
+  "id": 41,
+  "name": "Block Party",
+  "timeLimitSec": 55,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 144,
+      "y": 208,
+      "w": 48,
+      "h": 112
+    },
+    {
+      "type": "platform",
+      "x": 336,
+      "y": 208,
+      "w": 48,
+      "h": 112
+    },
+    {
+      "type": "platform",
+      "x": 528,
+      "y": 208,
+      "w": 48,
+      "h": 112
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 80,
+      "y": 320,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 720,
+      "y": 320,
+      "vx": -90
+    }
+  ]
+}

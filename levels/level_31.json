@@ -1,0 +1,46 @@
+{
+  "id": 31,
+  "name": "Stone Watchers",
+  "timeLimitSec": 55,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 208,
+      "w": 32,
+      "h": 112
+    },
+    {
+      "type": "platform",
+      "x": 384,
+      "y": 208,
+      "w": 32,
+      "h": 112
+    },
+    {
+      "type": "platform",
+      "x": 608,
+      "y": 208,
+      "w": 32,
+      "h": 112
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 96,
+      "y": 320,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 704,
+      "y": 320,
+      "vx": -90
+    }
+  ]
+}

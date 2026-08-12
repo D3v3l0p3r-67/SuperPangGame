@@ -92,29 +92,42 @@ the trigger reads.
 
 ## Weapons
 
-Every weapon is the same kind of thing: a BEAM whose foot stays on the
-ground the player fired from and whose head climbs (`js/Projectile.js`).
-The whole length is lethal, not just the leading edge, so a ball drifting
-into the middle of an already-extended shot still pops. Which weapon a
-level gives the player is the level file's `weapon` field; both are
-offered by the **LEVEL EDITOR**'s Weapon dropdown, so either can be tried
-without editing a file.
+Two of the three are BEAMS: the foot stays on the ground the player fired
+from and the head climbs (`js/Projectile.js`). The whole length is lethal,
+not just the leading edge, so a ball drifting into the middle of an
+already-extended shot still pops. Which weapon a level gives the player is
+the level file's `weapon` field; all three are offered by the **LEVEL
+EDITOR**'s Weapon dropdown and the debug panel's **Give weapon** row, so
+any can be tried without editing a file.
 
-| | Harpoon | Grapple |
-|---|---|---|
-| climb speed | 440 px/s | 400 px/s |
-| shots in the air at once | 1 | 1 |
-| on reaching the ceiling | ends | anchors for 4s |
+| | Harpoon | Grapple | Machine Gun |
+|---|---|---|---|
+| kind | beam | beam | volley of darts |
+| speed | 440 px/s | 400 px/s | 520 px/s |
+| in the air at once | 1 shot | 1 shot | 3 volleys (12 darts) |
+| on reaching the ceiling | ends | anchors for 4s | splashes and stops |
 
 The **grapple** is the reason the beam has phases. Topping out doesn't end
-it: it hangs from the ceiling for `ceilingStickSec` (4s), staying lethal
+it: it catches hold for `ceilingStickSec` (4s), staying lethal
 along its full ground-to-ceiling length the whole time, which makes it a
-standing barrier balls cannot cross rather than a single strike. Its last
+standing barrier balls cannot cross rather than a single strike. It
+catches under an indestructible obstacle the same way it catches under the
+ceiling -- a block it could never shoot through is something to hang from,
+not something to waste the shot on -- so a level's layout gives the player
+places to string a barrier at other heights. Destructible blocks still
+take the hit and stop the shot, so the grapple can't be used to skip
+breaking them open. Its last
 `ceilingReleaseWarnSec` (1s) is spent in a third, "letting go" state --
 still solid, just drawn differently, so the barrier's expiry is
 telegraphed instead of sudden. Each phase has its own cell in the shot
 spritesheet (`assets.js`'s `WEAPON_SHOT_FRAMES`), so the three states are
-visibly different rather than something the player has to infer.
+visibly different rather than something the player has to infer. All three
+cells draw the same rope and shank and differ only in the head -- a closed
+point while it climbs, the claws thrown flat against the ceiling while it
+holds, and sprung off it as it lets go -- so the phases read as one object
+changing rather than three unrelated shots. The two live states are drawn
+in the harpoon's own pale slate; only the release frame carries colour, so
+the one thing on the rope that stands out is the warning.
 
 One shot in the air at a time is the base state for both weapons; the
 `rapid_shot` power-up grants a second slot for its duration. For the
@@ -123,18 +136,140 @@ until it lets go -- putting up a barrier costs the next four seconds of
 shooting, unless rapid_shot is running.
 
 Giving a weapon `ceilingStickSec` is all it takes to make it stick --
-`js/Projectile.js` reads it off the weapon definition, so a third weapon
-needs no new code, only a `WEAPON_TYPES` entry, its shot cells, and a HUD
-icon.
+`js/Projectile.js` reads it off the weapon definition.
+
+The **machine gun** is the one that isn't a beam. A `volley` block on its
+weapon entry is what marks it, and `js/Bullet.js` takes over from
+`Projectile.js`: one press puts up four short darts, fanned a few degrees
+apart so the group covers more ground the higher it climbs rather than
+staying a 4-wide comb. What it limits is how many VOLLEYS are in the air
+(three), not how many darts -- counting darts would mean the first press
+spent the whole allowance. A dart that stops on something it cannot break
+-- the ceiling, a side wall, an indestructible block -- leaves a splash
+(`assets/weapons/bullet_hit.webp`, the same two-frame sheet layout as
+every other effect in the game).
+
+Bullet.js deliberately answers the same calls GameScene already makes on a
+beam (`updateBeam`, `registerHit`, `isAnchored`/`anchorAt`), so both kinds
+share one projectile group and every collider set up for beams works for
+darts untouched -- only `tryFire` knows the difference.
+
+`rapid_shot` adds one shot to whatever is held rather than setting an
+absolute number: an absolute value would have NERFED the machine gun,
+whose own base of three is higher than the power-up's.
+
+## Regions
+
+A campaign run travels. Every `LEVELS_PER_REGION` (`js/config.js`, 5)
+levels it arrives on a new continent, and the background -- built around
+that continent's landmark -- and the background music change together, so
+five levels in a row read as one place rather than five unrelated screens.
+
+The itinerary is `levels/regions.json`, read at boot into `js/regions.js`'s
+`REGIONS`, the same kind of registry as `LEVELS` and `BALL_ELEMENTS`. Order
+is the route. Each entry names an `assets/backgrounds/<background>.webp`,
+an `audio.json` music key, and where the region sits on the world map:
+
+| # | region | landmark | levels |
+|---|---|---|---|
+| 1 | Europe | Eiffel Tower | 1-5 |
+| 2 | Africa | pyramids and sphinx | 6-10 |
+| 3 | Middle East | dome and minarets | 11-15 |
+| 4 | India | Taj Mahal | 16-20 |
+| 5 | Asia | pagoda and Mt Fuji | 21-25 |
+| 6 | Oceania | Opera House and harbour bridge | 26-30 |
+| 7 | Pacific | moai and a volcano | 31-35 |
+| 8 | South America | terraced peaks | 36-40 |
+| 9 | America | Statue of Liberty | 41-45 |
+| 10 | Arctic | icebergs under an aurora | 46-50 |
+
+Each region has its own track: the same three-voice chiptune as the
+generic ones, but each in its own scale and tempo (Europe minor, Asia
+pentatonic, Africa percussion-led, America a blues shuffle, Middle East
+harmonic minor, Arctic the slowest and sparsest of the ten), so the change
+of place is audible as well as visible. They are encoded at 22 kHz --
+square/triangle/noise material has nothing above ~8 kHz to lose, and ten
+tracks at full rate came to over 8 MB, which is a lot to put in front of a
+browser game.
+
+Adding a continent is an entry in `regions.json` plus its background and
+its `.ogg` -- no code. `regionIndexForLevel` clamps rather than wraps, so
+levels past the end of the route stay on the last continent instead of
+flying back to the start mid-run.
+
+The 50 levels and 10 regions line up exactly: five levels on each
+continent, nine flights across a run.
+
+Panic Mode and editor playtests are not on the itinerary and keep the
+default background and the generic `music02`/`music01`.
+
+### The flight between them
+
+Crossing to a new continent doesn't just cut. The level transition covers
+the screen as usual, but uncovers onto a world map
+(`js/WorldMapInterlude.js`) with the whole route marked on it, and a plane
+flies the leg just earned along a bowed dotted trail that fills in behind
+it. The destination's name is composed from the same loaded font the
+level-intro uses. Once the plane lands the map fades, and only then does
+the new level's own "LEVEL n / READY / SET / GO" begin.
+
+Like the transition it wraps, the interlude is not a game state -- it
+spans the same `LEVEL_CLEAR`-to-`LEVEL_INTRO` handover and is ticked from
+`update()` outside the state switch. Marker positions in `regions.json`
+are in the map image's **own** pixels; the interlude scales them to
+however large it draws the map, so re-authoring `assets/ui/worldmap.webp`
+at another size doesn't invalidate them.
+
+## Level transitions
+
+Clearing a campaign level doesn't cut straight to the next one: the
+playfield is hidden with an effect, the next level is built underneath it,
+and the effect is drawn back off. The swap happens on the single frame the
+screen is fully covered, so it can never be seen happening.
+
+Effects live in `js/LevelTransition.js`'s `LEVEL_TRANSITIONS`, the same
+kind of named registry as `WEAPON_TYPES` and `POWERUP_BEHAVIORS`, and
+`js/config.js`'s `LEVEL_TRANSITION` names the one that plays. Changing the
+effect is that one word; each effect carries its own `durationSec`, so
+there is nothing else to keep in step.
+
+| name | what it does |
+|---|---|
+| `fade` | cross-fade through black |
+| `wipe` | a solid edge sweeping down, then off the bottom |
+| `iris` | four edges closing in on the centre and opening out |
+| `shutter` | horizontal slats drawing in from alternating sides |
+
+Adding one is a new entry with a `label`, a `durationSec` and a
+`draw(graphics, amount, covering)` -- `amount` runs 0 to 1 across each half
+and `covering` says which half it is, so an effect only has to be opaque at
+1 and transparent at 0. Effects cover the playfield and not the HUD bar, so
+the score and lives stay readable straight through. The debug panel's
+**Level transition** row plays any of them on demand, without having to
+clear a level to see it.
+
+Only the level-to-level step gets one. Finishing the run doesn't -- there
+is no next level to reveal, just the victory screen -- and neither does a
+level restarting after a lost life.
 
 ## Display size
 
-The playing surface is a fixed 800x420px, bordered on all four sides
-(top/left/right/floor) by a 16px wall (`BORDER_THICKNESS` in
-`js/constants.js`) -- independent of the 8x8 obstacle/ball placement grid
-(`OBSTACLE_BLOCK_SIZE`, 16x16 -- also the smallest ball's size), which is
-unaffected. A dedicated 80px HUD strip sits below the bordered playfield
-(`HUD_H`), never overlapping gameplay -- 800x500px total.
+The canvas is a fixed 800x500px. It splits into the bordered playing
+surface and a HUD strip below it, and the split is derived rather than
+picked: the interior -- ceiling to ground -- is rounded down to a whole
+number of 16x16 obstacle/ball placement cells (`OBSTACLE_BLOCK_SIZE`, also
+the smallest ball's size), which works out to 800x384, or 24 rows. Add the
+16px wall on all four sides (`BORDER_THICKNESS` in `js/constants.js`,
+deliberately its own constant) and the playfield is 800x416 with the ground
+line at y=400; whatever is left over goes to the HUD strip, which never
+overlaps gameplay.
+
+Rounding the interior to whole cells is what makes the placement grid line
+up with the drawn border at both ends. A leftover fraction of a cell would
+have to show somewhere -- a gap under the ceiling, or obstacles unable to
+rest on the floor -- and it would leave one row a different height from
+every other, which would break the player's step-up (every row has to be
+exactly one step above the one below).
 
 The canvas does **not** continuously resize with the browser window --
 there's no "fit to window" scaling. Instead, Options -> Size picks one of
@@ -153,11 +288,31 @@ seam between the canvas and the page behind it.
 
 ## Features
 
-- 10 hand-tuned levels with increasing difficulty (more/larger balls, more
-  hex balls and obstacles mixed in, tighter time bonuses). Level 1 has no
-  obstacles at all -- 8 smallest-size balls (4 heading left, 4 right, each
-  bouncing off a wall before its path can ever reach the player) for a
-  gentle but active first look at movement, shooting, and ball physics.
+- 50 levels of increasing difficulty (more and larger balls, more hex
+  balls and obstacles mixed in, tighter clocks), grouped five to a
+  continent with a structural idea of its own for each: arches in the
+  Middle East, strict left-right symmetry in India, pagoda tiers in Asia,
+  a rising swell of shelves in Oceania, standing stones in the Pacific,
+  climbing terraces in South America, a grid of slabs in America, long ice
+  overhangs in the Arctic. Level 1 has no obstacles at all -- 8
+  smallest-size balls (4 heading left, 4 right, each bouncing off a wall
+  before its path can ever reach the player) for a gentle but active first
+  look at movement, shooting, and ball physics.
+- Every level is checked for solvability before it ships. The player
+  cannot jump: the beam leaves their feet and climbs straight up, so a
+  ball is shootable exactly when the column between it and the floor is
+  clear. Two layout mistakes break that -- an obstacle standing on the
+  ground (which could never be shot, and would split the floor for good)
+  and a run of obstacles spanning wall to wall (which would trap whatever
+  rests on it out of reach) -- and neither is allowed. On top of the
+  geometry check, every level's balls are simulated with no player and no
+  shooting, and each one must reach a position where that column is
+  clear. A level file gives a hex ball only its horizontal speed and the
+  vertical direction is drawn at random when it spawns, so whether a level
+  works must not depend on that coin flip: the simulation is run twice,
+  once with every hex ball starting upward and once downward. Balls never
+  collide with each other, so their paths are independent and those two
+  runs cover every ball in both of its possible states.
 - 2 ball shapes: round (sizes 1-5) and hex (sizes 1-3 only), each with
   fixed, deterministic physics; splitting one size smaller (one left, one
   right) per hit.
@@ -165,11 +320,30 @@ seam between the canvas and the page behind it.
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
   loses only the block that's actually shot.
-- 2 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
+- The **LEVEL EDITOR** places obstacles on rows counted up from the
+  ground, so the bottom row rests on the floor and a stack of them is a
+  staircase the player can climb. The interior is a whole number of rows
+  (see "Display size"), so the top row is flush against the ceiling too.
+- The player walks up a ledge one obstacle block (`PLAYER_STEP_UP_PX`,
+  16px) high without jumping -- it cannot jump at all -- so a run of
+  stacked blocks is a staircase. Anything taller, or without room to
+  stand on top, is still a wall it stops at: that headroom test is what
+  keeps a wall built of stacked blocks from being a ladder.
+- The level-select screen lists all 50 at once in three columns filled
+  top-to-bottom (1-17, 18-34, 35-50) with no scrollbar -- a scroller would
+  hide exactly the later levels you are most likely looking for.
+- 50 campaign levels across 10 continents: every `LEVELS_PER_REGION` (5)
+  levels the background, the landmark in it and the music all change
+  together, and the leg between them is flown on a world map (see
+  "Regions" below).
+- A level-to-level transition effect in campaign runs (fade / wipe / iris
+  / shutter, see "Level transitions" below) -- swappable by name.
+- 3 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
   "Weapons" below): the **harpoon**, which ends the moment it tops out,
-  and the **grapple**, which anchors to the ceiling for 4s and keeps
-  killing along its whole length while it hangs there. One shot in the air
-  at a time, until `rapid_shot` grants a second.
+  the **grapple**, which anchors to the ceiling for 4s and keeps killing
+  along its whole length while it hangs there, and the **machine gun**,
+  which fires fanned volleys of four darts, three volleys at a time.
+  `rapid_shot` adds one more shot to whichever is in hand.
 - 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
   multiplier, time freeze, shield. A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
@@ -229,7 +403,9 @@ Useful while tuning levels or ball behavior:
   be running; jump straight to any level -- all without replaying the
   whole game or affecting normal play when the panel is off. The power-up
   and weapon rows are both built from their registries (`POWERUP_TYPES`,
-  `WEAPON_TYPES`), so a new entry appears in the panel on its own.
+  `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
+  the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
+  any transition effect on demand.
 - Lives above the playfield's own ceiling, in a `#tool-bar` row shared
   with the level editor's own panel (editor on the left, debug on the
   right, see index.html/style.css) -- never overlapping actual gameplay
@@ -347,6 +523,13 @@ js/
                       popup") -- reuses the HUD's own digit spritesheet,
                       tinted to the ball's color; GameScene owns the live
                       instances (this.scorePopups)
+  LevelTransition.js The LEVEL_TRANSITIONS effect registry plus the
+                      overlay that runs one between campaign levels (see
+                      "Level transitions")
+  regions.js         The REGIONS registry (populated by ElementsScene from
+                      levels/regions.json) and which region a level is in
+  WorldMapInterlude.js The world map + plane flight played when a campaign
+                      run crosses to a new continent (see "Regions")
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
                       from a loaded A-Z font, then blinking READY/GO!
@@ -459,6 +642,14 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
+An obstacle's `x`/`y`/`w`/`h` are on the 16x16 grid, and so is a ball,
+though a ball's `x`/`y` is its CENTRE rather than a corner -- the grid cell
+is its bounding box's top-left, so a ball sits on the grid when `x - radius`
+and `y - radius` do. Every shipped level follows both rules, which is what
+makes opening one in the **LEVEL EDITOR** and saving it back give the same
+level: the editor snaps whatever it loads, so anything off the grid would
+quietly move.
+
 `powerup` on an obstacle or ball is optional -- when set, that exact
 crate/ball guarantees that power-up drop when destroyed/popped, instead of
 the usual random chance. An obstacle can also use `{ "cells": [[dx, dy],

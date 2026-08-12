@@ -1,0 +1,74 @@
+{
+  "id": 44,
+  "name": "Steel Canyon",
+  "timeLimitSec": 110,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 160,
+      "y": 96,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 96,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 480,
+      "y": 96,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "platform",
+      "x": 640,
+      "y": 96,
+      "w": 32,
+      "h": 208
+    },
+    {
+      "type": "crate",
+      "x": 240,
+      "y": 272,
+      "w": 48,
+      "h": 48
+    },
+    {
+      "type": "crate",
+      "x": 560,
+      "y": 272,
+      "w": 48,
+      "h": 48
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 80,
+      "y": 320,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 400,
+      "y": 320,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 720,
+      "y": 320,
+      "vx": -80
+    }
+  ]
+}

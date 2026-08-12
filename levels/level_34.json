@@ -1,0 +1,67 @@
+{
+  "id": 34,
+  "name": "Moai Line",
+  "timeLimitSec": 95,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 96,
+      "y": 224,
+      "w": 32,
+      "h": 96
+    },
+    {
+      "type": "platform",
+      "x": 224,
+      "y": 224,
+      "w": 32,
+      "h": 96
+    },
+    {
+      "type": "platform",
+      "x": 352,
+      "y": 224,
+      "w": 32,
+      "h": 96
+    },
+    {
+      "type": "platform",
+      "x": 480,
+      "y": 224,
+      "w": 32,
+      "h": 96
+    },
+    {
+      "type": "platform",
+      "x": 608,
+      "y": 224,
+      "w": 32,
+      "h": 96
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 176,
+      "y": 320,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 560,
+      "y": 320,
+      "vx": -80
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 400,
+      "y": 160,
+      "vx": 120
+    }
+  ]
+}

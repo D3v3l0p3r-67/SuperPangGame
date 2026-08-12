@@ -1,12 +1,13 @@
 import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS, LEVEL_INTRO_SEC, LEVEL_INTRO_GO_SEC, LEVEL_INTRO_SET_SEC } from './constants.js';
 import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
-  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC,
+  TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
 } from './config.js';
 import { POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
+import { Bullet } from './Bullet.js';
 import { Bonus } from './Bonus.js';
 import { refreshObstacleSeams } from './Obstacle.js';
 import { createWeaponState, EffectManager } from './weapons.js';
@@ -15,6 +16,9 @@ import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
+import { LevelTransition } from './LevelTransition.js';
+import { WorldMapInterlude } from './WorldMapInterlude.js';
+import { regionForLevel, regionIndexForLevel, crossesRegion } from './regions.js';
 import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
@@ -24,6 +28,7 @@ import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
+  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -114,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
+    this.volleyCounter = 0; // see fireVolley -- ids only need to be distinct
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
     // Tracks last frame's shoot input so a held key only ever fires once
     // per press (see updatePlaying).
@@ -159,7 +165,12 @@ export class GameScene extends Phaser.Scene {
     // down (removed from this.obstacles, see onProjectileHitObstacle) does
     // that space open up. No callback needed, Arcade's own separation is
     // the entire effect.
-    this.physics.add.collider(this.player, this.obstacles);
+    // The process callback is what lets the player walk UP a low ledge: an
+    // obstacle it can step onto (see Player.canStepOnto) is skipped rather
+    // than collided with, and Player.followGround lifts the feet onto it.
+    // Anything taller, or without headroom above it, still blocks.
+    this.physics.add.collider(this.player, this.obstacles, null,
+      (playerGO, obstacleGO) => !playerGO.canStepOnto(obstacleGO.body), this);
     this.physics.add.overlap(this.player, this.balls, this.onPlayerHitBall, null, this);
     this.physics.add.overlap(this.player, this.powerups, this.onPlayerCollectPowerup, null, this);
     this.physics.add.overlap(this.projectiles, this.powerups, this.onProjectileHitPowerup, null, this);
@@ -184,6 +195,8 @@ export class GameScene extends Phaser.Scene {
     this.ui.setupMobileFullscreen();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
+    this.transition = new LevelTransition(this);
+    this.worldMap = new WorldMapInterlude(this);
     this.debug = new Debug(this);
     this.editor = new Editor(this);
   }
@@ -228,7 +241,7 @@ export class GameScene extends Phaser.Scene {
       this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
       this.add.tileSprite(0, 0, t, GROUND_Y, wallTexture),
       this.add.tileSprite(VIRTUAL_W - t, 0, t, GROUND_Y, wallTexture),
-      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, t, wallTexture),
+      this.add.tileSprite(0, GROUND_Y, VIRTUAL_W, PLAYFIELD_H - GROUND_Y, wallTexture),
     ];
     for (const strip of strips) {
       strip.setOrigin(0, 0);
@@ -251,6 +264,13 @@ export class GameScene extends Phaser.Scene {
     const def = this.currentLevelDef;
     if (!def || !def.timeLimitSec) return 0;
     return Math.max(0, Math.ceil(def.timeLimitSec - this.levelTimer));
+  }
+
+  // How many shots the weapon in hand allows on its own, before any
+  // power-up. Read by the rapid_shot behavior, which adds to it rather
+  // than replacing it.
+  get baseMaxActiveShots() {
+    return WEAPON_TYPES[this.weaponType].baseMaxActiveShots;
   }
 
   get weaponLabel() {
@@ -284,6 +304,10 @@ export class GameScene extends Phaser.Scene {
   // levelClear's unlock bookkeeping) branches on the isCustomLevel/
   // isPanicMode flags set here.
   beginRun(levelIndex, customDef, panicMode = false) {
+    // Quitting to the menu mid-transition leaves the overlay up; starting
+    // anything new clears it.
+    this.transition.stop();
+    this.worldMap.stop();
     this.score = 0;
     this.lives = PLAYER_CONFIG.startLives;
     this.levelIndex = levelIndex;
@@ -420,7 +444,13 @@ export class GameScene extends Phaser.Scene {
     this.player.reset();
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
-    this.backgroundImage.setTexture(backgroundTextureKey(def.background || DEFAULT_BACKGROUND));
+    // A campaign level takes its look and its music from the continent
+    // it is played on (see js/regions.js), not from its own file -- that's
+    // what makes five levels in a row feel like one place. Editor/custom
+    // levels and Panic Mode aren't on the itinerary and keep their own.
+    const region = typeof idxOrDef === 'number' ? regionForLevel(idxOrDef) : null;
+    this.backgroundImage.setTexture(backgroundTextureKey(
+      region?.background || def.background || DEFAULT_BACKGROUND));
     this.effects.reset(this);
     this.levelTimer = 0;
     // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
@@ -437,11 +467,12 @@ export class GameScene extends Phaser.Scene {
     // A key still held from before this level started (e.g. mashed
     // through the level-clear screen) shouldn't read as a fresh press.
     this.wasShooting = true;
-    // Editor/custom levels and the first half of LEVELS play music01, the
-    // rest play music02 -- stored, not started yet: music only actually
-    // starts once the balls do (LEVEL_INTRO -> PLAYING, see update()),
-    // never during the frozen "READY"/"GO!" countdown.
-    this.pendingMusicName = typeof idxOrDef !== 'number' || idxOrDef < Math.ceil(LEVELS.length / 2) ? 'music01' : 'music02';
+    // Stored, not started yet: music only actually starts once the balls
+    // do (LEVEL_INTRO -> PLAYING, see update()), never during the frozen
+    // "READY"/"GO!" countdown. A campaign level plays its continent's
+    // track; Panic Mode and editor playtests, being off the itinerary,
+    // keep the two generic ones.
+    this.pendingMusicName = region?.music ?? (this.isPanicMode ? 'music02' : 'music01');
     return def;
   }
 
@@ -461,9 +492,28 @@ export class GameScene extends Phaser.Scene {
       // so the level's own author can immediately go again.
       this.pause();
     } else if (this.levelIndex + 1 < LEVELS.length) {
-      this.levelIndex += 1;
-      this.loadLevel(this.levelIndex);
-      this.startLevelIntro();
+      // The one real level-to-level step in a campaign run, and the only
+      // place a transition belongs: the screen is hidden, the next level
+      // is built underneath it, and it is drawn back off (see
+      // js/LevelTransition.js). Finishing the run doesn't get one -- there
+      // is no next level to reveal, only the victory screen, which is DOM
+      // and sits above the canvas the effect is drawn on anyway.
+      const from = this.levelIndex;
+      const to = from + 1;
+      this.transition.start(LEVEL_TRANSITION, () => {
+        this.levelIndex = to;
+        this.loadLevel(to);
+        // Crossing to a new continent: the transition uncovers onto the
+        // world map instead of onto the level, and the level's own intro
+        // waits until the plane has landed and the map has faded.
+        if (crossesRegion(from, to)) {
+          this.audio.stopMusic();
+          this.worldMap.start(regionIndexForLevel(from), regionIndexForLevel(to),
+            () => this.startLevelIntro());
+        } else {
+          this.startLevelIntro();
+        }
+      });
     } else {
       this.finishRun('victory');
     }
@@ -535,6 +585,10 @@ export class GameScene extends Phaser.Scene {
     this.stateTimer -= dt;
     // The minimum keeps a short tally (or none at all) from cutting the
     // player's 2s celebration animation short.
+    // Once the transition is running it owns the handover -- the state
+    // stays LEVEL_CLEAR until it has the screen covered, so without this
+    // the advance would be re-triggered on every frame until then.
+    if (this.transition.active || this.worldMap.active) return;
     if (this.stateTimer <= 0 && this.levelClearElapsed >= LEVEL_CLEAR_MIN_SEC) this.advanceLevel();
   }
 
@@ -562,6 +616,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   finishRun(outcome) {
+    // A run can end while a transition is mid-flight (the last level
+    // cleared into a game over on the timer, say) -- drop the overlay
+    // rather than leave the playfield covered under the end screen.
+    this.transition.stop();
+    this.worldMap.stop();
     this.audio.stopMusic();
     this.lastOutcome = outcome;
     if (outcome === 'gameover') this.audio.play('gameover');
@@ -696,6 +755,12 @@ export class GameScene extends Phaser.Scene {
     this.ui.render();
     this.hud.render();
     this.levelIntro.render();
+    // Ticked outside the state switch, and last: the transition spans the
+    // very change of state it wraps (LEVEL_CLEAR out, LEVEL_INTRO in), so
+    // it can't belong to either case, and it has to paint over everything
+    // the frame already drew.
+    this.transition.update(dt);
+    this.worldMap.update(dt);
   }
 
   readInput() {
@@ -908,9 +973,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   tryFire() {
+    const base = WEAPON_TYPES[this.weaponType];
+    if (base.volley) {
+      this.fireVolley(base);
+      return;
+    }
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
-    const base = WEAPON_TYPES[this.weaponType];
     // The beam's foot is planted on the ground (Projectile.js anchors it
     // there itself); this is where its HEAD starts -- the muzzle, same
     // height a shot has always appeared at.
@@ -926,6 +995,47 @@ export class GameScene extends Phaser.Scene {
     // harpoon sound otherwise.
     this.audio.play(this.effects.active.has('rapid_shot') ? 'weaponshootm' : 'weaponshoot');
     this.player.playShotAnim();
+  }
+
+  // The machine gun: one press puts up a fanned volley of bullets rather
+  // than a single beam. What the weapon limits is how many VOLLEYS are in
+  // the air, not how many bullets -- counting bullets would mean the first
+  // press alone used the whole allowance up.
+  fireVolley(base) {
+    const live = new Set();
+    for (const p of this.projectiles.getChildren()) {
+      if (p.active && p.volleyId !== undefined) live.add(p.volleyId);
+    }
+    if (live.size >= this.weaponState.maxActiveShots) return;
+
+    const { count, spreadDeg, spacingPx } = base.volley;
+    const id = ++this.volleyCounter;
+    const muzzleY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
+    for (let i = 0; i < count; i++) {
+      // Spread evenly about straight up: with 4 bullets that is -1.5, -0.5,
+      // +0.5, +1.5 steps, so the fan stays symmetric and no bullet goes
+      // straight up the middle.
+      const offset = i - (count - 1) / 2;
+      const angle = Phaser.Math.DegToRad(offset * spreadDeg);
+      const bullet = new Bullet(
+        this, this.player.x + offset * spacingPx, muzzleY,
+        angle, base.shotSpeed, this.weaponState.pierce, id,
+      );
+      this.projectiles.add(bullet);
+    }
+    this.audio.play(this.effects.active.has('rapid_shot') ? 'weaponshootm' : 'weaponshoot');
+    this.player.playShotAnim();
+  }
+
+  // The splash a bullet leaves where it stops on something it cannot break
+  // -- the ceiling, a side wall, or an indestructible obstacle. The beam
+  // weapons have no equivalent: a beam ENDS at the ceiling by design, while
+  // a bullet visibly strikes it.
+  playBulletImpact(x, y) {
+    const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
+    sprite.setDepth(6);
+    sprite.play(BULLET_HIT_ANIM_KEY);
+    sprite.once('animationcomplete', () => sprite.destroy());
   }
 
   popBall(ball) {
@@ -1009,6 +1119,21 @@ export class GameScene extends Phaser.Scene {
 
   onProjectileHitObstacle(projGO, obstacleGO) {
     if (!projGO.active) return;
+    // An already-hanging beam keeps hold of what it caught -- it mustn't
+    // spend itself, or chip away at anything, on a second contact.
+    if (projGO.isAnchored) return;
+    // A grapple catches under an indestructible block exactly as it does
+    // under the ceiling: a block it can never shoot through is something
+    // to hang from, not something to waste the shot on. Destructible
+    // blocks still take the hit and stop the shot, so the grapple can't be
+    // used to dodge breaking them open.
+    if (!obstacleGO.def.destructible && projGO.anchorAt(obstacleGO.body.bottom)) return;
+    // A bullet can't catch hold, so an unbreakable block simply stops it --
+    // and that stop gets the same splash the ceiling and side walls give.
+    if (!obstacleGO.def.destructible && projGO.volleyId !== undefined) {
+      const tip = projGO.tip;
+      this.playBulletImpact(tip.x, Math.max(obstacleGO.body.bottom, tip.y));
+    }
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;
     const destroyed = obstacleGO.takeHit();

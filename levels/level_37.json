@@ -1,0 +1,60 @@
+{
+  "id": 37,
+  "name": "Terraced Slope",
+  "timeLimitSec": 65,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 64,
+      "y": 304,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 192,
+      "y": 256,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 208,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 448,
+      "y": 160,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 576,
+      "y": 112,
+      "w": 96,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 320,
+      "vx": 85
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 88,
+      "y": 248,
+      "vx": 105
+    }
+  ]
+}

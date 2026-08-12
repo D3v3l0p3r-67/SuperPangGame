@@ -8,7 +8,7 @@
   "instant": false,
   "kind": "weapon_max_shots",
   "params": {
-    "maxActiveShots": 2
+    "bonusShots": 1
   },
   "pickupSound": "weaponhold"
 }

@@ -1,0 +1,81 @@
+{
+  "id": 40,
+  "name": "Sun Gate",
+  "timeLimitSec": 105,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 48,
+      "y": 304,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 192,
+      "y": 256,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 336,
+      "y": 192,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 480,
+      "y": 128,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 624,
+      "y": 80,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 384,
+      "y": 96,
+      "w": 32,
+      "h": 96
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 96,
+      "y": 256,
+      "vx": 75
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 704,
+      "y": 320,
+      "vx": -75
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 232,
+      "y": 232,
+      "vx": 110
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 552,
+      "y": 248,
+      "vx": -110
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": 48,
+  "name": "Glacier Steps",
+  "timeLimitSec": 100,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 64,
+      "y": 288,
+      "w": 160,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 256,
+      "y": 224,
+      "w": 160,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 448,
+      "y": 160,
+      "w": 160,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 640,
+      "y": 96,
+      "w": 128,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 320,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 96,
+      "y": 352,
+      "vx": 80
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 696,
+      "y": 296,
+      "vx": -110
+    }
+  ]
+}

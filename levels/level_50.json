@@ -1,0 +1,88 @@
+{
+  "id": 50,
+  "name": "Pole Star",
+  "timeLimitSec": 145,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 32,
+      "y": 288,
+      "w": 192,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 576,
+      "y": 288,
+      "w": 192,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 240,
+      "y": 208,
+      "w": 320,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 352,
+      "y": 112,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 144,
+      "y": 128,
+      "w": 32,
+      "h": 64
+    },
+    {
+      "type": "crate",
+      "x": 624,
+      "y": 128,
+      "w": 32,
+      "h": 64
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 112,
+      "y": 352,
+      "vx": 75
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 688,
+      "y": 352,
+      "vx": -75
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 400,
+      "y": 320,
+      "vx": 70
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 168,
+      "y": 248,
+      "vx": 110
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 632,
+      "y": 248,
+      "vx": -110
+    }
+  ]
+}

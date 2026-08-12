@@ -1,0 +1,74 @@
+{
+  "id": 19,
+  "name": "Ivory Gallery",
+  "timeLimitSec": 60,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 80,
+      "y": 256,
+      "w": 144,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 576,
+      "y": 256,
+      "w": 144,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 112,
+      "y": 176,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 592,
+      "y": 176,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 240,
+      "y": 96,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 464,
+      "y": 96,
+      "w": 96,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 160,
+      "y": 304,
+      "vx": 90
+    },
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 640,
+      "y": 304,
+      "vx": -90
+    },
+    {
+      "shape": "round",
+      "size": 3,
+      "x": 392,
+      "y": 216,
+      "vx": 100
+    }
+  ]
+}

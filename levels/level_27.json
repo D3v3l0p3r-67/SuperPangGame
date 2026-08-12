@@ -1,0 +1,74 @@
+{
+  "id": 27,
+  "name": "Harbour Sails",
+  "timeLimitSec": 55,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 64,
+      "y": 288,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 176,
+      "y": 256,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 288,
+      "y": 208,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 400,
+      "y": 208,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 512,
+      "y": 256,
+      "w": 80,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 624,
+      "y": 288,
+      "w": 80,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 400,
+      "y": 320,
+      "vx": 85
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 120,
+      "y": 248,
+      "vx": 105
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 680,
+      "y": 248,
+      "vx": -105
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "id": 16,
+  "name": "Marble Steps",
+  "timeLimitSec": 40,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 96,
+      "y": 272,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 576,
+      "y": 272,
+      "w": 128,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 176,
+      "y": 208,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 528,
+      "y": 208,
+      "w": 96,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 400,
+      "y": 288,
+      "vx": 90
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 112,
+      "y": 160,
+      "vx": 110
+    }
+  ]
+}

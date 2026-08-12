@@ -154,6 +154,24 @@ export function weaponShotFrame(type, phase = 'flying') {
   return frames[phase] ?? frames.flying;
 }
 
+// Machine gun: unlike the harpoon and grapple, this weapon fires actual
+// travelling BULLETS rather than a beam, so it has its own art rather than
+// a cell in the shot spritesheet above. The dart is authored nose-up, so
+// the game only rotates it by the angle it was fired at.
+//
+// BULLET_HIT is the splash it leaves where it stops on something it can't
+// break -- the ceiling, the side walls, or an indestructible obstacle --
+// with the same two-frame vertical layout every other effect sheet uses
+// (frame 0 on top), so it swaps the same way.
+export const BULLET_TEXTURE_KEY = 'bullet';
+export const BULLET_TEXTURE_PATH = 'assets/weapons/bullet.webp';
+export const BULLET_SIZE = { width: 6, height: 12 };
+export const BULLET_HIT_TEXTURE_KEY = 'bullet-hit';
+export const BULLET_HIT_TEXTURE_PATH = 'assets/weapons/bullet_hit.webp';
+export const BULLET_HIT_FRAMES = 2;
+export const BULLET_HIT_SIZE = 16;
+export const BULLET_HIT_ANIM_KEY = 'bullet-hit-splash';
+
 // Loading screen: the splash shown while BootScene loads everything else,
 // plus a "%" glyph for the progress readout (the intro font has no percent
 // sign, and this is the only place one is needed -- sized to
@@ -215,7 +233,7 @@ export function backgroundTexturePath(name) {
 // manifest to keep in sync. Raise MAX_LEVEL_FILES if there are ever more
 // levels than that.
 export const LEVELS_DIR = 'levels/';
-export const MAX_LEVEL_FILES = 20;
+export const MAX_LEVEL_FILES = 50;
 
 export function levelFileKey(n) {
   return `level_${String(n).padStart(2, '0')}`;
@@ -230,6 +248,20 @@ export function levelFilePath(n) {
 // updatePanicSpawner) -- deliberately loaded under a fixed name rather than
 // through the level_NN probe above, so it never counts as (or displaces) a
 // campaign level.
+// The campaign's route: which continents it visits, in order, and the
+// background/music/map position of each -- see js/regions.js.
+export const REGIONS_KEY = 'regions';
+export const REGIONS_PATH = `${LEVELS_DIR}regions.json`;
+
+// The between-regions interlude's two graphics: the world map it draws the
+// route on, and the plane that flies it. The map is authored at exactly
+// half the playfield so it scales 2x cleanly (see js/WorldMapInterlude.js,
+// which reads the texture's own width to place the route markers).
+export const WORLDMAP_TEXTURE_KEY = 'worldmap';
+export const WORLDMAP_TEXTURE_PATH = 'assets/ui/worldmap.webp';
+export const PLANE_TEXTURE_KEY = 'plane';
+export const PLANE_TEXTURE_PATH = 'assets/ui/plane.webp';
+
 export const PANIC_LEVEL_KEY = 'panic-level';
 export const PANIC_LEVEL_PATH = `${LEVELS_DIR}panic.json`;
 

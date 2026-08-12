@@ -46,6 +46,24 @@ export const WEAPON_TYPES = {
     baseMaxActiveShots: 1,
     basePierce: 1,
   },
+  // The odd one out: a volley weapon rather than a beam. `volley` is what
+  // marks it -- GameScene.tryFire branches on it, and Bullet.js takes over
+  // from Projectile.js. `baseMaxActiveShots` counts VOLLEYS in the air,
+  // not bullets, so three presses put twelve darts up at once.
+  //
+  // The bullets are fanned rather than parallel: fired straight they would
+  // stay a 4-wide comb the whole way up and cover no more than the beam
+  // does, whereas a few degrees of spread makes the volley reach wider the
+  // higher it gets, which is the whole point of the weapon.
+  machinegun: {
+    label: 'Machine Gun',
+    shotSpeed: 520,
+    width: 4,
+    color: '#4ecdc4',
+    baseMaxActiveShots: 3,
+    basePierce: 1,
+    volley: { count: 4, spreadDeg: 7, spacingPx: 8 },
+  },
   grapple: {
     label: 'Grapple',
     shotSpeed: 400,
@@ -57,6 +75,13 @@ export const WEAPON_TYPES = {
     ceilingReleaseWarnSec: 1,
   },
 };
+
+// How high a ledge the player can walk straight up, without jumping (it
+// cannot jump at all). One obstacle block: anything taller is a wall to
+// stop at, a stack of these is a staircase to climb. See Player.js's
+// canStepOnto/supportSurface -- a step also needs room to stand on top,
+// or a wall built of stacked blocks would be a ladder.
+export const PLAYER_STEP_UP_PX = 16;
 
 export const MIN_BALL_SIZE = 1;
 
@@ -79,3 +104,16 @@ export const TIME_BONUS_COUNTDOWN_PER_SEC = 30;
 // (which at 100/s x 30 would be 3000 sounds a second) or one per frame
 // (which would change pitch with the frame rate).
 export const TIME_BONUS_TICK_SEC = 0.07;
+
+// Which of js/LevelTransition.js's LEVEL_TRANSITIONS effects plays between
+// campaign levels -- the screen is hidden with it, the next level is
+// swapped in underneath, and it is drawn back off. Change the name to
+// change the effect; each effect carries its own duration, so there is
+// nothing else to keep in step.
+export const LEVEL_TRANSITION = 'shutter';
+
+// How many campaign levels are played on each continent before the run
+// moves on to the next one (see js/regions.js and the world-map interlude
+// that plays on the change). With the route in levels/regions.json this is
+// what decides how far into a run each new place turns up.
+export const LEVELS_PER_REGION = 5;

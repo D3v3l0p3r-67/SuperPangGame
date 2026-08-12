@@ -1,0 +1,60 @@
+{
+  "id": 22,
+  "name": "Pagoda Rise",
+  "timeLimitSec": 50,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 272,
+      "y": 288,
+      "w": 256,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 288,
+      "y": 224,
+      "w": 208,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 176,
+      "w": 160,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 352,
+      "y": 128,
+      "w": 112,
+      "h": 16
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 4,
+      "x": 112,
+      "y": 320,
+      "vx": 90
+    },
+    {
+      "shape": "hex",
+      "size": 3,
+      "x": 680,
+      "y": 328,
+      "vx": -100
+    },
+    {
+      "shape": "hex",
+      "size": 2,
+      "x": 400,
+      "y": 96,
+      "vx": 110
+    }
+  ]
+}

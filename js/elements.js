@@ -40,9 +40,14 @@ export const POWERUP_BEHAVIORS = {
     apply(game, params) { game.score += params.amount; },
     revert() {},
   },
+  // Additive, and relative to whatever weapon is in hand -- an absolute
+  // value would NERF a weapon whose own base is higher (the machine gun
+  // allows three volleys), and reverting to the harpoon's base would be
+  // wrong for every other weapon. game.baseMaxActiveShots reads the
+  // weapon actually being held (see GameScene).
   weapon_max_shots: {
-    apply(game, params) { game.weaponState.maxActiveShots = params.maxActiveShots; },
-    revert(game, params, base) { game.weaponState.maxActiveShots = base.baseMaxActiveShots; },
+    apply(game, params) { game.weaponState.maxActiveShots = game.baseMaxActiveShots + params.bonusShots; },
+    revert(game) { game.weaponState.maxActiveShots = game.baseMaxActiveShots; },
   },
   player_speed_multiplier: {
     apply(game, params) { game.player.speedMultiplier = params.multiplier; },
@@ -68,9 +73,9 @@ export const POWERUP_BEHAVIORS = {
 
 // Dispatches a loaded elements/*.json payload into the right registry
 // above -- called once per file by BootScene.populateElements(). `harpoon`
-// is WEAPON_TYPES.harpoon (see config.js), passed through so
-// weapon_max_shots can revert to its base values without importing
-// config.js here (kept element-registry-only).
+// is WEAPON_TYPES.harpoon (see config.js), passed through for any behavior
+// that needs a weapon's own numbers without importing config.js here (kept
+// element-registry-only).
 export function registerElement(el, harpoon) {
   if (el.category === 'ball') {
     BALL_ELEMENTS.push(el);

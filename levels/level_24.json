@@ -1,0 +1,74 @@
+{
+  "id": 24,
+  "name": "Bamboo Deck",
+  "timeLimitSec": 95,
+  "background": "default",
+  "weapon": "harpoon",
+  "obstacles": [
+    {
+      "type": "platform",
+      "x": 256,
+      "y": 304,
+      "w": 288,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 288,
+      "y": 256,
+      "w": 240,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 304,
+      "y": 208,
+      "w": 192,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 320,
+      "y": 160,
+      "w": 144,
+      "h": 16
+    },
+    {
+      "type": "platform",
+      "x": 352,
+      "y": 112,
+      "w": 96,
+      "h": 16
+    },
+    {
+      "type": "crate",
+      "x": 96,
+      "y": 224,
+      "w": 64,
+      "h": 32
+    },
+    {
+      "type": "crate",
+      "x": 640,
+      "y": 224,
+      "w": 64,
+      "h": 32
+    }
+  ],
+  "balls": [
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 112,
+      "y": 320,
+      "vx": 80
+    },
+    {
+      "shape": "round",
+      "size": 5,
+      "x": 688,
+      "y": 320,
+      "vx": -80
+    }
+  ]
+}
