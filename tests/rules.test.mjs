@@ -11,6 +11,7 @@ import {
 } from '../js/constants.js';
 import { PLAYER_CONFIG, PLAYER_STEP_UP_PX, LEVEL_TRANSITION, LEVELS_PER_REGION } from '../js/config.js';
 import { DEFAULT_BINDINGS, ACTIONS, keyLabel } from '../js/keys.js';
+import { DAYLIGHT_PHASES, daylightPhaseForLevel } from '../js/regions.js';
 import { readJSON, levelFiles } from './helpers.mjs';
 
 // The transition registry is data, but the module it lives in converts a
@@ -68,6 +69,20 @@ test('there is a region for every block of levels the campaign plays', () => {
   assert.equal(regions.length, needed,
     `${levelCount} levels at ${LEVELS_PER_REGION} per region needs ${needed} regions, but regions.json has ${regions.length}`
     + ' -- a run that reaches a block with no region has nowhere to fly to');
+});
+
+test('a region is one day long, and every region starts it over', () => {
+  const phases = [];
+  for (let i = 0; i < LEVELS_PER_REGION; i++) phases.push(daylightPhaseForLevel(i));
+  assert.equal(phases[0], DAYLIGHT_PHASES[0], 'a region has to open in the morning');
+  assert.equal(phases[phases.length - 1], DAYLIGHT_PHASES[DAYLIGHT_PHASES.length - 1],
+    'and end at night -- the last level of a region is the last of its day');
+  for (let i = 1; i < phases.length; i++) {
+    assert.ok(DAYLIGHT_PHASES.indexOf(phases[i]) >= DAYLIGHT_PHASES.indexOf(phases[i - 1]),
+      `level ${i + 1} of a region is ${phases[i]}, earlier in the day than the level before it`);
+  }
+  assert.equal(daylightPhaseForLevel(LEVELS_PER_REGION), DAYLIGHT_PHASES[0],
+    'the next continent is a new day, not a continuation of the last one');
 });
 
 test('every action has exactly one default key, and no key does two jobs', () => {

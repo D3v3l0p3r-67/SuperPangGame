@@ -257,6 +257,12 @@ export function powerupTexturePath(type) {
 // every level and the level editor start out pointing at (see
 // DEFAULT_BACKGROUND) -- add a new name here and reference it from a
 // level's `background` field for a level-specific look.
+//
+// A campaign level doesn't use its own: it gets its region's frame at the
+// time of day it falls at, "<region background>_<phase>" (see regions.js's
+// daylightBackground). Those five variants are generated from the region's
+// one authored night frame by tools/daylight_backgrounds.py rather than
+// drawn five times over, so a redrawn region is still one file to redraw.
 export const BACKGROUND_TEXTURE_DIR = 'assets/backgrounds/';
 export const DEFAULT_BACKGROUND = 'default';
 

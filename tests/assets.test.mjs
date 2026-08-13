@@ -12,6 +12,7 @@ import {
   powerupTexturePath, backgroundTexturePath, audioPath, DEFAULT_BACKGROUND,
   MAX_LEVEL_FILES,
 } from '../js/assets.js';
+import { DAYLIGHT_PHASES, daylightBackground } from '../js/regions.js';
 
 const EL = elements();
 const AUDIO = readJSON('assets/audio/audio.json');
@@ -91,8 +92,14 @@ test('regions each have their continent background, and a marker on the map', ()
   const regions = readJSON('levels/regions.json');
   assert.ok(regions.length > 0, 'the campaign has no regions');
   for (const region of regions) {
-    assert.ok(exists(backgroundTexturePath(region.background)),
-      `region ${region.id}: background "${region.background}" has no file`);
+    // Every time of day, not just the authored night frame: a level lands
+    // on one of the five by where it falls in its region, so a variant
+    // that was never generated is a level with no background at all.
+    for (const phase of DAYLIGHT_PHASES) {
+      const name = daylightBackground(region.background, phase);
+      assert.ok(exists(backgroundTexturePath(name)),
+        `region ${region.id}: "${name}" has no file -- rerun tools/daylight_backgrounds.py`);
+    }
     assert.ok(Number.isFinite(region.map?.x) && Number.isFinite(region.map?.y),
       `region ${region.id}: needs map x/y`);
     // The marker coordinates are in the map image's own pixels (see the

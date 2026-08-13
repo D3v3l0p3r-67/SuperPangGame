@@ -18,7 +18,10 @@ import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
 import { LevelTransition } from './LevelTransition.js';
 import { WorldMapInterlude } from './WorldMapInterlude.js';
-import { regionForLevel, regionIndexForLevel, crossesRegion } from './regions.js';
+import {
+  regionForLevel, regionIndexForLevel, crossesRegion,
+  daylightBackground, daylightPhaseForLevel,
+} from './regions.js';
 import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
@@ -521,11 +524,15 @@ export class GameScene extends Phaser.Scene {
     this.weaponState = createWeaponState(this.weaponType);
     // A campaign level takes its look and its music from the continent
     // it is played on (see js/regions.js), not from its own file -- that's
-    // what makes five levels in a row feel like one place. Editor/custom
-    // levels and Panic Mode aren't on the itinerary and keep their own.
+    // what makes five levels in a row feel like one place. The look also
+    // moves through the day as the region is played: the same view of the
+    // same place, lit for the time of day this level falls at. Editor/
+    // custom levels and Panic Mode aren't on the itinerary and keep the
+    // background their own file names.
     const region = typeof idxOrDef === 'number' ? regionForLevel(idxOrDef) : null;
-    this.backgroundImage.setTexture(backgroundTextureKey(
-      region?.background || def.background || DEFAULT_BACKGROUND));
+    this.backgroundImage.setTexture(backgroundTextureKey(region?.background
+      ? daylightBackground(region.background, daylightPhaseForLevel(idxOrDef))
+      : (def.background || DEFAULT_BACKGROUND)));
     this.effects.reset(this);
     this.levelTimer = 0;
     // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --

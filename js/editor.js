@@ -6,6 +6,7 @@ import {
   LEVELS, SHIPPED_LEVELS, setLevel, isLevelDef,
   DEFAULT_PLAYER_SPAWN, clampPlayerSpawn, playerSpawn,
 } from './LevelManager.js';
+import { daylightBackgroundNames } from './regions.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
@@ -38,12 +39,17 @@ function ladderBrushes() {
 }
 
 // Every background name any loaded level actually uses, plus
-// DEFAULT_BACKGROUND itself (BootScene.js preloads exactly this same set --
-// see its own backgroundNames construction) -- there's no separate
-// registry file for backgrounds the way elements/obstacles/powerups have
-// one, since a background is just an image name a level points at.
+// DEFAULT_BACKGROUND itself, plus every region's frame at each of its
+// times of day (BootScene.js preloads exactly this same set -- see its own
+// backgroundNames construction) -- there's no separate registry file for
+// backgrounds the way elements/obstacles/powerups have one, since a
+// background is just an image name a level points at.
 function backgroundNames() {
-  return [...new Set([DEFAULT_BACKGROUND, ...LEVELS.map((lvl) => lvl.background).filter(Boolean)])];
+  return [...new Set([
+    DEFAULT_BACKGROUND,
+    ...LEVELS.map((lvl) => lvl.background).filter(Boolean),
+    ...daylightBackgroundNames(),
+  ])];
 }
 
 // Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that

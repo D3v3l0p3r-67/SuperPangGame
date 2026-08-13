@@ -218,8 +218,9 @@ five levels in a row read as one place rather than five unrelated screens.
 
 The itinerary is `levels/regions.json`, read at boot into `js/regions.js`'s
 `REGIONS`, the same kind of registry as `LEVELS` and `BALL_ELEMENTS`. Order
-is the route. Each entry names an `assets/backgrounds/<background>.webp`,
-an `audio.json` music key, and where the region sits on the world map:
+is the route. Each entry names a background (the base name of a frame in
+`assets/backgrounds/`, see "A day per continent" below), an `audio.json`
+music key, and where the region sits on the world map:
 
 | # | region | landmark | levels |
 |---|---|---|---|
@@ -253,6 +254,37 @@ continent, nine flights across a run.
 
 Panic Mode and editor playtests are not on the itinerary and keep the
 default background and the generic `music02`/`music01`.
+
+### A day per continent
+
+The five levels on a continent are five times of day in the same place.
+`daylightPhaseForLevel` (`js/regions.js`) spreads `DAYLIGHT_PHASES` --
+morning, noon, afternoon, dusk, night -- across `LEVELS_PER_REGION`, so a
+region opens in the morning, ends at night, and the next continent starts
+the day over. The background a level shows is
+`assets/backgrounds/<region background>_<phase>.webp`.
+
+Only the light changes; the view does not. Each region's frame is drawn
+once, at night (`<region>.webp`), and
+`tools/daylight_backgrounds.py` writes the five variants from it: the sky
+gradient is repainted, the silhouettes are relit onto that phase's
+building tones (keeping their own light-to-dark ordering, so the hazy far
+skyline stays behind the dark near one), the windows go out during the
+day, the stars fade with them, the aurora only burns at night, and the
+moon becomes the sun. It reads the layers back out of the source image
+rather than being told them, so a redrawn or brand-new region background
+is still one file to draw:
+
+```
+python3 tools/daylight_backgrounds.py            # every region
+python3 tools/daylight_backgrounds.py europe     # just one
+```
+
+It needs Pillow and NumPy, which the game itself does not -- it is an
+authoring tool run by hand when the art changes, not a build step (there
+is no build). `tests/assets.test.mjs` checks that all five variants of
+every region exist, so a forgotten rerun fails the tests rather than
+showing up as a missing background mid-run.
 
 ### The flight between them
 
@@ -622,7 +654,9 @@ assets/              Every graphic and sound in the game, as real files --
                       ladders keep their rung spacing across the join
   powerups/          <powerup type>.webp
   backgrounds/       <name>.webp, one per distinct levels/*.json
-                      `background` field -- see "Swapping graphics" below
+                      `background` field, plus <region>_<time of day>.webp
+                      for each region's five (see "A day per continent")
+                      -- see "Swapping graphics" below
   projectile.webp, particle.webp
   audio/             audio.json (every sound's config) + one .ogg file per
                       sound named there -- see "Swapping sounds" below
@@ -640,6 +674,10 @@ levels/              One level_NN.json per level, in level-editor Export
 tests/               Node's own test runner against the data and the pure
                       rules -- no framework, no dependencies, no browser
                       (see "Tests" above and tests/README.md)
+tools/               Authoring scripts run by hand when the art changes,
+                      never by the game: daylight_backgrounds.py relights
+                      a region's night frame into its five times of day
+                      (see "A day per continent")
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
                       code -- see "Admin tool" below. Not linked from the
@@ -1114,14 +1152,16 @@ dimensions:
   plain white).
 - **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
   distinct `background` value used across `levels/*.json` (see "Adding
-  levels"), exactly `VIRTUAL_W x GROUND_Y` (800x404 from `js/constants.js`)
-  -- covers the sky area behind obstacles/balls/player; the floor strip and
-  HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
-  `assets/backgrounds/default.webp` is the one every level ships with today
-  (a generated night sky/skyline, see below) and what the level editor
-  starts a new level pointed at -- adding a second background is dropping
-  a same-size file in this folder and setting some level's `background`
-  field (or the editor's dropdown) to its name, no code change.
+  levels"), plus five per region (`<region>_morning.webp` and its four
+  siblings, see "A day per continent"). Authored at 384x200 and drawn
+  stretched over the sky area, `VIRTUAL_W x GROUND_Y` (`js/constants.js`),
+  behind obstacles/balls/player; the floor strip and HUD bar below it stay
+  solid color regardless (`GameScene.drawBackground`).
+  `assets/backgrounds/default.webp` is what the level editor starts a new
+  level pointed at -- adding a background is dropping a same-size file in
+  this folder and setting some level's `background` field (or the editor's
+  dropdown) to its name, no code change. A campaign level ignores its own
+  `background` field: it shows its region's frame at its time of day.
 
 `GameScene.js`, `Ball.js`, `Player.js`, `Obstacle.js`, `Bonus.js`, and
 `LevelManager.js` all read `js/elements.js`'s registries and `js/assets.js`

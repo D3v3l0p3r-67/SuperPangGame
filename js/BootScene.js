@@ -2,7 +2,7 @@ import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POW
 import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
-import { REGIONS } from './regions.js';
+import { daylightBackgroundNames } from './regions.js';
 import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
 import { hexColor } from './colors.js';
 import {
@@ -109,11 +109,15 @@ export class BootScene extends Phaser.Scene {
 
     // DEFAULT_BACKGROUND is always loaded (the level editor's own starting
     // background, before any level-specific one is chosen), plus every
-    // distinct `background` a loaded level actually names.
+    // distinct `background` a loaded level actually names, plus every
+    // region's frame at each of its five times of day -- a campaign level
+    // picks one of those by where it falls in its region (see regions.js's
+    // daylightPhaseForLevel), so all five have to be loaded before the
+    // region's first level starts.
     const backgroundNames = new Set([
       DEFAULT_BACKGROUND,
       ...LEVELS.map((lvl) => lvl.background).filter(Boolean),
-      ...REGIONS.map((r) => r.background).filter(Boolean),
+      ...daylightBackgroundNames(),
     ]);
     for (const name of backgroundNames) {
       this.load.image(backgroundTextureKey(name), backgroundTexturePath(name));
