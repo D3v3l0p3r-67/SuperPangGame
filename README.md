@@ -473,10 +473,9 @@ Useful while tuning levels or ball behavior:
   `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
   the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
   any transition effect on demand.
-- Lives above the playfield's own ceiling, in a `#tool-bar` row shared
-  with the level editor's own panel (editor on the left, debug on the
-  right, see index.html/style.css) -- never overlapping actual gameplay
-  the way an in-canvas overlay would.
+- Lives above the playfield's own ceiling, in its own `#tool-bar` row
+  (see index.html/style.css) -- never overlapping actual gameplay the way
+  an in-canvas overlay would.
 
 ## Project structure
 
@@ -715,6 +714,19 @@ dedicated **Erase** brush), then click **Export** to download a `.json`
 file already in the right shape, and drop that file into `levels/` as
 `level_NN.json` (the next free number, zero-padded to 2 digits --
 `level_11.json`, `level_12.json`, ...).
+
+The editor's controls occupy the **HUD strip**: the game's own HUD is
+hidden while editing (see Hud.js's `VISIBLE_STATES`), so that band across
+the bottom of the canvas is free, and using it leaves the whole playfield
+visible with nothing pushing the canvas down the page. They are laid out
+as labelled columns of rows -- **BRUSH** (what the pointer paints, split
+into level structure and the balls to pop), **NEXT PLACED** (direction and
+guaranteed drop for the next ball/crate), **LEVEL** (background, weapon,
+clock), **FILE**, **GO**, and a **COUNT** readout -- so what each control
+belongs to is readable at a glance. The panel is sized from the canvas
+(`HUD_H`/`VIRTUAL_H` for the height, container query units for everything
+inside), so it scales with the display zoom; at 0.5x the strip is only 42
+CSS px and the panel scrolls rather than clipping anything out of reach.
 
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json

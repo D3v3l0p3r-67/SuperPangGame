@@ -1,4 +1,4 @@
-import { VIRTUAL_W, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
+import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
@@ -47,6 +47,27 @@ function labelled(text, control) {
   label.textContent = text;
   label.appendChild(control);
   return label;
+}
+
+// One row of controls inside a group.
+function row(...controls) {
+  const el = document.createElement('div');
+  el.className = 'editor-row';
+  el.append(...controls);
+  return el;
+}
+
+// One labelled unit of related controls -- a column of rows. The panel is
+// a line of these, so what each control belongs to is readable at a
+// glance instead of every button sitting in one undifferentiated strip.
+function group(title, ...rows) {
+  const el = document.createElement('div');
+  el.className = 'editor-group';
+  const heading = document.createElement('span');
+  heading.className = 'editor-group-title';
+  heading.textContent = title;
+  el.append(heading, ...rows);
+  return el;
 }
 
 // Builds the brush list for balls straight from BALL_ELEMENTS, so a new
@@ -159,106 +180,113 @@ export class Editor {
     this.panelBuilt = true;
     this.panelEl = document.getElementById('editor-panel');
     this.panelEl.innerHTML = '';
+    // The panel fills the HUD strip (see style.css) -- its height taken
+    // from the layout constants rather than written into the stylesheet a
+    // second time, so it stays right through any change to either.
+    this.panelEl.style.height = `${(HUD_H / VIRTUAL_H) * 100}%`;
 
-    const brushRow = document.createElement('div');
-    brushRow.className = 'debug-btn-row';
     this.brushButtons = {};
-    for (const brush of [...BRUSHES.slice(0, 2), ...ladderBrushes(), ...ballBrushes(), BRUSHES[2]]) {
+    const brushButton = (brush) => {
       const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.id);
-      brushRow.appendChild(btn);
       this.brushButtons[brush.id] = btn;
-    }
-    this.panelEl.appendChild(brushRow);
+      return btn;
+    };
+
+    // What the pointer paints. Split by what the brushes actually put
+    // down -- the structure of the level on one row, the balls that have
+    // to be popped in it on the next -- rather than one long run of them.
+    this.panelEl.appendChild(group(
+      'BRUSH',
+      row(...[...BRUSHES.slice(0, 2), ...ladderBrushes(), BRUSHES[2]].map(brushButton)),
+      row(...ballBrushes().map(brushButton)),
+    ));
 
     // Options that apply to the NEXT placed ball/crate: initial direction
     // (round balls only use the X one; hex balls use both) and a
     // guaranteed powerup drop on pop/destroy. Chosen before placing, then
     // baked into that specific instance -- see placeBall/placeBlock.
-    const optionsRow = document.createElement('div');
-    optionsRow.className = 'debug-btn-row';
-
+    //
     // Both direction buttons get their label from updateOptionLabels()
     // below (it renders the current arrow), not here.
     this.dirXBtn = makeButton('', () => {
       this.dirX *= -1;
       this.updateOptionLabels();
     }, 'Ball direction (horizontal)');
-    optionsRow.appendChild(this.dirXBtn);
-
     this.dirYBtn = makeButton('', () => {
       this.dirY *= -1;
       this.updateOptionLabels();
     }, 'Ball direction (vertical) -- hex balls only, round balls always start falling');
-    optionsRow.appendChild(this.dirYBtn);
-
     this.powerupSelect = makeSelect(
       [['', 'No powerup'], ...POWERUP_TYPE_KEYS.map((key) => [key, POWERUP_TYPES[key].label])],
       () => { this.selectedPowerup = this.powerupSelect.value || null; },
     );
-    optionsRow.appendChild(labelled('On break/pop: ', this.powerupSelect));
-
-    this.panelEl.appendChild(optionsRow);
+    this.panelEl.appendChild(group(
+      'NEXT PLACED',
+      row(this.dirXBtn, this.dirYBtn),
+      row(labelled('Drops ', this.powerupSelect)),
+    ));
     this.updateOptionLabels();
 
-    // Whole-level settings: background image and starting weapon. Unlike
-    // the per-placement options above, these apply to the level as a
-    // whole, so changing either takes effect immediately (background
-    // swaps the live preview via setLevelBackground; weapon just updates
-    // what buildDef() will save -- there's only one weapon type today, so
-    // nothing visibly changes yet, but a level editor authors this field
-    // exactly like background for whenever a second one exists).
-    const levelRow = document.createElement('div');
-    levelRow.className = 'debug-btn-row';
-
+    // Whole-level settings: background image, starting weapon and clock.
+    // Unlike the per-placement options above, these apply to the level as
+    // a whole, so changing either dropdown takes effect immediately
+    // (background swaps the live preview via setBackground; weapon just
+    // updates what buildDef() will save).
     this.backgroundSelect = makeSelect(
       backgroundNames().map((name) => [name, name]),
       () => this.setBackground(this.backgroundSelect.value),
     );
-    levelRow.appendChild(labelled('Background: ', this.backgroundSelect));
-
     this.weaponSelect = makeSelect(
       Object.entries(WEAPON_TYPES).map(([key, w]) => [key, w.label]),
       () => { this.weapon = this.weaponSelect.value; },
     );
-    levelRow.appendChild(labelled('Weapon: ', this.weaponSelect));
-
-    this.panelEl.appendChild(levelRow);
-
-    const actionRow = document.createElement('div');
-    actionRow.className = 'debug-btn-row';
-
     this.timeInput = document.createElement('input');
     this.timeInput.type = 'number';
     this.timeInput.min = '10';
     this.timeInput.max = '300';
     this.timeInput.value = '60';
-    this.timeInput.style.width = '48px';
-    actionRow.appendChild(labelled('Time ', this.timeInput));
+    this.timeInput.style.width = '9cqh';
+    // One control per row here, unlike the two-row groups either side:
+    // these three are the widest controls in the panel, and side by side
+    // they made this group wide enough to push the ones after it off the
+    // end of the strip.
+    this.panelEl.appendChild(group(
+      'LEVEL',
+      row(labelled('Bg ', this.backgroundSelect)),
+      row(labelled('Weapon ', this.weaponSelect)),
+      row(labelled('Time ', this.timeInput)),
+    ));
 
-    actionRow.append(
-      makeButton('Clear all', () => this.clearAll()),
-      makeButton('Save', () => this.save()),
-      makeButton('Export', () => this.exportJSON()),
-      makeButton('Import', () => this.importFileInput.click()),
-    );
-
+    // Everything that touches the level as a whole rather than one thing
+    // in it. Clear all sits with them because it is the same kind of
+    // action -- one click, the whole level -- not a brush.
     this.importFileInput = document.createElement('input');
     this.importFileInput.type = 'file';
     this.importFileInput.accept = '.json,application/json';
     this.importFileInput.style.display = 'none';
     this.importFileInput.onchange = (e) => this.importJSON(e);
-    actionRow.appendChild(this.importFileInput);
+    this.panelEl.appendChild(group(
+      'FILE',
+      row(makeButton('Save', () => this.save()), makeButton('Export', () => this.exportJSON())),
+      row(makeButton('Import', () => this.importFileInput.click()),
+        makeButton('Clear all', () => this.clearAll()), this.importFileInput),
+    ));
 
-    actionRow.append(
-      makeButton('Play', () => this.play()),
-      makeButton('Menu', () => this.scene.exitEditor()),
-    );
+    // The two ways out of the editor, kept apart from everything that
+    // edits so neither is a mis-click away from the brushes.
+    this.panelEl.appendChild(group(
+      'GO',
+      row(makeButton('Play', () => this.play())),
+      row(makeButton('Menu', () => this.scene.exitEditor())),
+    ));
 
-    this.panelEl.appendChild(actionRow);
-
+    // What is actually in the level, and the place a transient message
+    // (an import failure, say) is reported. Deliberately no "current
+    // brush" readout: the selected brush button is already the one
+    // highlighted in the BRUSH group.
     this.statusEl = document.createElement('div');
-    this.statusEl.className = 'debug-text';
-    this.panelEl.appendChild(this.statusEl);
+    this.panelEl.appendChild(group('COUNT', this.statusEl));
+    this.panelEl.lastChild.classList.add('editor-status');
 
     this.setBrush(this.brush);
   }
@@ -523,7 +551,12 @@ export class Editor {
 
   render() {
     this.cursorGraphics.clear();
-    if (this.scene.state !== GAME_STATES.EDITOR || !this.hoverCell) return;
+    if (this.scene.state !== GAME_STATES.EDITOR) return;
+    // Before the cursor check: the counts belong on screen from the
+    // moment the editor opens, not only once the pointer has been over
+    // the canvas at least once.
+    this.updateStatus();
+    if (!this.hoverCell) return;
     this.cursorGraphics.lineStyle(1, 0xffd23f, 0.9);
     // Every brush -- ball included -- snaps to the same grid cell, and that
     // cell is always the object's top-left bounding-box corner (the square
@@ -548,17 +581,19 @@ export class Editor {
         width, height,
       );
     }
-    if (this.statusEl) {
-      // A transient message (e.g. an import error) takes over the status
-      // line for a few seconds instead of being overwritten on the very
-      // next frame by the brush/count line below.
-      if (this.statusMessage && performance.now() < this.statusMessageUntil) {
-        this.statusEl.textContent = this.statusMessage;
-      } else {
-        this.statusMessage = null;
-        this.statusEl.textContent = `BRUSH ${this.brush}\nBLOCKS ${this.blocks.size}  BALLS ${this.balls.size}  LADDERS ${this.ladders.size}`;
-      }
+  }
+
+  updateStatus() {
+    if (!this.statusEl) return;
+    // A transient message (e.g. an import error) takes over the status
+    // line for a few seconds instead of being overwritten on the very
+    // next frame by the brush/count line below.
+    if (this.statusMessage && performance.now() < this.statusMessageUntil) {
+      this.statusEl.textContent = this.statusMessage;
+      return;
     }
+    this.statusMessage = null;
+    this.statusEl.textContent = `Blocks ${this.blocks.size}   Balls ${this.balls.size}\nLadders ${this.ladders.size}`;
   }
 
   showStatusMessage(text, durationMs = 3000) {
