@@ -148,6 +148,10 @@ export class LevelTransition {
     if (this.active) return;
     this.effect = transitionEffect(name);
     this.elapsed = 0;
+    // Here rather than at the call site, so every effect gets it and a
+    // new one cannot be added without: the sound belongs to the change of
+    // level, not to any one way of showing it.
+    this.scene.audio.play('leveltransition');
     if (this.effect.place) {
       this.startSliding(onCovered);
       return;
@@ -167,11 +171,6 @@ export class LevelTransition {
     this.effect.place(this.leaving, this.arriving, 0);
   }
 
-  // A still of the playfield exactly as it looks right now, as a game
-  // object of its own. The texture is only PLAYFIELD_H tall, so the HUD
-  // bar below it is never part of the picture and keeps showing straight
-  // through -- the same promise the overlay effects keep by not painting
-  // over it.
   // Keeps the sliding stills inside the playfield. They are a whole
   // playfield tall and spend the transition half in and half out of it,
   // so without this the one coming up would ride over the HUD bar on its
@@ -190,6 +189,11 @@ export class LevelTransition {
     return this.mask;
   }
 
+  // A still of the playfield exactly as it looks right now, as a game
+  // object of its own. The texture is only PLAYFIELD_H tall, so the HUD
+  // bar below it is never part of the picture and keeps showing straight
+  // through -- the same promise the overlay effects keep by not painting
+  // over it.
   capture() {
     const shot = this.scene.add.renderTexture(0, 0, VIRTUAL_W, PLAYFIELD_H).setOrigin(0, 0).setDepth(30);
     shot.setMask(this.playfieldMask());

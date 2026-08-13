@@ -243,9 +243,24 @@ Crossing to a new continent doesn't just cut. The level transition covers
 the screen as usual, but uncovers onto a world map
 (`js/WorldMapInterlude.js`) with the whole route marked on it, and a plane
 flies the leg just earned along a bowed dotted trail that fills in behind
-it. The destination's name is composed from the same loaded font the
+it, with its engine running for as long as the map is up (`planefly`).
+The destination's name is composed from the same loaded font the
 level-intro uses. Once the plane lands the map fades, and only then does
 the new level's own "LEVEL n / READY / SET / GO" begin.
+
+Every continent on the itinerary is marked, and each marker says whether
+the run has been there: **green** for the ones already played, **red**
+for the ones still ahead. The destination stays red for the whole flight
+and turns green as the plane lands on it -- which is the moment the
+interlude exists to show, so the landed plane parks just past the marker
+rather than on top of it.
+
+The map itself (`assets/ui/worldmap.webp`, 400x210 -- exactly half the
+playfield, so it scales 2x with no resampling) is drawn from real
+coastlines: landmasses given as lon/lat outlines, projected
+equirectangular at one scale on both axes and rasterised onto a 4px cell
+grid, which keeps the chunky look while leaving the continents their own
+shapes, down to the big islands.
 
 Like the transition it wraps, the interlude is not a game state -- it
 spans the same `LEVEL_CLEAR`-to-`LEVEL_INTRO` handover and is ticked from
@@ -275,6 +290,10 @@ there is nothing else to keep in step.
 | `iris` | four edges closing in on the centre and opening out |
 | `shutter` | horizontal slats drawing in from alternating sides |
 | `push` | the old level slides up and off while the next one follows it up from below (the default) |
+
+Whichever effect is running, the change of level itself is heard:
+`LevelTransition.start` plays `leveltransition`, so the sound belongs to
+the level changing rather than to any one way of showing it.
 
 There are two kinds of effect, and which one an entry is depends only on
 the method it carries:
@@ -509,7 +528,7 @@ seam between the canvas and the page behind it.
 - A graphic level-intro screen -- "LEVEL n", the level's name, then a
   blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
   from loaded images (`js/LevelIntro.js`), same as the HUD.
-- 22 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
+- 24 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
   `assets/audio/audio.json` through a central `AudioManager` -- see
   "Swapping / adding sounds". Music starts exactly when the balls do
   (right as "GO!" ends), switches to a more urgent loop with 15s left on
@@ -1146,7 +1165,7 @@ funnels back through the same LEVEL_INTRO -> PLAYING start, so a restarted
 or advanced level always begins silent-then-music, never two tracks
 overlapping.
 
-The 22 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
+The 24 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
 tones/noise bursts generated offline (see the synthesis style used
 elsewhere in this file) rather than original audio -- drop in real files
 with the same names to replace them, one for one, no other changes needed:
@@ -1156,7 +1175,10 @@ with the same names to replace them, one for one, no other changes needed:
 `itemshieldloose` (shield absorbs a hit), `hurryup` (a short low-time
 ping, independent of the `music_hurry` track switch above), `gameover`,
 `levelcomplete`, `superpang` (run-start jingle), `weaponhold` (picking up
-a weapon-boosting power-up), the player's own movement -- `playerland`
+a weapon-boosting power-up), `leveltransition` (the swoosh of one level
+being replaced by the next, see "Level transitions"), `planefly` (the
+engine, authored to the exact length of the world-map interlude rather
+than looped), the player's own movement -- `playerland`
 (the thud under the landing dust), `playerclimb` (one rung, played once
 per cycle of the climb animation, so it keeps time with the legs and
 stops when they do), `playerstepup` and `playerstepdown` (a 16px block

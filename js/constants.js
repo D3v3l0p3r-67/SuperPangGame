@@ -80,6 +80,9 @@ export const COLORS = {
   hud: '#f4f1de',
   danger: '#e94560',
   accent: '#ffd23f',
+  // Reached, done, cleared: the world map's markers for the continents
+  // the run has already been to (see WorldMapInterlude.render).
+  success: '#4ad66d',
   outline: '#0b0e2a',
   hudBg: '#05040a',
 };
