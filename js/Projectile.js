@@ -38,6 +38,14 @@ import { BORDER_THICKNESS } from './constants.js';
 // the shaft trailing below it, at 1:1 pixel scale the whole way up. Left
 // unscaled, an Arcade body sized in world pixels also stays exactly the
 // size it was set to (a scaled sprite would multiply it again).
+// How far into the surface it was fired from a beam's foot is allowed to
+// sit before anything there counts as being in the beam's way. The player's
+// feet settle within a fraction of a pixel of whatever they are standing on
+// rather than exactly on it (Player.followGround leaves anything under half
+// a pixel alone), and when that fraction lands INSIDE the surface, so does
+// the foot of a beam fired from there -- see blockedBy.
+const FOOT_CLEARANCE = 1;
+
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, headY, footY, width, speed, pierce, weaponType, stickSec = 0, releaseWarnSec = 0) {
     super(scene, x, footY, WEAPON_SHOTS_KEY, weaponShotFrame(weaponType, 'flying'));
@@ -105,6 +113,22 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   // True once the beam has caught hold of something and stopped climbing.
   get isAnchored() {
     return this.phase !== 'flying';
+  }
+
+  // True when `obstacleBody` is actually in this beam's way. A beam
+  // climbs, so only something ABOVE its foot can be -- and the surface the
+  // player fired from standing on is not, even though Arcade reports an
+  // overlap with it whenever their feet (and so the beam's foot) have
+  // settled a fraction of a pixel inside it.
+  //
+  // Without this, standing on a platform spent the shot on the platform
+  // underfoot the instant it was fired. For a grapple that meant anchoring
+  // at ZERO length: nothing drawn, and the weapon's only slot held for its
+  // full four seconds -- a grapple that simply did not work up there, and
+  // only sometimes, since which way that fraction falls depends on how the
+  // player arrived.
+  blockedBy(obstacleBody) {
+    return obstacleBody.y < this.footY - FOOT_CLEARANCE;
   }
 
   // Catches the beam with its head at `headY` -- the underside of whatever

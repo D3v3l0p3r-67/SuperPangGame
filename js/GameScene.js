@@ -1176,6 +1176,9 @@ export class GameScene extends Phaser.Scene {
     // An already-hanging beam keeps hold of what it caught -- it mustn't
     // spend itself, or chip away at anything, on a second contact.
     if (projGO.isAnchored) return;
+    // Nor on the surface the player is standing on: a beam climbs, so only
+    // what is above its foot is in its way (see Projectile.blockedBy).
+    if (!projGO.blockedBy(obstacleGO.body)) return;
     // A grapple catches under an indestructible block exactly as it does
     // under the ceiling: a block it can never shoot through is something
     // to hang from, not something to waste the shot on. Destructible
