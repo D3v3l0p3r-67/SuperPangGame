@@ -6,6 +6,7 @@ import { createWeaponState } from './weapons.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
 import { LEVELS } from './LevelManager.js';
+import { makeButton, makeSelect, labelled, row, group } from './panelUi.js';
 
 // Purely observational + a couple of manual test hooks -- reads scene
 // state and draws over it, never mutates gameplay logic. Can be deleted
@@ -37,84 +38,49 @@ export class Debug {
     if (this.enabled && !this.spawnPanelBuilt) this.buildSpawnPanel();
   }
 
-  addSectionLabel(parent, text) {
-    const label = document.createElement('div');
-    label.className = 'debug-section-label';
-    label.textContent = text;
-    parent.appendChild(label);
-  }
-
   buildSpawnPanel() {
     this.spawnPanelBuilt = true;
 
-    this.textEl = document.createElement('div');
-    this.textEl.className = 'debug-text';
-    this.panelEl.appendChild(this.textEl);
-
-    const wrap = document.createElement('div');
-    wrap.id = 'debug-spawn-panel';
-
     // -- Balls: pick a shape + size, spawn at the top-center of the field.
-    this.addSectionLabel(wrap, 'Spawn ball');
-    const ballRow = document.createElement('div');
-    ballRow.className = 'debug-btn-row';
-    const shapeSelect = document.createElement('select');
-    for (const shape of BALL_SHAPE_KEYS) {
-      const opt = document.createElement('option');
-      opt.value = shape;
-      opt.textContent = shape;
-      shapeSelect.appendChild(opt);
-    }
-    const sizeSelect = document.createElement('select');
+    const shapeSelect = makeSelect(BALL_SHAPE_KEYS.map((shape) => [shape, shape]), () => populateSizes());
+    const sizeSelect = makeSelect([], null);
     // Rebuilt whenever the shape changes -- hex only goes up to its
     // maxSize (3), not the full 5 round tiers.
     const populateSizes = () => {
-      const maxSize = maxBallSize(shapeSelect.value);
       sizeSelect.innerHTML = '';
       for (const el of BALL_ELEMENTS) {
         if (el.shape !== shapeSelect.value) continue;
         const opt = document.createElement('option');
         opt.value = String(el.size);
-        opt.textContent = `size ${el.size}`;
+        opt.textContent = String(el.size);
         sizeSelect.appendChild(opt);
       }
-      sizeSelect.value = String(maxSize);
+      sizeSelect.value = String(maxBallSize(shapeSelect.value));
     };
-    shapeSelect.onchange = populateSizes;
     populateSizes();
-    const spawnBallBtn = document.createElement('button');
-    spawnBallBtn.textContent = 'Spawn';
-    spawnBallBtn.onclick = () => {
-      const ball = new Ball(this.scene, shapeSelect.value, parseInt(sizeSelect.value, 10), VIRTUAL_W / 2, 30);
-      this.scene.balls.add(ball);
-    };
-    const removeAllBtn = document.createElement('button');
-    removeAllBtn.textContent = 'Remove all balls';
-    removeAllBtn.onclick = () => {
-      this.scene.balls.clear(true, true);
-    };
-    ballRow.append(shapeSelect, sizeSelect, spawnBallBtn, removeAllBtn);
-    wrap.appendChild(ballRow);
+    this.panelEl.appendChild(group(
+      'BALL',
+      row(shapeSelect, labelled('size ', sizeSelect)),
+      row(
+        makeButton('Spawn', () => {
+          this.scene.balls.add(new Ball(this.scene, shapeSelect.value, parseInt(sizeSelect.value, 10), VIRTUAL_W / 2, 30));
+        }),
+        makeButton('Remove all', () => this.scene.balls.clear(true, true)),
+      ),
+    ));
 
     // -- Power-ups: one clearly-labeled quick-spawn button per type
     // (fruit/bonus points, shield, weapon power-ups, and all the rest),
     // driven entirely by the POWERUP_TYPES registry so new entries there
-    // show up automatically.
-    this.addSectionLabel(wrap, 'Spawn power-up');
-    const powerupRow = document.createElement('div');
-    powerupRow.className = 'debug-btn-row';
-    for (const type of POWERUP_TYPE_KEYS) {
-      const def = POWERUP_TYPES[type];
-      const btn = document.createElement('button');
-      btn.textContent = def.label;
-      btn.title = type;
-      btn.onclick = () => {
-        const bonus = new Bonus(this.scene, type, VIRTUAL_W / 2, 30);
-        this.scene.powerups.add(bonus);
-      };
-      powerupRow.appendChild(btn);
-    }
-    wrap.appendChild(powerupRow);
+    // show up automatically. Three to a row rather than one long line:
+    // there are more of these than of anything else in here, and in one
+    // row this group alone would be wider than the canvas.
+    const powerupButtons = POWERUP_TYPE_KEYS.map((type) => makeButton(POWERUP_TYPES[type].label, () => {
+      this.scene.powerups.add(new Bonus(this.scene, type, VIRTUAL_W / 2, 30));
+    }, type));
+    const powerupRows = [];
+    for (let i = 0; i < powerupButtons.length; i += 3) powerupRows.push(row(...powerupButtons.slice(i, i + 3)));
+    this.panelEl.appendChild(group('SPAWN POWER-UP', ...powerupRows));
 
     // -- Weapons, alongside the power-up spawns above. These can't be
     // spawned as a pickup the way a power-up can -- a weapon is a property
@@ -122,84 +88,61 @@ export class Debug {
     // drops -- so the button hands it to the player directly instead.
     // Driven by the WEAPON_TYPES registry, same as the power-up row, so a
     // new weapon shows up here on its own.
-    this.addSectionLabel(wrap, 'Give weapon');
-    const weaponRow = document.createElement('div');
-    weaponRow.className = 'debug-btn-row';
-    for (const [type, def] of Object.entries(WEAPON_TYPES)) {
-      const btn = document.createElement('button');
-      btn.textContent = def.label;
-      btn.title = type;
-      btn.onclick = () => {
-        this.scene.weaponType = type;
-        this.scene.weaponState = createWeaponState(type);
-        // createWeaponState rebuilds from the weapon's base values, which
-        // would silently drop a weapon power-up that's still running --
-        // re-apply whatever is active so switching weapons mid-effect
-        // doesn't cancel it. Every durable effect's apply() is a plain
-        // setter, and instant ones are never held in `active`, so
-        // re-running them is safe.
-        for (const active of this.scene.effects.active.keys()) {
-          POWERUP_TYPES[active].apply(this.scene);
-        }
-      };
-      weaponRow.appendChild(btn);
-    }
-    wrap.appendChild(weaponRow);
+    const weaponButtons = Object.entries(WEAPON_TYPES).map(([type, def]) => makeButton(def.label, () => {
+      this.scene.weaponType = type;
+      this.scene.weaponState = createWeaponState(type);
+      // createWeaponState rebuilds from the weapon's base values, which
+      // would silently drop a weapon power-up that's still running --
+      // re-apply whatever is active so switching weapons mid-effect
+      // doesn't cancel it. Every durable effect's apply() is a plain
+      // setter, and instant ones are never held in `active`, so
+      // re-running them is safe.
+      for (const active of this.scene.effects.active.keys()) POWERUP_TYPES[active].apply(this.scene);
+    }, type));
+    this.panelEl.appendChild(group(
+      'GIVE WEAPON',
+      row(...weaponButtons.slice(0, 2)),
+      row(...weaponButtons.slice(2)),
+    ));
 
-    // -- Level transition: pick one and watch it, without having to clear
-    // a level to see it. The picker only overrides what plays here; the
-    // effect a real run uses is config.js's LEVEL_TRANSITION.
-    this.addSectionLabel(wrap, 'Level transition');
-    const transitionRow = document.createElement('div');
-    transitionRow.className = 'debug-btn-row';
-    const transitionSelect = document.createElement('select');
-    for (const [name, def] of Object.entries(LEVEL_TRANSITIONS)) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = def.label;
-      transitionSelect.appendChild(opt);
-    }
-    transitionSelect.value = LEVEL_TRANSITION;
-    const playTransitionBtn = document.createElement('button');
-    playTransitionBtn.textContent = 'Play';
-    playTransitionBtn.onclick = () => this.scene.transition.start(transitionSelect.value, null);
-    transitionRow.append(transitionSelect, playTransitionBtn);
-    wrap.appendChild(transitionRow);
-
-    // -- Level jump
-    this.addSectionLabel(wrap, 'Jump to level');
-    const levelRow = document.createElement('div');
-    levelRow.className = 'debug-btn-row';
+    // -- Jumping straight to a level, and watching a transition without
+    // having to clear one to see it. Both are "show me that part of the
+    // campaign now", so they share a group. The transition picker only
+    // overrides what plays here; a real run uses config.js's
+    // LEVEL_TRANSITION.
     const levelInput = document.createElement('input');
     levelInput.type = 'number';
     levelInput.min = '1';
     levelInput.max = String(LEVELS.length);
     levelInput.value = '1';
-    levelInput.style.width = '40px';
-    const jumpBtn = document.createElement('button');
-    jumpBtn.textContent = 'Jump';
-    jumpBtn.onclick = () => {
-      const idx = Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
-      this.scene.levelIndex = idx;
-      this.scene.loadLevel(idx);
-      this.scene.state = GAME_STATES.PLAYING;
-    };
-    levelRow.append(levelInput, jumpBtn);
-    wrap.appendChild(levelRow);
+    levelInput.style.width = 'calc(var(--panel-unit) * 9)';
+    const transitionSelect = makeSelect(
+      Object.entries(LEVEL_TRANSITIONS).map(([name, def]) => [name, def.label]), null,
+    );
+    transitionSelect.value = LEVEL_TRANSITION;
+    this.panelEl.appendChild(group(
+      'CAMPAIGN',
+      row(labelled('Level ', levelInput), makeButton('Jump', () => {
+        const idx = Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
+        this.scene.levelIndex = idx;
+        this.scene.loadLevel(idx);
+        this.scene.state = GAME_STATES.PLAYING;
+      })),
+      row(transitionSelect, makeButton('Play', () => this.scene.transition.start(transitionSelect.value, null))),
+    ));
 
-    // -- 16x16 alignment grid (also toggled with the G key)
-    this.addSectionLabel(wrap, 'Grid');
-    const gridRow = document.createElement('div');
-    gridRow.className = 'debug-btn-row';
-    const gridBtn = document.createElement('button');
-    gridBtn.textContent = 'Toggle 16x16 grid';
-    gridBtn.onclick = () => {
-      this.showGrid = !this.showGrid;
-    };
-    gridRow.appendChild(gridBtn);
-    wrap.appendChild(gridRow);
+    // -- The 16x16 alignment grid (also toggled with the G key).
+    this.panelEl.appendChild(group(
+      'VIEW',
+      row(makeButton('16x16 grid', () => { this.showGrid = !this.showGrid; })),
+    ));
 
-    this.panelEl.appendChild(wrap);
+    // Live readout, pushed to the far end -- see .panel-status. Two
+    // columns of it, so it stays about as tall as the control groups
+    // beside it instead of stretching the panel to six lines.
+    this.textEl = document.createElement('div');
+    this.panelEl.appendChild(group('STATE', this.textEl));
+    this.panelEl.lastChild.classList.add('panel-status');
   }
 
   render(graphics) {
@@ -235,15 +178,14 @@ export class Debug {
   updateText() {
     if (!this.textEl) return;
     const g = this.scene;
-    const lines = [
-      `FPS ${Math.round(this.scene.game.loop.actualFps)}`,
-      `STATE ${g.state}`,
-      `LEVEL ${g.levelIndex + 1}/${LEVELS.length}  TIME ${g.remainingLevelTime}`,
-      `SCORE ${g.score}  LIVES ${g.lives}  WEAPON ${g.weaponLabel}`,
-      `BALLS ${g.balls.countActive(true)}  PROJ ${g.projectiles.countActive(true)}  POWERUPS ${g.powerups.countActive(true)}`,
-      `EFFECTS ${[...g.effects.active.keys()].join(',') || '-'}`,
-    ];
-    this.textEl.textContent = lines.join('\n');
+    // Three lines, not one per figure: this group wraps onto its own line
+    // of the panel, and every line it takes is height pushed onto the game
+    // below it.
+    this.textEl.textContent = [
+      `${g.state}  fps ${Math.round(this.scene.game.loop.actualFps)}  level ${g.levelIndex + 1}/${LEVELS.length}  time ${g.remainingLevelTime}`,
+      `score ${g.score}  lives ${g.lives}  ${g.weaponLabel}`,
+      `balls ${g.balls.countActive(true)}  shots ${g.projectiles.countActive(true)}  drops ${g.powerups.countActive(true)}  effects ${[...g.effects.active.keys()].join(' ') || '-'}`,
+    ].join('\n');
   }
 
   drawCollisionBounds(graphics) {
@@ -270,9 +212,12 @@ export class Debug {
       graphics.strokeRect(pu.x - pu.body.width / 2, pu.y - pu.body.height / 2, pu.body.width, pu.body.height);
     }
 
+    // Straight off the bodies: an obstacle block is positioned by its
+    // top-left corner (see Obstacle.js), not centred like the sprites above.
     graphics.lineStyle(1, 0xffffff, 1);
     for (const obstacle of g.obstacles.getChildren()) {
-      graphics.strokeRect(obstacle.x - obstacle.width / 2, obstacle.y - obstacle.height / 2, obstacle.width, obstacle.height);
+      const b = obstacle.body;
+      graphics.strokeRect(b.x, b.y, b.width, b.height);
     }
   }
 }

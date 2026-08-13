@@ -59,11 +59,13 @@ body {
    Collapses to no extra gap above the canvas when both panels are
    hidden (see debug.js/editor.js's own .hidden toggling), rather than
    always reserving a sliver of empty space during normal play. */
+/* Only the debug panel lives here now (the editor's moved into the HUD
+   strip over the canvas, see #editor-panel below), and it takes the full
+   width -- so this is just the row that reserves space above the canvas
+   for it, and collapses to nothing when it is hidden. */
 #tool-bar {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
 }
 
 #game-shell:has(#tool-bar > :not(.hidden)) #tool-bar {
@@ -430,113 +432,126 @@ body {
    differs, as a quick "which panel is this" cue -- green for debug
    (matching the classic terminal-y debug-overlay look), accent/yellow
    for the editor (matching the rest of the game's own UI accent). */
-#debug-panel {
-  background: rgba(0, 0, 0, 0.7);
-  padding: 6px 8px;
-  font-size: 10px;
-  line-height: 1.4;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 46%;
-  border: 1px solid #0f0;
-  color: #0f0;
-  white-space: pre;
+/* The two developer toolbars -- the level editor's and the debug one --
+   are the same tool in two places, so they are styled as one. Both span
+   the canvas's full width; the editor's sits IN the HUD strip over the
+   canvas (that band is free while editing, see Hud.js's VISIBLE_STATES),
+   the debug one entirely ABOVE the canvas, where it can be as tall as its
+   contents need without ever covering gameplay.
+
+   Everything is sized in --panel-unit, a hundredth of the canvas's
+   rendered height published by DisplayZoom.js, so both scale with the
+   display zoom and stay identical to each other. (A container query unit
+   would do it for the editor's panel, which is inside #game-container --
+   but not for the debug one, which isn't.) The fallback matches 1x. */
+:root {
+  --canvas-w: 800px;
+  --canvas-h: 500px;
+  --panel-unit: calc(var(--canvas-h) / 100);
 }
 
-/* The level editor's controls sit in the HUD strip, across the canvas's
-   full width, with the whole playfield left visible above them. The
-   game's own HUD is hidden while editing (see Hud.js's VISIBLE_STATES),
-   so that band is free -- and using it means the canvas doesn't get
-   pushed down the page to make room for a toolbar, which is what the
-   editor used to do.
-   left/right/bottom pin it to the strip; the HEIGHT comes from
-   editor.js, derived from HUD_H/VIRTUAL_H rather than repeated here, so
-   it tracks the layout constants. */
+#debug-panel,
+#editor-panel {
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.82);
+  color: var(--text);
+  font-size: calc(var(--panel-unit) * 2.1);
+  line-height: 1.2;
+  display: flex;
+  /* Top-aligned, not stretched: a group is only as tall as its own rows,
+     so the divider between two of them doesn't run past the shorter one. */
+  align-items: flex-start;
+  gap: calc(var(--panel-unit) * 1.1);
+  padding: calc(var(--panel-unit) * 0.8) calc(var(--panel-unit) * 1.1);
+}
+
+/* Pinned to the HUD strip: left/right/bottom place it, the HEIGHT comes
+   from editor.js, derived from HUD_H/VIRTUAL_H rather than repeated here,
+   so it tracks the layout constants.
+   At 0.5x that strip is only 42 CSS px tall and browsers stop shrinking
+   form controls and text past a floor, so the groups genuinely cannot fit
+   there at any legible size. Scrolling is the honest answer: nothing ends
+   up unreachable, and at 1x and 2x -- where everything does fit -- no
+   scrollbar ever appears. */
 #editor-panel {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.82);
   border-top: 1px solid var(--accent);
-  color: var(--text);
-  /* Sized from the container -- the canvas at its current zoom, see
-     #game-container's container-type -- so the panel scales with the game
-     instead of being a fixed pixel size that would swamp the strip at
-     0.5x and be lost in it at 2x. */
-  font-size: 2.1cqh;
-  line-height: 1.2;
-  display: flex;
-  align-items: stretch;
-  gap: 1.1cqh;
-  padding: 0.8cqh 1.1cqh;
-  /* At 0.5x the strip is only 42 CSS px tall and browsers stop shrinking
-     form controls and text past a floor, so the groups genuinely cannot
-     fit there at any legible size. Scrolling is the honest answer:
-     nothing ends up unreachable, and at 1x and 2x -- where everything
-     does fit -- no scrollbar ever appears. */
   overflow: auto;
 }
 
-/* One labelled unit of related controls -- brushes, what the next placed
-   thing carries, level-wide settings, file actions, and the run/exit
-   pair. Each stacks its own rows, so the panel reads as columns of rows
-   rather than one long undifferentiated strip of buttons. */
-.editor-group {
+/* Above the canvas, not over it, so its height is free: the groups wrap
+   onto as many lines as they need instead of being squeezed into a fixed
+   band. */
+#debug-panel {
+  /* Exactly the canvas's width, and min-width: 0 so its own contents can
+     never widen #game-shell past the canvas and drag the toolbar out with
+     them -- the groups wrap instead. */
+  width: var(--canvas-w);
+  min-width: 0;
+  border: 1px solid #0f0;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  row-gap: calc(var(--panel-unit) * 1.4);
+}
+
+/* The editor's readout is pushed to the far end of its single line; this
+   panel's groups wrap, and an auto margin there would just tear a hole in
+   whichever line the readout landed on. */
+#debug-panel .panel-status {
+  margin-left: 0;
+}
+
+/* One labelled unit of related controls. Each stacks its own rows, so a
+   panel reads as columns of rows rather than one long undifferentiated
+   strip of buttons. */
+.panel-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5cqh;
+  gap: calc(var(--panel-unit) * 0.5);
   flex: none;
 }
 
-.editor-group + .editor-group {
+.panel-group + .panel-group {
   border-left: 1px solid var(--panel-border);
-  padding-left: 1.1cqh;
+  padding-left: calc(var(--panel-unit) * 1.1);
 }
 
-/* Capped so one long option (a continent background name, a weapon) can't
-   push the groups after it off the end of the strip. */
-#editor-panel select {
-  max-width: 19cqh;
-  text-overflow: ellipsis;
-}
-
-.editor-group-title {
-  font-size: 1.6cqh;
+.panel-group-title {
+  font-size: calc(var(--panel-unit) * 1.6);
   letter-spacing: 0.12em;
   color: var(--accent);
 }
 
-.editor-row {
+.panel-row {
   display: flex;
   align-items: center;
-  gap: 0.5cqh;
+  gap: calc(var(--panel-unit) * 0.5);
 }
 
-/* Pushed to the far end, so the counts never shuffle the controls about
-   as they change width. */
-.editor-group.editor-status {
+/* Pushed to the far end, so a readout never shuffles the controls about
+   as its numbers change width. */
+.panel-group.panel-status {
   margin-left: auto;
   white-space: pre;
   opacity: 0.8;
 }
 
-#debug-spawn-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+/* Capped so one long option (a continent background name, a weapon) can't
+   push the groups after it off the end of the row. */
+#debug-panel select,
+#editor-panel select {
+  max-width: calc(var(--panel-unit) * 19);
+  text-overflow: ellipsis;
 }
 
+/* Inherit, so every control scales with the panel's own size. */
 #debug-panel select,
 #debug-panel button,
-#debug-panel input {
-  font-size: 10px;
-  font-family: inherit;
-}
-
-/* Inherit, so every control scales with the panel's own cq-based size. */
+#debug-panel input,
+#debug-panel label,
 #editor-panel select,
 #editor-panel button,
 #editor-panel input,
@@ -545,21 +560,13 @@ body {
   font-family: inherit;
 }
 
-#debug-panel button {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--panel-border);
-  border-radius: 3px;
-  padding: 3px 6px;
-  cursor: pointer;
-}
-
+#debug-panel button,
 #editor-panel button {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);
-  border-radius: 0.4cqh;
-  padding: 0.3cqh 0.7cqh;
+  border-radius: calc(var(--panel-unit) * 0.4);
+  padding: calc(var(--panel-unit) * 0.3) calc(var(--panel-unit) * 0.7);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -567,20 +574,6 @@ body {
 #debug-panel button:hover,
 #editor-panel button:hover {
   background: var(--panel-border);
-}
-
-.debug-section-label {
-  color: #ffd23f;
-  font-weight: bold;
-  margin-top: 4px;
-  border-top: 1px solid #0f0;
-  padding-top: 3px;
-}
-
-.debug-btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
 }
 
 @media (pointer: coarse) {

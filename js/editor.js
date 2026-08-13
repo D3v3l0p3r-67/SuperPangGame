@@ -6,6 +6,7 @@ import { LEVELS } from './LevelManager.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
+import { makeButton, makeSelect, labelled, row, group } from './panelUi.js';
 import * as storage from './storage.js';
 
 const BRUSHES = [
@@ -13,62 +14,6 @@ const BRUSHES = [
   { id: 'crate', label: 'Crate' },
   { id: 'erase', label: 'Erase' },
 ];
-
-// The editor panel is plain DOM (same markup/CSS as the debug panel, see
-// style.css's .debug-btn-row) built entirely in buildPanel() below -- these
-// two cover every button and dropdown it needs.
-function makeButton(label, onClick, title) {
-  const btn = document.createElement('button');
-  btn.textContent = label;
-  if (title) btn.title = title;
-  btn.onclick = onClick;
-  return btn;
-}
-
-// `entries` is a list of [value, label] pairs, in the order they should
-// appear -- the caller builds that list, including any leading "none"
-// entry (see the powerup dropdown, whose empty value means "no drop").
-function makeSelect(entries, onChange) {
-  const select = document.createElement('select');
-  for (const [value, label] of entries) {
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = label;
-    select.appendChild(opt);
-  }
-  select.onchange = onChange;
-  return select;
-}
-
-// A <label> with its text and the control it labels, matching the
-// "Text: <control>" shape every labelled row in the panel uses.
-function labelled(text, control) {
-  const label = document.createElement('label');
-  label.textContent = text;
-  label.appendChild(control);
-  return label;
-}
-
-// One row of controls inside a group.
-function row(...controls) {
-  const el = document.createElement('div');
-  el.className = 'editor-row';
-  el.append(...controls);
-  return el;
-}
-
-// One labelled unit of related controls -- a column of rows. The panel is
-// a line of these, so what each control belongs to is readable at a
-// glance instead of every button sitting in one undifferentiated strip.
-function group(title, ...rows) {
-  const el = document.createElement('div');
-  el.className = 'editor-group';
-  const heading = document.createElement('span');
-  heading.className = 'editor-group-title';
-  heading.textContent = title;
-  el.append(heading, ...rows);
-  return el;
-}
 
 // Builds the brush list for balls straight from BALL_ELEMENTS, so a new
 // elements/<shape>-ball-<size>.json shows up as a brush automatically --
@@ -286,7 +231,7 @@ export class Editor {
     // highlighted in the BRUSH group.
     this.statusEl = document.createElement('div');
     this.panelEl.appendChild(group('COUNT', this.statusEl));
-    this.panelEl.lastChild.classList.add('editor-status');
+    this.panelEl.lastChild.classList.add('panel-status');
 
     this.setBrush(this.brush);
   }

@@ -18,6 +18,16 @@ export function applyZoom(zoom) {
   const container = document.getElementById('game-container');
   const width = `${VIRTUAL_W * zoom}px`;
   const height = `${VIRTUAL_H * zoom}px`;
+  // The canvas's rendered size, published for the two developer toolbars
+  // (see style.css's .panel-* rules): they span its width and size every
+  // control against its height, so both scale with the game exactly as
+  // the in-canvas UI does. Set here rather than left as container query
+  // units because only ONE of the two panels is inside #game-container --
+  // the debug one sits above the canvas entirely, where cq units would
+  // resolve against something else and the two would stop matching.
+  const root = document.documentElement.style;
+  root.setProperty('--canvas-w', width);
+  root.setProperty('--canvas-h', height);
   if (canvas) {
     canvas.style.width = width;
     canvas.style.height = height;

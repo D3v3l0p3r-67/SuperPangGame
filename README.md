@@ -473,9 +473,21 @@ Useful while tuning levels or ball behavior:
   `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
   the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
   any transition effect on demand.
-- Lives above the playfield's own ceiling, in its own `#tool-bar` row
-  (see index.html/style.css) -- never overlapping actual gameplay the way
-  an in-canvas overlay would.
+- Lives entirely above the playfield's own ceiling, in its own
+  `#tool-bar` row (see index.html/style.css) -- never overlapping actual
+  gameplay the way an in-canvas overlay would. It spans the canvas's exact
+  width and is as tall as its contents need, laid out as labelled columns
+  of rows -- **BALL**, **SPAWN POWER-UP**, **GIVE WEAPON**, **CAMPAIGN**,
+  **VIEW**, and a **STATE** readout -- which wrap onto a second line when
+  they don't all fit across.
+- It is styled as the same tool as the level editor's panel: both are
+  built from `js/panelUi.js` and share style.css's `.panel-*` rules, so
+  the two have identical controls, grouping and size. Everything in them
+  is measured in `--panel-unit`, a hundredth of the canvas's rendered
+  height published by `DisplayZoom.js`, so both scale with the display
+  zoom. (A container query unit would cover the editor's panel, which
+  is inside `#game-container` -- but not the debug one, which sits
+  outside it, and the two have to match.)
 
 ## Project structure
 
@@ -622,6 +634,9 @@ js/
   editor.js          In-browser level editor (grid-snapped painting,
                       Export/Import) -- see "Adding levels" below
   debug.js           Debug overlay (Phaser Graphics) and dev tools
+  panelUi.js         The five DOM pieces both developer toolbars (the
+                      editor's and the debug one) are built from, so the
+                      two read as one tool -- see style.css's .panel-*
 ```
 
 ### Adding elements
