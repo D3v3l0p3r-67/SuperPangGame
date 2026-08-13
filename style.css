@@ -576,6 +576,13 @@ body {
   background: var(--panel-border);
 }
 
+/* A button whose state is currently ON -- the editor's selected brush, a
+   debug overlay that is switched on. */
+#debug-panel button.panel-btn-on,
+#editor-panel button.panel-btn-on {
+  outline: 2px solid var(--accent);
+}
+
 @media (pointer: coarse) {
   #touch-controls.enabled {
     display: flex;

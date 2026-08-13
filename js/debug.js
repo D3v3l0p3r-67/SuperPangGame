@@ -17,6 +17,11 @@ export class Debug {
     this.scene = scene;
     this.enabled = new URLSearchParams(location.search).get('debug') === '1';
     this.showGrid = false;
+    // The collision outlines used to come with debug mode itself, with no
+    // way to put them away -- which made everything else it draws harder
+    // to read whenever they weren't what was being looked at. On by
+    // default, since that is what turning debug mode on has always meant.
+    this.showColliders = true;
     this.panelEl = document.getElementById('debug-panel');
     this.textEl = null;
     this.spawnPanelBuilt = false;
@@ -26,7 +31,9 @@ export class Debug {
         this.enabled = !this.enabled;
         this.sync();
       } else if (e.code === 'KeyG' && this.enabled) {
-        this.showGrid = !this.showGrid;
+        this.setOverlay('showGrid', !this.showGrid);
+      } else if (e.code === 'KeyC' && this.enabled) {
+        this.setOverlay('showColliders', !this.showColliders);
       }
     });
 
@@ -131,11 +138,19 @@ export class Debug {
       row(transitionSelect, makeButton('Play', () => this.scene.transition.start(transitionSelect.value, null))),
     ));
 
-    // -- The 16x16 alignment grid (also toggled with the G key).
+    // -- What debug mode draws over the game. Each also has a key of its
+    // own (G and C), so either can be flicked on and off without moving
+    // the pointer off whatever is being watched.
+    this.overlayButtons = {
+      showGrid: makeButton('16x16 grid', () => this.setOverlay('showGrid', !this.showGrid), 'Shortcut: G'),
+      showColliders: makeButton('Colliders', () => this.setOverlay('showColliders', !this.showColliders), 'Shortcut: C'),
+    };
     this.panelEl.appendChild(group(
       'VIEW',
-      row(makeButton('16x16 grid', () => { this.showGrid = !this.showGrid; })),
+      row(this.overlayButtons.showGrid),
+      row(this.overlayButtons.showColliders),
     ));
+    this.syncOverlayButtons();
 
     // Live readout, pushed to the far end -- see .panel-status. Two
     // columns of it, so it stays about as tall as the control groups
@@ -143,6 +158,20 @@ export class Debug {
     this.textEl = document.createElement('div');
     this.panelEl.appendChild(group('STATE', this.textEl));
     this.panelEl.lastChild.classList.add('panel-status');
+  }
+
+  // The single place either overlay is switched, so the panel button and
+  // the keyboard shortcut can never disagree about what is showing.
+  setOverlay(name, on) {
+    this[name] = on;
+    this.syncOverlayButtons();
+  }
+
+  syncOverlayButtons() {
+    if (!this.overlayButtons) return;
+    for (const [name, btn] of Object.entries(this.overlayButtons)) {
+      btn.classList.toggle('panel-btn-on', this[name]);
+    }
   }
 
   render(graphics) {
@@ -158,7 +187,7 @@ export class Debug {
     graphics.clear();
     this.drewLastFrame = true;
     if (this.showGrid) this.drawGrid(graphics);
-    this.drawCollisionBounds(graphics);
+    if (this.showColliders) this.drawCollisionBounds(graphics);
     this.updateText();
   }
 

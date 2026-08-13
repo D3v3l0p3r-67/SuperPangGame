@@ -255,7 +255,7 @@ export class Editor {
     this.brush = id;
     if (!this.brushButtons) return;
     for (const [brushId, btn] of Object.entries(this.brushButtons)) {
-      btn.style.outline = brushId === id ? '2px solid #ffd23f' : 'none';
+      btn.classList.toggle('panel-btn-on', brushId === id);
     }
   }
 

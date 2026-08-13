@@ -459,7 +459,12 @@ Useful while tuning levels or ball behavior:
 - Shows an FPS counter, the current game state/level, remaining time,
   score/lives/weapon, and live entity counts.
 - Draws collision bounds for the player, balls, projectiles, power-ups,
-  and obstacles directly over the game.
+  and obstacles directly over the game -- switched on and off with the
+  **Colliders** button under **VIEW**, or the **C** key, alongside the
+  **16x16 grid** (**G**). Both start out matching what debug mode has
+  always shown: outlines on, grid off. Either button carries the outline
+  the editor's selected brush does while its overlay is showing, so what
+  is on is visible in the panel itself.
 - A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
   clear every ball on the field instantly with **Remove all balls**; one
   quick-spawn button per power-up (bonus fruit, shield, every weapon
