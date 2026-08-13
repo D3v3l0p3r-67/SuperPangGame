@@ -3,7 +3,7 @@ import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
-import { ACTIONS, SLOTS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
+import { ACTIONS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
 
 // zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
 // bindEvents/updateZoomButtons below).
@@ -228,10 +228,9 @@ export class UI {
     });
   }
 
-  // One row per action, with a button per slot showing what that slot is
-  // bound to. Rebuilt from the bindings themselves every time rather than
-  // patched in place, so what is on screen is always what keys.js would
-  // actually answer with.
+  // One row per action: its name and the key it is bound to. Rebuilt from
+  // the bindings themselves every time rather than patched in place, so
+  // what is on screen is always what keys.js would actually answer with.
   renderKeyList() {
     const list = this.el['keys-list'];
     list.innerHTML = '';
@@ -244,29 +243,27 @@ export class UI {
       const name = document.createElement('span');
       setPixelText(name, label, 'body', COLORS.text);
       row.appendChild(name);
-      for (let slot = 0; slot < SLOTS; slot++) {
-        const btn = document.createElement('button');
-        btn.className = 'menu-btn key-btn';
-        setPixelText(btn, keyLabel(bindings[id][slot]), 'button', COLORS.text);
-        btn.addEventListener('click', () => this.beginKeyCapture(id, slot, btn));
-        row.appendChild(btn);
-      }
+      const btn = document.createElement('button');
+      btn.className = 'menu-btn key-btn';
+      setPixelText(btn, keyLabel(bindings[id]), 'button', COLORS.text);
+      btn.addEventListener('click', () => this.beginKeyCapture(id, btn));
+      row.appendChild(btn);
       list.appendChild(row);
     }
     setPixelText(this.el['keys-hint'], 'CLICK A KEY THEN PRESS ONE. ESC CANCELS.', 'body', COLORS.text);
   }
 
-  // Asks keys.js for the next key pressed and gives it to this slot. Only
-  // one capture can be open at a time -- starting another cancels the
-  // first, so two half-armed buttons can never both be waiting.
-  beginKeyCapture(action, slot, btn) {
+  // Asks keys.js for the next key pressed and gives it to this action.
+  // Only one capture can be open at a time -- starting another cancels
+  // the first, so two half-armed buttons can never both be waiting.
+  beginKeyCapture(action, btn) {
     this.cancelKeyCapture?.();
     setPixelText(btn, 'PRESS KEY', 'button', COLORS.accent);
     this.cancelKeyCapture = captureNextKey((code) => {
       this.cancelKeyCapture = null;
       // null means the player pressed Escape to cancel; the binding is
       // left exactly as it was.
-      if (code) setBinding(action, slot, code);
+      if (code) setBinding(action, code);
       this.renderKeyList();
     });
   }

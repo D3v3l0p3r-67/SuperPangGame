@@ -22,40 +22,36 @@ export const ACTIONS = [
   { id: 'pause', label: 'PAUSE' },
 ];
 
-// Two keys per action, so the arrows and WASD can both be the defaults
-// they always were and either can be replaced without losing the other.
-export const SLOTS = 2;
-
-// Up climbs and ONLY climbs. It used to shoot as well, which is why the
-// scene had to work out which of the two a press was meant for; a ladder
-// under the player made shooting unreliable, and there is a dedicated
-// shoot key anyway.
+// One key per action. Up climbs and ONLY climbs -- it used to shoot as
+// well, which is why the scene had to work out which of the two a press
+// was meant for; a ladder under the player made shooting unreliable, and
+// there is a dedicated shoot key anyway.
 export const DEFAULT_BINDINGS = Object.freeze({
-  left: ['ArrowLeft', 'KeyA'],
-  right: ['ArrowRight', 'KeyD'],
-  up: ['ArrowUp', 'KeyW'],
-  down: ['ArrowDown', 'KeyS'],
-  shoot: ['Space', ''],
-  pause: ['Escape', 'KeyP'],
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  shoot: 'Space',
+  pause: 'Escape',
 });
 
 function defaultBindings() {
-  return Object.fromEntries(ACTIONS.map(({ id }) => [id, [...DEFAULT_BINDINGS[id]]]));
+  return Object.fromEntries(ACTIONS.map(({ id }) => [id, DEFAULT_BINDINGS[id]]));
 }
 
 // Stored bindings are read back defensively, same as every other setting:
 // an action missing from the saved object (one added in a later version),
-// or a value of the wrong shape, falls back to that action's default
-// rather than leaving the game with a control that cannot be pressed.
+// or a value of a shape this doesn't understand, falls back to that
+// action's default rather than leaving the game with a control that
+// cannot be pressed. An array is the shape a version with two keys per
+// action wrote -- its first key is kept, so upgrading doesn't silently
+// reset what the player had bound.
 function sanitize(saved) {
   const bindings = defaultBindings();
   if (!saved || typeof saved !== 'object') return bindings;
   for (const { id } of ACTIONS) {
-    const codes = saved[id];
-    if (!Array.isArray(codes)) continue;
-    bindings[id] = Array.from({ length: SLOTS }, (_, slot) => (
-      typeof codes[slot] === 'string' ? codes[slot] : ''
-    ));
+    const code = Array.isArray(saved[id]) ? saved[id].find(Boolean) : saved[id];
+    if (typeof code === 'string') bindings[id] = code;
   }
   return bindings;
 }
@@ -71,24 +67,16 @@ function persist() {
   storage.saveSettings({ keys: bindings });
 }
 
-// Binds `code` to one slot of one action, and takes it off whatever else
-// held it -- one key doing two things is never what the player meant, and
-// silently leaving the old owner bound would make the screen lie about
-// what is bound to what.
-export function setBinding(action, slot, code) {
+// Binds `code` to an action, and takes it off whatever else held it --
+// one key doing two things is never what the player meant, and silently
+// leaving the old owner bound would make the screen lie about what is
+// bound to what.
+export function setBinding(action, code) {
   getBindings();
   for (const { id } of ACTIONS) {
-    for (let i = 0; i < SLOTS; i++) {
-      if (bindings[id][i] === code && !(id === action && i === slot)) bindings[id][i] = '';
-    }
+    if (id !== action && bindings[id] === code) bindings[id] = '';
   }
-  bindings[action][slot] = code;
-  persist();
-}
-
-export function clearBinding(action, slot) {
-  getBindings();
-  bindings[action][slot] = '';
+  bindings[action] = code;
   persist();
 }
 
@@ -133,14 +121,14 @@ function typingInAField(target) {
 function actionFor(code) {
   const current = getBindings();
   for (const { id } of ACTIONS) {
-    if (current[id].includes(code)) return id;
+    if (current[id] === code) return id;
   }
   return null;
 }
 
 export function isDown(action) {
-  const codes = getBindings()[action];
-  return codes.some((code) => code && pressed.has(code));
+  const code = getBindings()[action];
+  return !!code && pressed.has(code);
 }
 
 // The four movement axes plus the trigger, in the shape GameScene merges

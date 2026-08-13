@@ -74,19 +74,20 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
-| Move | Arrow Left/Right or A/D | Joystick left/right |
-| Climb a ladder | Arrow Up/Down or W/S | Joystick up/down |
+| Move | Arrow Left/Right | Joystick left/right |
+| Climb a ladder | Arrow Up/Down | Joystick up/down |
 | Shoot | Space | On-screen shoot button |
-| Pause | Esc or P | On-screen pause button |
+| Pause | Esc | On-screen pause button |
 | Fullscreen | Button in menu/pause screen | Same |
 
 Every keyboard control is rebindable on the **CONTROLS** screen (Options
--> CONTROLS): two keys per action, click one and press the key you want,
-Esc to cancel, and a **RESET TO DEFAULTS** button. Bindings are the
-physical key (`KeyboardEvent.code`), so a layout that puts Z where Y is
-binds the key actually pressed, and they persist with the rest of the
-settings (see `js/keys.js`). Up only climbs -- it used to shoot as well,
-which made shooting unreliable anywhere near a ladder.
+-> CONTROLS): one key per action, click it and press the key you want,
+Esc to cancel, and a **RESET TO DEFAULTS** button. Binding a key another
+action holds takes it from that action rather than leaving two owners.
+Bindings are the physical key (`KeyboardEvent.code`), so a layout that
+puts Z where Y is binds the key actually pressed, and they persist with
+the rest of the settings (see `js/keys.js`). Up only climbs -- it used to
+shoot as well, which made shooting unreliable anywhere near a ladder.
 
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
@@ -663,10 +664,10 @@ js/
                       never a filename/volume/loop flag. Music is fetched
                       on demand rather than at boot -- see "Load" below
   input.js           Thin DOM bridge for the on-screen touch buttons only
-  keys.js            The keyboard: which physical key each action is bound
-                      to (rebindable, see the CONTROLS screen), the live
-                      pressed state GameScene reads, and the capture the
-                      rebinding screen uses
+  keys.js            The keyboard: the one physical key each action is
+                      bound to (rebindable, see the CONTROLS screen), the
+                      live pressed state GameScene reads, and the capture
+                      the rebinding screen uses
   Hud.js             The graphic status bar (see "Swapping HUD graphics")
                       -- Phaser Images/digit spritesheets drawn into the
                       HUD_H strip, entirely from loaded files, no drawn

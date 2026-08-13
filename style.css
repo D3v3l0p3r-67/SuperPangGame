@@ -260,16 +260,16 @@ body {
    the screen instead of stepping in and out with the label lengths. */
 #keys-list {
   display: grid;
-  grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.6cqmin 1.2cqmin;
   width: min(90cqw, 520px);
 }
 
-/* The row element groups one action's controls in the DOM; `contents`
-   takes the wrapper itself out of the layout so its name and key buttons
-   are the grid's own items -- which is what makes every action line up
-   in a column instead of each row being one cell of three. */
+/* The row element groups one action's name and key in the DOM;
+   `contents` takes the wrapper itself out of the layout so both are the
+   grid's own items -- which is what makes every action line up in a
+   column instead of each row being one cell of two. */
 .keys-row {
   display: contents;
 }
@@ -278,8 +278,7 @@ body {
   text-align: left;
 }
 
-/* Narrower than a menu button: there are two per row and they hold one
-   short word each. */
+/* Narrower than a menu button: it holds one short word. */
 .key-btn {
   min-width: 0;
   padding: 0.6cqmin 1.2cqmin;
