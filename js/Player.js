@@ -66,10 +66,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // idle/move every frame; cleared automatically when that animation
     // finishes.
     this.oneShotAnim = null;
-    this.on('animationcomplete-player-shot', () => { this.oneShotAnim = null; });
+    for (const key of ['shot', 'ladderoff', 'stepup', 'stepdown']) {
+      this.on(`animationcomplete-player-${key}`, () => { this.oneShotAnim = null; });
+    }
     this.on('animationcomplete-player-victory', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-levelclear', () => { this.oneShotAnim = null; });
+    // Whether the feet are currently on their way DOWN to a lower surface.
+    // Only the moment a drop starts is a step down; the frames after it are
+    // the same drop still finishing (see followGround).
+    this.dropping = false;
 
     // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
     // instead of a drawn outline -- see update()/reset() for how it
@@ -117,6 +123,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   playShotAnim() {
     this.oneShotAnim = 'shot';
     this.play('player-shot', true);
+  }
+
+  // The one-shots the player's own movement plays: stepping up onto a
+  // block, stepping down off one, and stepping off the top of a ladder.
+  // Each holds the animation until it finishes, same as the shot does.
+  playMoveAnim(name) {
+    this.oneShotAnim = name;
+    this.play(`player-${name}`, true);
   }
 
   // Plays once, same as playShotAnim -- see GameScene.onPlayerHitBall.
@@ -269,12 +283,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const dy = this.supportSurface() - this.feetY;
     if (Math.abs(dy) < 0.5) {
       this.body.setVelocityY(0);
+      this.dropping = false;
       return;
     }
     if (dy < 0) {
+      // Up onto a block. Never more than one (supportSurface only offers a
+      // surface within a step), so this is always the step-up.
       this.setFeet(this.feetY + dy);
       this.body.setVelocityY(0);
+      this.dropping = false;
+      this.playMoveAnim('stepup');
       return;
+    }
+    // Down. Only the START of a drop is a step, and only one block's worth
+    // of it -- walking off something taller is a fall, and the frames after
+    // the first are the same drop still finishing.
+    if (!this.dropping) {
+      this.dropping = true;
+      if (dy <= PLAYER_STEP_UP_PX + STEP_EPSILON) this.playMoveAnim('stepdown');
     }
     const step = this.physicsStepSec || dt;
     this.body.setVelocityY(Math.min(dy / step, this.dropSpeed));
@@ -344,7 +370,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     } else if (dir < 0 && this.feetY <= l.top + LADDER_EPSILON) {
       const next = this.ladderFor(dir);
       if (next) this.ladder = next;
-      else if (Math.abs(this.supportSurface(l.top) - l.top) < 0.5) this.dismountLadder();
+      else if (Math.abs(this.supportSurface(l.top) - l.top) < 0.5) {
+        // Put the feet ON the surface being stepped onto, not merely
+        // within LADDER_EPSILON of it: left a fraction off, followGround
+        // reads the remainder as a step and plays a step-down (then a
+        // step-up correcting it) right over the top of the ladder-exit.
+        this.placeFeet(l.centerX, l.top);
+        // Off the TOP of a ladder and onto the ground: the one place the
+        // player steps off rather than simply standing off it, so the one
+        // place this plays. Coming off the bottom is just standing.
+        this.playMoveAnim('ladderoff');
+        this.dismountLadder();
+      }
       else {
         // Nothing to step off onto up here -- hold at the top instead.
         this.placeFeet(l.centerX, l.top);
@@ -385,7 +422,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.updateOnLadder(dir);
 
       this.updateInvulnerability(dt);
-      if (!this.oneShotAnim) this.play(this.isMoving ? 'player-move' : 'player-idle', true);
+      // Frozen on the climb, not dropped back to the standing idle: the
+      // player who stops partway up a ladder is still holding onto it.
+      if (!this.oneShotAnim) {
+        if (this.anims.getName() !== 'player-climb') this.play('player-climb', true);
+        if (this.isMoving && this.anims.isPaused) this.anims.resume();
+        else if (!this.isMoving && !this.anims.isPaused) this.anims.pause();
+      }
       this.setFlipX(this.facing > 0);
       this.shieldEffect.setPosition(this.x, this.y);
       this.shieldEffect.setVisible(this.shielded);
@@ -403,6 +446,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.updateInvulnerability(dt);
 
     if (!this.oneShotAnim) {
+      // Coming off a ladder or a step leaves the animation paused (see the
+      // climb branch above), which would freeze the walk on one frame.
+      if (this.anims.isPaused) this.anims.resume();
       this.play(this.isMoving ? 'player-move' : 'player-idle', true);
     }
     // Frames are authored facing left (see the class comment above), so

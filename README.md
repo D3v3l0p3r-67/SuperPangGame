@@ -397,7 +397,10 @@ seam between the canvas and the page behind it.
   there -- and if there is nothing to stand on at the top they simply stop
   and keep holding rather than being dropped the whole way back down.
   Ladders stack, so a taller run is several of them end to end and the
-  seams are invisible to the climb.
+  seams are invisible to the climb. The player has their own animations
+  for it: a climbing cycle that freezes rather than reverting to the
+  standing idle when they stop partway up, and a step-off played when they
+  leave the TOP of a ladder.
 - The player walks up a ledge one obstacle block (`PLAYER_STEP_UP_PX`,
   16px) high without jumping -- it cannot jump at all -- so a run of
   stacked blocks is a staircase. Anything taller, or without room to
@@ -515,7 +518,8 @@ assets/              Every graphic and sound in the game, as real files --
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
   player/            player.png, a single spritesheet (idle, shot, 4 walk,
-                      victory, dead) + shield.webp, the looping shield
+                      victory, dead, 2 climb, 2 ladder-exit, 2 step-up,
+                      2 step-down) + shield.webp, the looping shield
                       effect -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   ladders/           <ladder texture>.webp, the whole element at its
@@ -877,7 +881,16 @@ dimensions:
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
   played once when a run ends without a game over), dead (1, played once
-  per hit). The walk cycle carries its own vertical bob: the two
+  per hit), then four two-frame states the player's own movement plays:
+  **climb** (looping, while on a ladder -- both hands stay on it, the legs
+  alternate, and the body rises and falls with the effort), **ladderoff**
+  (stepping off the TOP of a ladder onto the ground, through a crouch;
+  only at the top -- at the bottom the player simply stands off it), and
+  **stepup**/**stepdown**, one 16px block up onto a ledge and one down off
+  it. Those last two are separate states because a step up and a step down
+  do not look alike: going up the leading knee comes up and the body
+  follows it, going down the leading foot reaches down and the body dips
+  after it. The walk cycle carries its own vertical bob: the two
   double-support frames (both feet down) are drawn with the whole upper
   body 2px lower and the legs correspondingly shorter, so the head rides
   up and down as it does in a real gait. It is baked into the art, not
@@ -888,7 +901,7 @@ dimensions:
   moves). Every frame is authored facing LEFT; Player.js mirrors it for
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
-  the same 32x(64 x 8) total size and frame order.
+  the same 32x(64 x 16) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
   -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`
