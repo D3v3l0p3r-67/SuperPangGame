@@ -318,6 +318,27 @@ are in the map image's **own** pixels; the interlude scales them to
 however large it draws the map, so re-authoring `assets/ui/worldmap.webp`
 at another size doesn't invalidate them.
 
+## What each level is made of
+
+The 50 levels are not all walls, balls and a harpoon. What the engine has
+is used across the run, and where it is used is a property of the level
+file, not of any code:
+
+| feature | levels | what it does there |
+|---|---|---|
+| **ladders** | 3, 5, 7, 10, 13, 16, 20, 24, 26, 27, 28, 30, 37, 38, 40, 50 | a climb from the floor to a shelf worth shooting from -- a level is always solvable from the ground (see "Features"), so a ladder is a route, never the route |
+| **stepped shapes** | 37, 38 | the shelf a ladder lands on is a staircase you walk up, built from `cells` rather than `w`/`h` |
+| **player starts** | 42 of 50 | where the level puts you, chosen so nothing can reach you for about two seconds -- a few levels used to open with a ball sitting exactly on the middle of the floor, which is where a level with no start of its own puts the player |
+| **machine gun** | 12, 22, 29, 34, 42, 47 | levels with several small/hex balls at once, where a fanned volley is worth more than one beam |
+| **grapple** | 15, 25, 31, 39, 45, 49 | levels with open sky to hang a shot in; each is given a quarter more clock, since a grapple holds its one shot against the ceiling for four seconds |
+| **guaranteed drops** | 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 (ball), 13, 28, 44 (crate) | the last level of each region hands out something for the region ahead -- a shield, an extra life, time freeze -- and three levels hide one in a one-block crate to shoot open |
+
+A ladder has to reach the floor in whole elements (they are 96px tall, so
+its top is 304, 208 or 112) and land on a platform wide enough to step off
+onto, with a clear column below it. `tests/levels.test.mjs` checks both
+ends of every ladder, that no start is inside an obstacle or a ball, and
+that a guaranteed drop sits on a single breakable block.
+
 ## Level transitions
 
 Clearing a campaign level doesn't cut straight to the next one: an effect
@@ -477,6 +498,13 @@ seam between the canvas and the page behind it.
   smallest-size balls (4 heading left, 4 right, each bouncing off a wall
   before its path can ever reach the player) for a gentle but active first
   look at movement, shooting, and ball physics.
+- The campaign uses what the engine has rather than only walls and balls:
+  **16 levels have ladders** up to a shelf worth shooting from (two of
+  them, 37 and 38, onto a stepped staircase you then walk up), **42 name
+  their own player start** so no level opens with a ball already on top of
+  you, **12 are played with the machine gun or the grapple** instead of the
+  harpoon, and **13 hold a guaranteed power-up** -- ten on a ball, three
+  in a one-block crate to shoot open. See "What each level is made of".
 - Every level is checked for solvability before it ships. The player
   cannot jump: the beam leaves their feet and climbs straight up, so a
   ball is shootable exactly when the column between it and the floor is
@@ -1002,12 +1030,16 @@ about survives being edited too.
 
 `powerup` on an obstacle or ball is optional -- when set, that exact
 crate/ball guarantees that power-up drop when destroyed/popped, instead of
-the usual random chance. An obstacle can also use `{ "cells": [[dx, dy],
-...] }` instead of `w`/`h` for a non-rectangular/stepped shape (the level
-editor never produces this itself, but `LevelManager.js` still reads it,
-so it's still available for hand-edited files). `type`/`shape` values
-must match a `type`/`shape` from some loaded element (see "Adding
-elements" above).
+the usual random chance. On an obstacle the tag goes onto **every block**
+it becomes (`LevelManager.js`'s `obstacleBlocks`), so a power-up belongs on
+a one-block crate: a four-block one bursts four of them. `tests/levels
+.test.mjs` holds that rule, along with the crate having to be breakable at
+all. An obstacle can also use `{ "cells": [[dx, dy], ...] }` instead of
+`w`/`h` for a non-rectangular/stepped shape -- the level editor never
+produces this itself, but `LevelManager.js` reads it, and the campaign
+uses it for the staircases in levels 37 and 38. `type`/`shape` values must
+match a `type`/`shape` from some loaded element (see "Adding elements"
+above).
 
 `background` names an `assets/backgrounds/<name>.webp` image (see
 "Swapping graphics" below) drawn behind the whole playfield; `weapon`

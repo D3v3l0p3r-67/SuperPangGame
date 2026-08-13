@@ -8,7 +8,7 @@
 // rule below is a statement about that JSON.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelFiles, elements, exists, readJSON } from './helpers.mjs';
+import { levelFiles, elements, exists, readJSON, obstacleCells } from './helpers.mjs';
 import {
   VIRTUAL_W, GROUND_Y, BORDER_THICKNESS, OBSTACLE_BLOCK_SIZE,
 } from '../js/constants.js';
@@ -57,13 +57,35 @@ test('obstacles are on the 16px grid and inside the playfield', () => {
       const where = `${name}: obstacle ${o.type} at (${o.x}, ${o.y})`;
       assert.ok(OBSTACLE_TYPES.has(o.type), `${where}: unknown type`);
       assert.ok(onGrid(o.x) && onGrid(o.y), `${where}: off the placement grid`);
-      assert.equal(o.w % OBSTACLE_BLOCK_SIZE, 0, `${where}: width is not whole blocks`);
-      assert.equal(o.h % OBSTACLE_BLOCK_SIZE, 0, `${where}: height is not whole blocks`);
-      assert.ok(o.x >= BORDER_THICKNESS && o.x + o.w <= VIRTUAL_W - BORDER_THICKNESS,
-        `${where}: crosses a side wall`);
-      assert.ok(o.y >= BORDER_THICKNESS && o.y + o.h <= GROUND_Y, `${where}: crosses the ceiling or floor`);
+      if (o.cells) {
+        // A stepped shape lists its blocks instead of tiling a rectangle
+        // (see LevelManager's obstacleBlocks) -- so it has no w/h to check,
+        // and its own offsets are what have to land on the grid.
+        assert.ok(Array.isArray(o.cells) && o.cells.length > 0, `${where}: cells must be a non-empty array`);
+        for (const [dx, dy] of o.cells) {
+          // Compared with === rather than assert.equal: a step down the
+          // shape is a negative offset, -16 % 16 is -0, and assert.equal
+          // (Object.is underneath) refuses -0 against 0.
+          assert.ok(dx % OBSTACLE_BLOCK_SIZE === 0, `${where}: cell offset ${dx} is not whole blocks`);
+          assert.ok(dy % OBSTACLE_BLOCK_SIZE === 0, `${where}: cell offset ${dy} is not whole blocks`);
+        }
+      } else {
+        assert.equal(o.w % OBSTACLE_BLOCK_SIZE, 0, `${where}: width is not whole blocks`);
+        assert.equal(o.h % OBSTACLE_BLOCK_SIZE, 0, `${where}: height is not whole blocks`);
+      }
+      for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) {
+        assert.ok(x >= BORDER_THICKNESS && x + OBSTACLE_BLOCK_SIZE <= VIRTUAL_W - BORDER_THICKNESS,
+          `${where}: block (${x}, ${y}) crosses a side wall`);
+        assert.ok(y >= BORDER_THICKNESS && y + OBSTACLE_BLOCK_SIZE <= GROUND_Y,
+          `${where}: block (${x}, ${y}) crosses the ceiling or floor`);
+      }
       if (o.powerup !== undefined) {
         assert.ok(POWERUP_TYPES.has(o.powerup), `${where}: unknown powerup "${o.powerup}"`);
+        // The tag is copied onto every block the obstacle becomes, so a
+        // four-block crate holding a power-up bursts four of them.
+        assert.equal(obstacleCells(o, OBSTACLE_BLOCK_SIZE).length, 1,
+          `${where}: holds a power-up in more than one block`);
+        assert.equal(o.type, 'crate', `${where}: holds a power-up but cannot be broken open`);
       }
     }
   }
@@ -73,13 +95,11 @@ test('no two obstacles claim the same cell', () => {
   for (const { name, def } of LEVELS) {
     const taken = new Map();
     for (const o of def.obstacles) {
-      for (let y = o.y; y < o.y + o.h; y += OBSTACLE_BLOCK_SIZE) {
-        for (let x = o.x; x < o.x + o.w; x += OBSTACLE_BLOCK_SIZE) {
-          const cell = `${x},${y}`;
-          assert.ok(!taken.has(cell),
-            `${name}: cell (${x}, ${y}) is claimed by both a ${taken.get(cell)} and a ${o.type}`);
-          taken.set(cell, o.type);
-        }
+      for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) {
+        const cell = `${x},${y}`;
+        assert.ok(!taken.has(cell),
+          `${name}: cell (${x}, ${y}) is claimed by both a ${taken.get(cell)} and a ${o.type}`);
+        taken.set(cell, o.type);
       }
     }
   }
@@ -120,6 +140,39 @@ test('ladders are a real type, on the grid, and fully inside the playfield', () 
   }
 });
 
+test('every ladder goes somewhere: down to a footing, up to a landing', () => {
+  // A ladder is climbed between its two ends (see Player.js's
+  // updateOnLadder): at the bottom the player steps off onto whatever is
+  // under it, and at the top they only step off if there is a surface
+  // right there. A ladder that ends in mid-air, or that tops out against
+  // nothing, is one the player can get stuck holding.
+  for (const { name, def } of LEVELS) {
+    const ladders = def.ladders ?? [];
+    if (ladders.length === 0) continue;
+    const tops = new Set(ladders.map((l) => `${l.x},${l.y}`));
+    const blocks = new Set();
+    for (const o of def.obstacles) {
+      for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) blocks.add(`${x},${y}`);
+    }
+    const surfaceAt = (x, width, y) => {
+      for (let bx = x; bx < x + width; bx += OBSTACLE_BLOCK_SIZE) {
+        if (blocks.has(`${bx},${y}`)) return true;
+      }
+      return false;
+    };
+    for (const l of ladders) {
+      const el = LADDER_TYPES.get(l.type);
+      const where = `${name}: ladder at (${l.x}, ${l.y})`;
+      const bottom = l.y + el.height;
+      assert.ok(bottom <= GROUND_Y, `${where}: runs into the floor`);
+      assert.ok(bottom === GROUND_Y || tops.has(`${l.x},${bottom}`) || surfaceAt(l.x, el.width, bottom),
+        `${where}: ends in mid-air at y=${bottom}`);
+      assert.ok(tops.has(`${l.x},${l.y - el.height}`) || surfaceAt(l.x, el.width, l.y),
+        `${where}: tops out with nothing to step onto`);
+    }
+  }
+});
+
 test('a level that names a player start puts it somewhere the player fits', () => {
   for (const { name, def } of LEVELS) {
     if (def.playerStart === undefined) continue;
@@ -131,6 +184,29 @@ test('a level that names a player start puts it somewhere the player fits', () =
       && def.playerStart.x + halfWidth <= VIRTUAL_W - BORDER_THICKNESS, `${where}: outside the side walls`);
     assert.ok(def.playerStart.y >= BORDER_THICKNESS + PLAYER_CONFIG.spriteHeight
       && def.playerStart.y <= GROUND_Y, `${where}: the player would not fit standing there`);
+    // ... and somewhere nothing else already is: standing inside an
+    // obstacle is a start the player is pushed out of, and standing inside
+    // a ball is a life lost before the level begins.
+    const box = {
+      left: def.playerStart.x - halfWidth,
+      right: def.playerStart.x + halfWidth,
+      top: def.playerStart.y - PLAYER_CONFIG.spriteHeight,
+      bottom: def.playerStart.y,
+    };
+    for (const o of def.obstacles) {
+      for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) {
+        assert.ok(x >= box.right || x + OBSTACLE_BLOCK_SIZE <= box.left
+          || y >= box.bottom || y + OBSTACLE_BLOCK_SIZE <= box.top,
+          `${where}: starts inside the ${o.type} block at (${x}, ${y})`);
+      }
+    }
+    for (const b of def.balls) {
+      const el = BALL_SIZES.get(BALL_KEY(b.shape, b.size));
+      const nearX = Math.min(Math.max(b.x, box.left), box.right);
+      const nearY = Math.min(Math.max(b.y, box.top), box.bottom);
+      assert.ok((b.x - nearX) ** 2 + (b.y - nearY) ** 2 >= el.radius ** 2,
+        `${where}: starts inside the ${b.shape} ${b.size} at (${b.x}, ${b.y})`);
+    }
   }
 });
 

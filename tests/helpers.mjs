@@ -37,6 +37,18 @@ export function levelFiles() {
     }));
 }
 
+// The 16px cells an obstacle covers, exactly the way LevelManager builds
+// it: a plain { x, y, w, h } tiles into whole blocks, and a stepped shape
+// lists its own blocks as [dx, dy] offsets instead.
+export function obstacleCells(o, blockSize) {
+  if (o.cells) return o.cells.map(([dx, dy]) => [o.x + dx, o.y + dy]);
+  const cells = [];
+  for (let dy = 0; dy < o.h; dy += blockSize) {
+    for (let dx = 0; dx < o.w; dx += blockSize) cells.push([o.x + dx, o.y + dy]);
+  }
+  return cells;
+}
+
 // The element registry as the game builds it at boot (see js/elements.js),
 // flattened by category so the level rules can ask "is this a real ball
 // shape/size?" the same way the game would.

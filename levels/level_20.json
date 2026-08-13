@@ -61,7 +61,8 @@
       "size": 5,
       "x": 192,
       "y": 336,
-      "vx": 80
+      "vx": 80,
+      "powerup": "shield"
     },
     {
       "shape": "round",
@@ -76,6 +77,22 @@
       "x": 400,
       "y": 240,
       "vx": 120
+    }
+  ],
+  "playerStart": {
+    "x": 104,
+    "y": 400
+  },
+  "ladders": [
+    {
+      "type": "ladder",
+      "x": 208,
+      "y": 208
+    },
+    {
+      "type": "ladder",
+      "x": 208,
+      "y": 304
     }
   ]
 }

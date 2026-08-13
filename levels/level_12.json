@@ -3,7 +3,7 @@
   "name": "Minaret Row",
   "timeLimitSec": 40,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "machinegun",
   "obstacles": [
     {
       "type": "platform",
@@ -112,5 +112,9 @@
       "y": 256,
       "vx": -110
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 96,
+    "y": 400
+  }
 }

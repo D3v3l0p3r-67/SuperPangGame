@@ -3,7 +3,7 @@
   "name": "Pagoda Rise",
   "timeLimitSec": 50,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "machinegun",
   "obstacles": [
     {
       "type": "platform",
@@ -56,5 +56,9 @@
       "y": 96,
       "vx": 110
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 32,
+    "y": 400
+  }
 }

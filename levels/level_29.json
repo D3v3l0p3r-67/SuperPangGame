@@ -3,7 +3,7 @@
   "name": "Southern Cross",
   "timeLimitSec": 95,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "machinegun",
   "obstacles": [
     {
       "type": "platform",

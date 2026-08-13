@@ -54,7 +54,8 @@
       "size": 5,
       "x": 96,
       "y": 256,
-      "vx": 75
+      "vx": 75,
+      "powerup": "score_multiplier"
     },
     {
       "shape": "round",
@@ -76,6 +77,17 @@
       "x": 552,
       "y": 248,
       "vx": -110
+    }
+  ],
+  "playerStart": {
+    "x": 72,
+    "y": 400
+  },
+  "ladders": [
+    {
+      "type": "ladder",
+      "x": 48,
+      "y": 304
     }
   ]
 }

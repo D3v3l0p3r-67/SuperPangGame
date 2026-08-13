@@ -1,9 +1,9 @@
 {
   "id": 49,
   "name": "Aurora Field",
-  "timeLimitSec": 120,
+  "timeLimitSec": 150,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "grapple",
   "obstacles": [
     {
       "type": "platform",
@@ -70,5 +70,9 @@
       "y": 120,
       "vx": 115
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 32,
+    "y": 400
+  }
 }

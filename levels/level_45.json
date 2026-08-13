@@ -1,9 +1,9 @@
 {
   "id": 45,
   "name": "Liberty Watch",
-  "timeLimitSec": 105,
+  "timeLimitSec": 130,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "grapple",
   "obstacles": [
     {
       "type": "platform",
@@ -47,7 +47,8 @@
       "size": 5,
       "x": 208,
       "y": 320,
-      "vx": 75
+      "vx": 75,
+      "powerup": "rapid_shot"
     },
     {
       "shape": "round",
@@ -70,5 +71,9 @@
       "y": 344,
       "vx": -110
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 400,
+    "y": 400
+  }
 }

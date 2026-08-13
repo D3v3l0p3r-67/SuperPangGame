@@ -3,7 +3,7 @@
   "name": "Avenue",
   "timeLimitSec": 65,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "machinegun",
   "obstacles": [
     {
       "type": "platform",
