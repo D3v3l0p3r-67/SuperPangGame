@@ -308,6 +308,21 @@ body {
   text-align: left;
 }
 
+/* The level's record, pushed to the right edge of its row. A long name
+   gives way to it rather than the other way round (the name clips inside
+   its own span): the record is the shorter and the more perishable of the
+   two, and the name is still recognisable clipped. */
+.level-select-btn > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.level-select-time {
+  margin-left: auto;
+  padding-left: 2.5cqmin;
+  flex: none;
+}
+
 .level-select-btn:hover:not(:disabled),
 .level-select-btn:focus-visible:not(:disabled) {
   background: var(--panel-border);

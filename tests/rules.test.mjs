@@ -12,6 +12,7 @@ import {
 import { PLAYER_CONFIG, PLAYER_STEP_UP_PX, LEVEL_TRANSITION, LEVELS_PER_REGION } from '../js/config.js';
 import { DEFAULT_BINDINGS, ACTIONS, keyLabel } from '../js/keys.js';
 import { DAYLIGHT_PHASES, daylightPhaseForLevel } from '../js/regions.js';
+import { formatLevelTime } from '../js/storage.js';
 import { readJSON, levelFiles } from './helpers.mjs';
 
 // The transition registry is data, but the module it lives in converts a
@@ -69,6 +70,23 @@ test('there is a region for every block of levels the campaign plays', () => {
   assert.equal(regions.length, needed,
     `${levelCount} levels at ${LEVELS_PER_REGION} per region needs ${needed} regions, but regions.json has ${regions.length}`
     + ' -- a run that reaches a block with no region has nowhere to fly to');
+});
+
+test('a level time reads as a clock the pixel font can draw', () => {
+  // The record is drawn with the intro font on the level cards, which has
+  // digits, ":" and "." and nothing else (see assets.js INTRO_FONT_CHARS).
+  const drawable = /^[0-9:.-]+$/;
+  const cases = [
+    [0, '0:00.00'], [9.5, '0:09.50'], [12.345, '0:12.35'], [59.999, '1:00.00'],
+    [61.2, '1:01.20'], [125, '2:05.00'],
+  ];
+  for (const [seconds, expected] of cases) {
+    assert.equal(formatLevelTime(seconds), expected, `${seconds}s`);
+    assert.match(formatLevelTime(seconds), drawable);
+  }
+  assert.equal(formatLevelTime(12.99, false), '0:12', 'the level list drops the hundredths, it does not round up into them');
+  assert.equal(formatLevelTime(null), '--:--', 'a level with no record still needs something to draw');
+  assert.equal(formatLevelTime(-1), '--:--');
 });
 
 test('a region is one day long, and every region starts it over', () => {

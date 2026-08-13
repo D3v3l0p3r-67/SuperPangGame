@@ -5,6 +5,7 @@ const KEYS = {
   settings: STORAGE_PREFIX + 'settings',
   levelEdits: STORAGE_PREFIX + 'levelEdits',
   progress: STORAGE_PREFIX + 'progress',
+  levelTimes: STORAGE_PREFIX + 'levelTimes',
 };
 
 const MAX_HIGH_SCORES = 10;
@@ -122,6 +123,75 @@ export function markLevelCleared(levelIndex) {
   const unlockedLevels = Math.max(progress.unlockedLevels, levelIndex + 2);
   writeRaw(KEYS.progress, JSON.stringify({ schemaVersion: SCHEMA_VERSION, unlockedLevels }));
   return unlockedLevels;
+}
+
+// Per-level records: how long the level took to clear, in seconds, and
+// LOWER IS BETTER -- the one number the game already measures per level
+// (the clock in the HUD) and the one a player can beat on a level they
+// have already finished, which a score cannot be compared on as cleanly
+// (a bigger score can just mean more power-ups happened to drop).
+//
+// Kept as { "<level index>": seconds }, its own key rather than a field on
+// progress: a record survives everything else being reset, and a corrupt
+// blob here costs the times, not the unlocks.
+const DEFAULT_LEVEL_TIMES = { schemaVersion: SCHEMA_VERSION, times: {} };
+
+// Anything slower than this is not a run, it's a stuck tab -- and no level
+// has a clock anywhere near it (the longest is under three minutes).
+const MAX_LEVEL_TIME_SEC = 3600;
+
+export function loadLevelTimes() {
+  const parsed = safeParse(readRaw(KEYS.levelTimes));
+  const migrated = migrate(parsed, DEFAULT_LEVEL_TIMES);
+  const times = migrated.times;
+  if (!times || typeof times !== 'object') return {};
+  // Filtered on the way out rather than trusted: a hand-edited or
+  // half-written entry would otherwise show as a record no run can beat.
+  const clean = {};
+  for (const [index, seconds] of Object.entries(times)) {
+    if (Number.isFinite(seconds) && seconds > 0 && seconds <= MAX_LEVEL_TIME_SEC) clean[index] = seconds;
+  }
+  return clean;
+}
+
+// The record for one level, or null when it has never been cleared here.
+export function bestLevelTime(levelIndex) {
+  return loadLevelTimes()[levelIndex] ?? null;
+}
+
+// Records a finished level's time. Only a faster one is written, so this
+// is safe to call on every clear, including a replay of a level whose
+// record already stands. Returns what the record is now and whether THIS
+// run set it (which is what the cleared-level screen announces).
+export function saveLevelTime(levelIndex, seconds) {
+  const previous = bestLevelTime(levelIndex);
+  if (!Number.isFinite(seconds) || seconds <= 0 || seconds > MAX_LEVEL_TIME_SEC) {
+    return { best: previous, isRecord: false };
+  }
+  // Hundredths: the HUD counts whole seconds, but two runs of a short
+  // level can easily land in the same second, and a record that cannot be
+  // beaten by a hair isn't much of a record.
+  const time = Math.round(seconds * 100) / 100;
+  if (previous !== null && previous <= time) return { best: previous, isRecord: false };
+  const times = { ...loadLevelTimes(), [levelIndex]: time };
+  writeRaw(KEYS.levelTimes, JSON.stringify({ schemaVersion: SCHEMA_VERSION, times }));
+  return { best: time, isRecord: true };
+}
+
+// A level time as the game shows it: M:SS.hh, with the hundredths that
+// separate two close runs -- or just M:SS where there is no room for them
+// (the level list, where the record shares a narrow row with the level's
+// name). Every glyph in it (digits, ":", ".") is one the pixel font can
+// draw (see assets.js's INTRO_FONT_CHARS), because this is drawn with that
+// font on the level-intro and cleared-level cards.
+export function formatLevelTime(seconds, precise = true) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '--:--';
+  // Counted in whole hundredths from here, so 59.999s reads as 1:00.00
+  // rather than as a carry that has to be caught a digit at a time.
+  const total = Math.round(seconds * 100);
+  const minutes = Math.floor(total / 6000);
+  const secs = String(Math.floor((total % 6000) / 100)).padStart(2, '0');
+  return precise ? `${minutes}:${secs}.${String(total % 100).padStart(2, '0')}` : `${minutes}:${secs}`;
 }
 
 export function isLevelUnlocked(levelIndex) {

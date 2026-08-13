@@ -16,6 +16,7 @@ import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
+import { LevelClearCard } from './LevelClearCard.js';
 import { LevelTransition } from './LevelTransition.js';
 import { WorldMapInterlude } from './WorldMapInterlude.js';
 import {
@@ -115,6 +116,11 @@ export class GameScene extends Phaser.Scene {
     this.introLeadInSec = 0; // see startLevelIntro/beginRun
     this.levelClearElapsed = 0;
     this.levelClearPhase = 'pause';
+    // How long the level just cleared took, and whether that beat its
+    // record -- what the cleared-level card shows (see LevelClearCard.js).
+    // null outside a clear, and on a clear with no record to keep.
+    this.clearTimeSec = null;
+    this.clearIsRecord = false;
     this.justSubmittedEntry = null;
     this.lastOutcome = null;
     this.isCustomLevel = false;
@@ -236,6 +242,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.setupMobileFullscreen();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
+    this.levelClearCard = new LevelClearCard(this);
     this.transition = new LevelTransition(this);
     this.worldMap = new WorldMapInterlude(this);
     this.debug = new Debug(this);
@@ -624,6 +631,13 @@ export class GameScene extends Phaser.Scene {
     this.levelClearPhase = this.timeBonusSecondsLeft > 0 ? 'tally' : 'pause';
     // Custom/editor levels aren't part of LEVELS and never unlock anything.
     if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
+    // The level's record: how long this attempt took. levelTimer restarts
+    // with the level (including after a life is lost, see loadLevel), so
+    // this is the run the player just made, not the sum of their tries --
+    // the same number the HUD's clock was showing.
+    this.clearTimeSec = this.isCustomLevel || this.isPanicMode ? null : this.levelTimer;
+    this.clearIsRecord = this.clearTimeSec !== null
+      && storage.saveLevelTime(this.levelIndex, this.clearTimeSec).isRecord;
     this.audio.stopMusic();
     this.audio.play('levelcomplete');
     // Celebrate standing still rather than coasting onward: physics keeps
@@ -863,6 +877,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.render();
     this.hud.render();
     this.levelIntro.render();
+    this.levelClearCard.render();
     // Ticked outside the state switch, and last: the transition spans the
     // very change of state it wraps (LEVEL_CLEAR out, LEVEL_INTRO in), so
     // it can't belong to either case, and it has to paint over everything

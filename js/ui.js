@@ -434,6 +434,7 @@ export class UI {
     const edits = this.storage.loadLevelEdits();
     setPixelText(this.el['level-select-title'], editing ? 'EDIT LEVEL' : 'START LEVEL', 'h2', COLORS.accent);
     const progress = this.storage.loadProgress();
+    const times = this.storage.loadLevelTimes();
     LEVELS.forEach((def, i) => {
       const unlocked = editing || i < progress.unlockedLevels;
       const btn = document.createElement('button');
@@ -448,7 +449,20 @@ export class UI {
       const color = edits[i + 1] ? COLORS.accent : COLORS.text;
       // Dimming for a locked level comes from the .locked CSS class on
       // the button itself (opacity), not a different fill color here.
-      setPixelText(btn, label, 'body', color);
+      const nameSpan = document.createElement('span');
+      setPixelText(nameSpan, label, 'body', color);
+      btn.appendChild(nameSpan);
+      // The level's record, pushed to the right edge of the row (see the
+      // high-score table, which splits its rows the same way). Only where
+      // it means something: a level that has been cleared here, and only
+      // when picking one to PLAY -- the record is not part of authoring.
+      const best = editing ? null : times[i];
+      if (best !== undefined && best !== null) {
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'level-select-time';
+        setPixelText(timeSpan, this.storage.formatLevelTime(best, false), 'body', COLORS.text);
+        btn.appendChild(timeSpan);
+      }
       btn.disabled = !unlocked;
       if (unlocked) {
         btn.addEventListener('click', () => {

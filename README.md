@@ -564,9 +564,12 @@ seam between the canvas and the page behind it.
   every currently active power-up -- entirely drawn in Phaser, no DOM
   overlay for any of it. Picking up `rapid_shot` swaps the weapon socket's
   own icon to match for as long as it's active.
-- Score, lives, a locally-persisted top-10 high score table, and per-level
-  unlock progress (`localStorage`, with a versioned schema for safe future
-  upgrades) -- see "Start Campaign vs. Start Level" below.
+- Score, lives, a locally-persisted top-10 high score table, per-level
+  unlock progress, and a **record per level** -- its fastest clear, lower
+  being better, shown before the level starts, when it is cleared, and
+  next to it in the level list (`localStorage`, with a versioned schema
+  for safe future upgrades) -- see "Start Campaign vs. Start Level" and
+  "Records: fastest time per level" below.
 - Full menu flow: main menu, options (mute/volume/fullscreen, split out
   onto its own screen), level select, a graphic level-intro screen (see
   "Swapping intro graphics"), pause, game over, victory, high score
@@ -780,8 +783,14 @@ js/
                       run crosses to a new continent (see "Regions")
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
-                      from a loaded A-Z font, then blinking READY/GO!
-  PixelText.js       The DOM equivalent of LevelIntro.js's text -- renders
+                      from a loaded A-Z font, the level's record, then
+                      blinking READY/GO!
+  LevelClearCard.js  The cleared-level card: the run's own time and a
+                      blinking NEW RECORD when it beat the level's (see
+                      "Records: fastest time per level")
+  introText.js       The font rows both cards are composed of -- one
+                      Image per character from the intro font sheet
+  PixelText.js       The DOM equivalent of introText.js -- renders
                       any string to a <canvas> from the same font_alpha
                       .webp spritesheet, sized off the game canvas's own
                       current scale (see "Swapping intro graphics")
@@ -789,8 +798,8 @@ js/
                       label goes through PixelText.js, not plain CSS text
   storage.js         Versioned localStorage persistence (high scores,
                       settings including the key bindings, unlock
-                      progress, and the levels saved in the editor -- see
-                      "Adding levels")
+                      progress, the per-level records, and the levels
+                      saved in the editor -- see "Adding levels")
   editor.js          In-browser level editor: opens one campaign level
                       (picked from the same list as Start Level),
                       grid-snapped painting, Save/Revert/Export/Import
@@ -1043,6 +1052,39 @@ same versioned-schema pattern as high scores/settings) as a single
 raises the count to at least `n + 2`, unlocking level `n + 1`. The
 level-select screen re-reads this every time it opens, so a level you
 just cleared is immediately pickable the next time you back out to it.
+
+### Records: fastest time per level
+
+Every campaign level keeps its own record: **how long it took to clear,
+lower is better**. That is the one thing a level can be replayed to beat
+-- a score mostly measures what dropped, and the unlock only ever happens
+once.
+
+The time is the level's own clock (`GameScene.levelTimer`), the one the
+HUD counts down, so what is recorded is the run you just made: it restarts
+with the level, including when a lost life restarts it, and a record is
+therefore always a single clean run through the level rather than a total
+across attempts. `levelClear()` hands it to `storage.saveLevelTime()`,
+which only writes a faster one -- so replaying a level you have already
+beaten can improve the record but never spoil it -- and returns whether
+this run set it. Editor playtests and Panic Mode keep nothing: neither is
+a level records are held for.
+
+They are stored under their own `localStorage` key (`balloonBuster.
+levelTimes`, `{ "<level index>": seconds }`) with the same versioned
+schema as everything else, in hundredths of a second, and read back
+defensively -- an entry that isn't a sane number is dropped rather than
+shown as a record no run could beat.
+
+The record shows up in three places, all of them where it is useful:
+
+- the **level-intro card** (`LevelIntro.js`), under the level's name, so
+  the target is on screen before the level starts. A level with no record
+  yet simply doesn't show the line.
+- the **cleared-level card** (`LevelClearCard.js`), which states the run's
+  own time and blinks **NEW RECORD** when it beat the old one.
+- the **Start Level list**, right-aligned on each row (`M:SS` there, where
+  the row is narrow; the cards show hundredths).
 
 ### Swapping graphics
 
