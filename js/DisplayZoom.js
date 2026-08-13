@@ -26,19 +26,25 @@ export function getZoom() {
 // playfield off the screen, and a playfield you cannot see all of is not
 // a playfield -- this game has balls arriving from every edge.
 //
-// The debug panel sits above the canvas rather than over it (see
-// style.css's #tool-bar) and takes real height with it, so its height
-// comes out of what is available -- otherwise opening it would push the
-// bottom of the playfield off the bottom of the screen.
+// Whatever else shares the column with the canvas -- the debug panel
+// above it and the gap under that (see style.css's #tool-bar) -- comes
+// out of the height available to it, or opening the panel would push the
+// floor off the bottom of the screen. That overhead is MEASURED rather
+// than modelled, because the panel sizes its own controls from the
+// canvas: its height depends on the answer this is computing (see
+// applyZoom, which settles that).
 export function fitScale() {
-  const toolBar = document.getElementById('tool-bar');
-  const reserved = toolBar ? toolBar.getBoundingClientRect().height : 0;
+  const canvas = document.querySelector('#game-container > canvas');
+  const shell = document.getElementById('game-shell');
+  const overhead = shell && canvas
+    ? Math.max(0, shell.getBoundingClientRect().height - canvas.getBoundingClientRect().height)
+    : 0;
   // clientWidth/Height rather than innerWidth/Height: these exclude a
   // scrollbar, so fitting can't itself produce the scrollbar that would
   // then make the fit wrong.
   const viewport = document.documentElement;
   const scaleX = viewport.clientWidth / VIRTUAL_W;
-  const scaleY = (viewport.clientHeight - reserved) / VIRTUAL_H;
+  const scaleY = (viewport.clientHeight - overhead) / VIRTUAL_H;
   return Math.max(MIN_FIT_SCALE, Math.min(scaleX, scaleY));
 }
 
@@ -62,12 +68,19 @@ export function activeZoom() {
   return fits ? zoom : ZOOM_FIT;
 }
 
-export function applyZoom(zoom) {
+// How many times a fit is measured and re-applied. Fitting moves its own
+// target: the debug panel's height is derived from the canvas's, so
+// resizing the canvas resizes what the canvas has to fit around. Each
+// pass lands closer, and two are enough in practice -- the third is
+// there so an unusual layout still ends up inside the window rather than
+// one pass short of it.
+const FIT_PASSES = 3;
+
+function setCanvasSize(scale) {
   const canvas = document.querySelector('#game-container > canvas');
   const container = document.getElementById('game-container');
   // Rounded to whole CSS pixels: a fitted scale is rarely a round number,
   // and half a pixel at the edge of the canvas is a blurred edge.
-  const scale = resolveZoom(zoom);
   const width = `${Math.round(VIRTUAL_W * scale)}px`;
   const height = `${Math.round(VIRTUAL_H * scale)}px`;
   // The canvas's rendered size, published for the two developer toolbars
@@ -87,6 +100,22 @@ export function applyZoom(zoom) {
   if (container) {
     container.style.width = width;
     container.style.height = height;
+  }
+}
+
+export function applyZoom(zoom) {
+  if (zoom !== ZOOM_FIT) {
+    setCanvasSize(zoom);
+    return;
+  }
+  let previous = 0;
+  for (let pass = 0; pass < FIT_PASSES; pass++) {
+    const scale = fitScale();
+    setCanvasSize(scale);
+    // Settled: the layout stopped moving, so further passes would
+    // measure the same thing.
+    if (Math.abs(scale - previous) < 0.001) break;
+    previous = scale;
   }
 }
 
