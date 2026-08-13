@@ -516,7 +516,7 @@ body {
 
 .panel-group + .panel-group {
   border-left: 1px solid var(--panel-border);
-  padding-left: calc(var(--panel-unit) * 1.1);
+  padding-left: calc(var(--panel-unit) * 0.9);
 }
 
 .panel-group-title {
@@ -528,7 +528,7 @@ body {
 .panel-row {
   display: flex;
   align-items: center;
-  gap: calc(var(--panel-unit) * 0.5);
+  gap: calc(var(--panel-unit) * 0.4);
 }
 
 /* Pushed to the far end, so a readout never shuffles the controls about
@@ -566,7 +566,7 @@ body {
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: calc(var(--panel-unit) * 0.4);
-  padding: calc(var(--panel-unit) * 0.3) calc(var(--panel-unit) * 0.7);
+  padding: calc(var(--panel-unit) * 0.3) calc(var(--panel-unit) * 0.6);
   cursor: pointer;
   white-space: nowrap;
 }

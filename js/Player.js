@@ -93,15 +93,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return this.invulnTimer > 0;
   }
 
-  reset() {
-    const x = VIRTUAL_W / 2;
-    const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
-    // teleport() rather than body.reset() alone: reset() puts the body on
-    // the sprite's top-left and ignores the body's own offset, which would
-    // leave the feet a hitbox's worth of sprite ABOVE the ground. The first
-    // frame of play would then be a fall down to it -- with the landing
-    // dust to match (see followGround).
-    this.teleport(x, y);
+  // `spawn` is where the feet go: { x: centre line, y: the surface they
+  // stand on }. It always comes from the level being loaded (see
+  // LevelManager's playerSpawn, which supplies the default for a level
+  // that doesn't name one) -- the player never picks its own start.
+  //
+  // placeFeet, not body.reset(): reset() puts the body on the sprite's
+  // top-left and ignores the body's own offset, which would leave the feet
+  // a hitbox's worth of sprite above the surface. The first frame of play
+  // would then be a fall down to it -- with the landing dust to match (see
+  // followGround).
+  reset(spawn) {
+    this.placeFeet(spawn.x, spawn.y);
     this.body.setVelocity(0, 0);
     this.dropping = false;
     this.speedMultiplier = 1;
@@ -119,7 +122,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // without this a shield still active right as a level ends would sit
     // frozen at its old position/visible through the next level's intro
     // instead of following the player's fresh spawn point.
-    this.shieldEffect.setPosition(x, y);
+    this.shieldEffect.setPosition(this.x, this.y);
     this.shieldEffect.setVisible(false);
   }
 

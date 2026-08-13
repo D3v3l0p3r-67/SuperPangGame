@@ -386,6 +386,9 @@ seam between the canvas and the page behind it.
   ground, so the bottom row rests on the floor and a stack of them is a
   staircase the player can climb. The interior is a whole number of rows
   (see "Display size"), so the top row is flush against the ceiling too.
+  It also places where the player starts the level (the **Start** brush,
+  saved as the level's `playerStart` -- see "Adding levels"); a level that
+  places none starts them in the middle of the floor as before.
 - **Ladders** (48x96, three by six blocks) are climbable scenery rather
   than obstacles: nothing collides with one, so balls and shots pass
   straight through, and so does the player -- which is what lets a ladder
@@ -607,7 +610,8 @@ js/
                       from levels/*.json) and loads a level definition
                       into a GameScene's groups; decomposes each obstacle
                       into independent 16x16 Obstacle blocks (see
-                      OBSTACLE_BLOCK_SIZE)
+                      OBSTACLE_BLOCK_SIZE) and reads the level's optional
+                      player start point (playerSpawn/DEFAULT_PLAYER_SPAWN)
   config.js          Static gameplay tuning that isn't per-element data
                       (player movement, weapon base stats, power-up drop
                       chance/fall speed/ttl)
@@ -773,6 +777,7 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "weapon": "harpoon",
   "obstacles": [{ "type": "crate", "x": 368, "y": 288, "w": 16, "h": 16, "powerup": "shield" }],
   "ladders": [{ "type": "ladder", "x": 368, "y": 304 }],
+  "playerStart": { "x": 328, "y": 368 },
   "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
@@ -780,6 +785,25 @@ The file format is exactly `editor.js`'s `buildDef()` output:
 that predates ladders simply has no such key. A ladder entry is a type and
 a top-left corner; its size comes from the element (see "Adding elements"),
 so a taller run is several entries stacked rather than a height field.
+
+`playerStart` is optional the same way: it says where the player begins
+the level (and where they come back after losing a life), and a level
+without it starts them in the middle of the floor, exactly as every level
+did before the field existed. It is stored as the FEET -- `x` the sprite's
+centre line, `y` the surface they stand on -- which is the pair
+`Player.placeFeet` takes, so the file says literally where the player is
+put. `LevelManager.js`'s `playerSpawn` clamps whatever it reads into the
+playfield, so a hand-edited start can't put the player inside the border,
+and falls back to the default for a missing or malformed one. Place it in
+the **LEVEL EDITOR** with the **Start** brush: the click's grid cell is
+where the player stands, centred across it with their feet on its bottom
+edge, and the scene's real player sprite moves there so what you see is
+what the level will spawn. Erasing that cell (**Erase** or right-click)
+drops the start again and the player returns to the default position; the
+**COUNT** readout shows `Start 1` or `Start 0` for which of the two the
+level is on. A start with nothing under it is allowed and means what it
+looks like: the player stands there through the READY/GO countdown and
+falls to whatever is below the moment play begins.
 An obstacle's `x`/`y`/`w`/`h` are on the 16x16 grid, and so is a ball,
 though a ball's `x`/`y` is its CENTRE rather than a corner -- the grid cell
 is its bounding box's top-left, so a ball sits on the grid when `x - radius`

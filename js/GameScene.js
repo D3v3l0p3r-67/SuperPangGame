@@ -11,7 +11,7 @@ import { Bullet } from './Bullet.js';
 import { Bonus } from './Bonus.js';
 import { refreshObstacleSeams } from './Obstacle.js';
 import { createWeaponState, EffectManager } from './weapons.js';
-import { loadLevel as loadLevelData, LEVELS, PANIC_LEVEL } from './LevelManager.js';
+import { loadLevel as loadLevelData, playerSpawn, DEFAULT_PLAYER_SPAWN, LEVELS, PANIC_LEVEL } from './LevelManager.js';
 import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
@@ -481,7 +481,7 @@ export class GameScene extends Phaser.Scene {
     const def = loadLevelData(this, idxOrDef);
     for (const popup of this.scorePopups) popup.destroy();
     this.scorePopups = [];
-    this.player.reset();
+    this.player.reset(playerSpawn(def) || DEFAULT_PLAYER_SPAWN);
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
     // A campaign level takes its look and its music from the continent

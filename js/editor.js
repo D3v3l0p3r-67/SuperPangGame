@@ -1,19 +1,24 @@
 import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
-import { WEAPON_TYPES } from './config.js';
+import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
-import { LEVELS } from './LevelManager.js';
+import { LEVELS, DEFAULT_PLAYER_SPAWN, clampPlayerSpawn, playerSpawn } from './LevelManager.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
 import { makeButton, makeSelect, labelled, row, group } from './panelUi.js';
 import * as storage from './storage.js';
 
-const BRUSHES = [
+// Split into the two brushes that TILE (painted cell by cell while the
+// pointer is dragged) and the two that don't, because the panel row below
+// puts the whole-element brushes -- ladders, the player's start -- between
+// them.
+const TILE_BRUSHES = [
   { id: 'platform', label: 'Wall' },
   { id: 'crate', label: 'Crate' },
-  { id: 'erase', label: 'Erase' },
 ];
+const START_BRUSH = { id: 'start', label: 'Start' };
+const ERASE_BRUSH = { id: 'erase', label: 'Erase' };
 
 // Builds the brush list for balls straight from BALL_ELEMENTS, so a new
 // elements/<shape>-ball-<size>.json shows up as a brush automatically --
@@ -76,6 +81,14 @@ function snapObstacleOrigin(x, y) {
   return { x: Math.min(Math.max(gx, bt), maxX), y: GROUND_Y - rows * grid };
 }
 
+// The start point a grid cell stands for: the player centred across the
+// cell with their feet on its bottom edge -- the edge a block placed in
+// that same cell would rest on, so clicking the floor row starts them on
+// the floor and clicking a cell over a platform starts them on it.
+function startFor(cell) {
+  return { x: cell.x + OBSTACLE_BLOCK_SIZE / 2, y: cell.y + OBSTACLE_BLOCK_SIZE };
+}
+
 function ballRadius(shape, size) {
   return getBallElement(shape, Math.min(size, maxBallSize(shape))).radius;
 }
@@ -104,6 +117,12 @@ export class Editor {
     this.blocks = new Map(); // "gx,gy" -> Obstacle instance
     this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
     this.ladders = new Map(); // "gx,gy" (top-left cell) -> { type, x, y, sprite }
+    // Where the level puts the player, or null for "wherever the default
+    // puts them" (see LevelManager's playerSpawn). Only ever one, so it is
+    // a single value rather than another Map -- and it needs no sprite of
+    // its own: the scene's real player stands on it while editing (see
+    // applyPlayerStart).
+    this.playerStart = null;
     this.dirX = 1; // next-placed ball's horizontal direction: 1 = right, -1 = left
     this.dirY = -1; // next-placed ball's vertical direction (hex only): -1 = up, 1 = down
     this.selectedPowerup = null; // next-placed crate/ball's guaranteed powerup drop, if any
@@ -142,7 +161,7 @@ export class Editor {
     // to be popped in it on the next -- rather than one long run of them.
     this.panelEl.appendChild(group(
       'BRUSH',
-      row(...[...BRUSHES.slice(0, 2), ...ladderBrushes(), BRUSHES[2]].map(brushButton)),
+      row(...[...TILE_BRUSHES, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
       row(...ballBrushes().map(brushButton)),
     ));
 
@@ -309,6 +328,10 @@ export class Editor {
         }
       }
     }
+    // Read through the same reader gameplay uses, so what the editor shows
+    // is what the level will spawn -- a missing or malformed start reads
+    // as null in both places and falls back to the default.
+    this.setPlayerStart(playerSpawn(def));
     for (const l of def.ladders || []) {
       if (!LADDER_TYPE_KEYS.includes(l.type)) continue;
       if (![l.x, l.y].every(Number.isFinite)) continue;
@@ -338,6 +361,32 @@ export class Editor {
     this.balls.clear();
     for (const ladder of this.ladders.values()) ladder.sprite.destroy();
     this.ladders.clear();
+    this.setPlayerStart(null);
+  }
+
+  // The start point is shown with the scene's REAL player rather than a
+  // marker of the editor's own: what stands there while editing is exactly
+  // what the level will spawn, down to the sprite. Passing null clears the
+  // level's own start, and the player then stands where the default puts
+  // them -- so the fallback is on screen too, not just implied.
+  setPlayerStart(spawn) {
+    this.playerStart = spawn ? clampPlayerSpawn(spawn.x, spawn.y) : null;
+    this.applyPlayerStart();
+  }
+
+  applyPlayerStart() {
+    this.scene.player.reset(this.playerStart || DEFAULT_PLAYER_SPAWN);
+  }
+
+  // Whether a grid cell is the one the start point stands in -- the cell
+  // holding the point just above the feet line, on the player's centre.
+  // That single cell is what erasing the start reacts to: the sprite is
+  // four cells tall, and erasing a block up by its head should not take
+  // the spawn point with it.
+  startCellAt(x, y) {
+    if (!this.playerStart) return false;
+    const { x: px, y: py } = this.playerStart;
+    return px >= x && px < x + OBSTACLE_BLOCK_SIZE && py > y && py <= y + OBSTACLE_BLOCK_SIZE;
   }
 
   keyFor(x, y) {
@@ -411,6 +460,7 @@ export class Editor {
       this.ladders.get(ladderKey).sprite.destroy();
       this.ladders.delete(ladderKey);
     }
+    if (this.startCellAt(x, y)) this.setPlayerStart(null);
   }
 
   // Low-level placement (grid cell + exact velocity/powerup already
@@ -478,12 +528,15 @@ export class Editor {
 
     const isBallBrush = this.brush.startsWith('ball-');
     const isLadderBrush = this.brush.startsWith('ladder-');
+    const isStartBrush = this.brush === START_BRUSH.id;
     // Whole-element brushes place one per discrete click; only the tiling
     // block brushes paint continuously while the pointer is dragged.
-    if ((isBallBrush || isLadderBrush) && !isDown) return;
+    if ((isBallBrush || isLadderBrush || isStartBrush) && !isDown) return;
 
     if (this.brush === 'erase') {
       this.eraseAt(snapped.x, snapped.y);
+    } else if (isStartBrush) {
+      this.setPlayerStart(startFor(snapped));
     } else if (isBallBrush) {
       const [, shape, sizeStr] = this.brush.split('-');
       this.placeBall(x, y, shape, parseInt(sizeStr, 10));
@@ -525,6 +578,16 @@ export class Editor {
         Math.min(Math.max(this.hoverCell.y, BORDER_THICKNESS), GROUND_Y - height),
         width, height,
       );
+    } else if (this.brush === START_BRUSH.id) {
+      // The player standing where this click would put them: the same
+      // clamp the placement itself applies, so the outline never promises
+      // a position the level cannot actually hold.
+      const start = startFor(this.hoverCell);
+      const { x, y } = clampPlayerSpawn(start.x, start.y);
+      this.cursorGraphics.strokeRect(
+        x - PLAYER_CONFIG.spriteWidth / 2, y - PLAYER_CONFIG.spriteHeight,
+        PLAYER_CONFIG.spriteWidth, PLAYER_CONFIG.spriteHeight,
+      );
     }
   }
 
@@ -538,7 +601,11 @@ export class Editor {
       return;
     }
     this.statusMessage = null;
-    this.statusEl.textContent = `Blocks ${this.blocks.size}   Balls ${this.balls.size}\nLadders ${this.ladders.size}`;
+    // The start counts like everything else here: 1 when this level places
+    // one, 0 when it has none and the player starts where the default puts
+    // them (see LevelManager's playerSpawn).
+    this.statusEl.textContent = `Blocks ${this.blocks.size}  Balls ${this.balls.size}\n`
+      + `Ladders ${this.ladders.size}  Start ${this.playerStart ? 1 : 0}`;
   }
 
   showStatusMessage(text, durationMs = 3000) {
@@ -560,6 +627,11 @@ export class Editor {
     });
     const timeLimitSec = Math.max(10, Math.min(300, parseInt(this.timeInput.value, 10) || 60));
     const def = { id: 'custom', name: 'Custom Level', timeLimitSec, background: this.background, weapon: this.weapon, obstacles, balls };
+    // Optional, same as `ladders` below: a level that never had a start
+    // placed keeps the key out of its file entirely and takes the default
+    // (see LevelManager's playerSpawn), rather than writing the default
+    // out as though it had been chosen.
+    if (this.playerStart) def.playerStart = { ...this.playerStart };
     // Only written when there is something to write: `ladders` is an
     // optional key (see LevelManager), and emitting an empty array would
     // rewrite every level that predates ladders for no reason.

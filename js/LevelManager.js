@@ -1,4 +1,5 @@
-import { OBSTACLE_BLOCK_SIZE } from './constants.js';
+import { OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GROUND_Y, VIRTUAL_W } from './constants.js';
+import { PLAYER_CONFIG } from './config.js';
 import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
@@ -13,6 +14,36 @@ export const LEVELS = [];
 // reference, never reassigned) -- kept separate from LEVELS so it's never
 // counted as a campaign level or offered in Start Level.
 export const PANIC_LEVEL = {};
+
+// Where the player starts, expressed the way Player.placeFeet takes it:
+// x is the sprite's centre line, y the line the feet stand on. A level
+// says this in an optional `playerStart` key -- without one the player
+// starts in the middle of the floor, which is where every level written
+// before the setting existed expects them.
+export const DEFAULT_PLAYER_SPAWN = { x: VIRTUAL_W / 2, y: GROUND_Y };
+
+// Keeps a start point inside the playfield with the whole sprite visible.
+// Applied both where the editor places one and where a level is loaded, so
+// a hand-edited file can't spawn the player inside the border or off the
+// screen -- the same defensive reading every other field in a level gets.
+export function clampPlayerSpawn(x, y) {
+  const halfWidth = PLAYER_CONFIG.spriteWidth / 2;
+  return {
+    x: Math.min(Math.max(x, BORDER_THICKNESS + halfWidth), VIRTUAL_W - BORDER_THICKNESS - halfWidth),
+    y: Math.min(Math.max(y, BORDER_THICKNESS + PLAYER_CONFIG.spriteHeight), GROUND_Y),
+  };
+}
+
+// The start point a level definition asks for, or null when it names none
+// (or names an unusable one). Null rather than the default itself, so a
+// caller can tell "this level chose the middle of the floor" from "this
+// level chose nothing" -- which is the difference the editor shows and
+// writes back out.
+export function playerSpawn(def) {
+  const start = def.playerStart;
+  if (!start || !Number.isFinite(start.x) || !Number.isFinite(start.y)) return null;
+  return clampPlayerSpawn(start.x, start.y);
+}
 
 // Every level obstacle becomes one or more independent Obstacle blocks,
 // each its own Arcade body -- that's what lets a breakable obstacle lose
