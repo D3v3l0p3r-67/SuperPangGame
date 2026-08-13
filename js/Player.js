@@ -96,9 +96,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   reset() {
     const x = VIRTUAL_W / 2;
     const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
-    this.setPosition(x, y);
-    this.body.reset(x, y);
+    // teleport() rather than body.reset() alone: reset() puts the body on
+    // the sprite's top-left and ignores the body's own offset, which would
+    // leave the feet a hitbox's worth of sprite ABOVE the ground. The first
+    // frame of play would then be a fall down to it -- with the landing
+    // dust to match (see followGround).
+    this.teleport(x, y);
     this.body.setVelocity(0, 0);
+    this.dropping = false;
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
@@ -280,9 +285,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // the surface instead of shooting past it and being pulled back.
   followGround(dt) {
     if (dt <= 0) return;
-    const dy = this.supportSurface() - this.feetY;
+    const surface = this.supportSurface();
+    const dy = surface - this.feetY;
     if (Math.abs(dy) < 0.5) {
       this.body.setVelocityY(0);
+      // Arriving at the end of a drop is a landing, whether it fell one
+      // step or the whole height of the playfield: kick up dust at the feet
+      // that landed. The x comes off the BODY -- the sprite trails it by a
+      // frame, so the puff would otherwise appear a step behind the player.
+      // A climb never reaches here (update() returns in the ladder branch
+      // before followGround), so stepping down a ladder raises no dust.
+      if (this.dropping) this.scene.playLandingDust(this.body.center.x, surface);
       this.dropping = false;
       return;
     }
@@ -366,7 +379,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (dir > 0 && this.feetY >= l.bottom - LADDER_EPSILON) {
       const next = this.ladderFor(dir);
       if (next) this.ladder = next;
-      else this.dismountLadder();
+      else {
+        // Same exactness as the top exit below, for the same reason: when
+        // there IS a surface right at the ladder's foot, the feet go ON it
+        // rather than a fraction above it, or followGround reads the
+        // remainder as a drop and climbing down raises landing dust. A
+        // ladder ending in mid-air has no such surface, and the player
+        // falls off the bottom of it exactly as they would off a ledge.
+        const surface = this.supportSurface(l.bottom);
+        if (Math.abs(surface - l.bottom) < LADDER_EPSILON) this.placeFeet(l.centerX, surface);
+        this.dismountLadder();
+      }
     } else if (dir < 0 && this.feetY <= l.top + LADDER_EPSILON) {
       const next = this.ladderFor(dir);
       if (next) this.ladder = next;

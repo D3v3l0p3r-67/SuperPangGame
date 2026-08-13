@@ -28,6 +28,7 @@ import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
+  PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
@@ -1108,6 +1109,17 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
     sprite.setDepth(6);
     sprite.play(BULLET_HIT_ANIM_KEY);
+    sprite.once('animationcomplete', () => sprite.destroy());
+  }
+
+  // The puff a landing kicks up, at the feet that landed (see
+  // Player.followGround). Anchored by its BOTTOM edge so the cloud sits on
+  // the surface rather than straddling it, and drawn just under the player
+  // (depth 4) so they stand in it rather than behind it.
+  playLandingDust(x, feetY) {
+    const sprite = this.add.sprite(x, feetY, PLAYER_DUST_TEXTURE_KEY).setOrigin(0.5, 1);
+    sprite.setDepth(3.8);
+    sprite.play(PLAYER_DUST_ANIM_KEY);
     sprite.once('animationcomplete', () => sprite.destroy());
   }
 

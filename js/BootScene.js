@@ -11,6 +11,8 @@ import {
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, PLAYER_HIT_FRAMES, PLAYER_HIT_SIZE, PLAYER_HIT_ANIM_KEY,
+  PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, PLAYER_DUST_FRAMES,
+  PLAYER_DUST_SIZE, PLAYER_DUST_HEIGHT, PLAYER_DUST_ANIM_KEY,
   BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
@@ -82,6 +84,7 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
     this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
     this.load.spritesheet(PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, { frameWidth: PLAYER_HIT_SIZE, frameHeight: PLAYER_HIT_SIZE });
+    this.load.spritesheet(PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, { frameWidth: PLAYER_DUST_SIZE, frameHeight: PLAYER_DUST_HEIGHT });
     this.load.image(BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH);
     this.load.spritesheet(BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, { frameWidth: BULLET_HIT_SIZE, frameHeight: BULLET_HIT_SIZE });
     this.load.image(WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH);
@@ -226,6 +229,14 @@ export class BootScene extends Phaser.Scene {
       key: PLAYER_HIT_ANIM_KEY,
       frames: this.anims.generateFrameNumbers(PLAYER_HIT_TEXTURE_KEY, { start: 0, end: PLAYER_HIT_FRAMES - 1 }),
       frameRate: 12,
+      repeat: 0,
+    });
+    // Slower than the impact bursts above on purpose: dust settles, it
+    // doesn't snap.
+    this.anims.create({
+      key: PLAYER_DUST_ANIM_KEY,
+      frames: this.anims.generateFrameNumbers(PLAYER_DUST_TEXTURE_KEY, { start: 0, end: PLAYER_DUST_FRAMES - 1 }),
+      frameRate: 9,
       repeat: 0,
     });
 

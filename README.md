@@ -405,7 +405,10 @@ seam between the canvas and the page behind it.
   16px) high without jumping -- it cannot jump at all -- so a run of
   stacked blocks is a staircase. Anything taller, or without room to
   stand on top, is still a wall it stops at: that headroom test is what
-  keeps a wall built of stacked blocks from being a ladder.
+  keeps a wall built of stacked blocks from being a ladder. Steps up and
+  down have their own animations, and landing from a drop -- one step or
+  the whole height of the playfield -- kicks up a puff of dust at the
+  feet. Climbing raises none: a ladder is not a fall.
 - The level-select screen lists all 50 at once in three columns filled
   top-to-bottom (1-17, 18-34, 35-50) with no scrollbar -- a scroller would
   hide exactly the later levels you are most likely looking for.
@@ -520,7 +523,8 @@ assets/              Every graphic and sound in the game, as real files --
   player/            player.png, a single spritesheet (idle, shot, 4 walk,
                       victory, dead, 2 climb, 2 ladder-exit, 2 step-up,
                       2 step-down) + shield.webp, the looping shield
-                      effect -- see "Swapping graphics" below
+                      effect, + hit.webp and dust.webp, the hit burst and
+                      the landing puff -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   ladders/           <ladder texture>.webp, the whole element at its
                       authored size (48x96) rather than a repeating tile,
@@ -916,6 +920,18 @@ dimensions:
   of the ball's rim facing the player, not on either body's centre, so a
   big ball bursts at the edge the two actually met at. Swapping it is just
   replacing the file, as long as the new art keeps that 32x64 layout.
+- **Landing dust**: `assets/player/dust.webp` -- a `PLAYER_DUST_FRAMES`
+  -frame (2) spritesheet, `PLAYER_DUST_SIZE x PLAYER_DUST_HEIGHT` (32x16)
+  per frame stacked vertically, played once at the feet whenever the
+  player finishes a drop onto a surface -- one 16px step down or a fall
+  the height of the playfield alike (`Player.followGround` ->
+  `GameScene.playLandingDust`). Climbing raises none: a ladder is not a
+  fall, and both of its ends put the feet exactly on the surface they
+  arrive at so no leftover fraction of a pixel reads as one. Unlike the
+  bursts above it is deliberately not square (dust spreads sideways along
+  the ground rather than billowing up) and it is anchored by its BOTTOM
+  edge, so the cloud sits on the surface instead of straddling it, drawn
+  just under the player so they stand in it.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/

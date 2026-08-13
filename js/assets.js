@@ -121,6 +121,19 @@ export const PLAYER_HIT_FRAMES = 2;
 export const PLAYER_HIT_SIZE = 32;
 export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
 
+// The puff of dust a landing kicks up at the player's feet (see
+// Player.followGround / GameScene.playLandingDust). Same one-shot,
+// frames-stacked-vertically layout as the burst sheets above, but
+// DELIBERATELY not square -- PLAYER_DUST_SIZE is the frame's width and
+// PLAYER_DUST_HEIGHT its height, because dust spreads sideways along the
+// ground rather than billowing up.
+export const PLAYER_DUST_TEXTURE_KEY = 'player-dust';
+export const PLAYER_DUST_TEXTURE_PATH = 'assets/player/dust.webp';
+export const PLAYER_DUST_FRAMES = 2;
+export const PLAYER_DUST_SIZE = 32;
+export const PLAYER_DUST_HEIGHT = 16;
+export const PLAYER_DUST_ANIM_KEY = 'player-dust-puff';
+
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES) -- tiled
 // via TileSprite across whatever area a block/the border frame covers, so
