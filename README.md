@@ -83,6 +83,15 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
 
+A run also pauses itself the moment the window goes away -- switching tab,
+clicking another window, or (on a phone) leaving the app -- onto the same
+screen Esc opens (`GameScene.pauseFromFocusLoss`). Both cases need
+catching, because the browser treats them differently: a hidden tab stops
+Phaser's game loop on its own, but a window that merely loses focus does
+not, and the level clock would keep counting down while nobody is
+playing. Coming back never resumes by itself: the pause screen waits, so
+you are not dropped back in front of a ball you cannot see coming.
+
 Shoot fires once per press, for every weapon and power-up alike -- the
 key/button has to be released and pressed again for another shot, so
 holding it down does nothing (see `GameScene.updatePlaying`'s

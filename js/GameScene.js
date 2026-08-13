@@ -206,6 +206,19 @@ export class GameScene extends Phaser.Scene {
     // not gated behind this scene's own render-frame cadence.
     this.keys.p.on('down', () => this.handlePauseKey());
     this.keys.esc.on('down', () => this.handlePauseKey());
+    // Losing the window pauses a run, onto the same screen Escape opens.
+    // Both signals are needed, because they are different situations and
+    // Phaser handles them differently. HIDDEN (the tab switched away)
+    // already stops its game loop, so nothing simulates while you are
+    // gone -- but coming back would drop you straight into a live ball
+    // with no warning. BLUR (another window in front, the game still on
+    // screen) does NOT stop the loop: the level clock would go on running
+    // while nobody is playing, which is the one that actually costs you
+    // the level. Neither has a matching resume: coming back is a decision
+    // the player makes on the pause screen, not one focus makes for them.
+    for (const event of [Phaser.Core.Events.BLUR, Phaser.Core.Events.HIDDEN]) {
+      this.game.events.on(event, () => this.pauseFromFocusLoss());
+    }
     initTouchInput();
 
     this.buildBurstEmitters();
@@ -768,6 +781,15 @@ export class GameScene extends Phaser.Scene {
   handlePauseKey() {
     if (this.state === GAME_STATES.EDITOR) this.pauseFromEditor();
     else if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) this.togglePause();
+  }
+
+  // The window went away mid-run (see create). Only actual play is worth
+  // freezing: a menu and the editor have nothing running, an already-open
+  // pause screen is where this would put you anyway, and pausing the
+  // level intro would cut its countdown short (leaving the pause screen
+  // goes straight to PLAYING).
+  pauseFromFocusLoss() {
+    if (this.state === GAME_STATES.PLAYING) this.pause();
   }
 
   update(time, delta) {
