@@ -430,8 +430,7 @@ body {
    differs, as a quick "which panel is this" cue -- green for debug
    (matching the classic terminal-y debug-overlay look), accent/yellow
    for the editor (matching the rest of the game's own UI accent). */
-#debug-panel,
-#editor-panel {
+#debug-panel {
   background: rgba(0, 0, 0, 0.7);
   padding: 6px 8px;
   font-size: 10px;
@@ -440,17 +439,88 @@ body {
   flex-direction: column;
   gap: 4px;
   max-width: 46%;
-}
-
-#debug-panel {
   border: 1px solid #0f0;
   color: #0f0;
   white-space: pre;
 }
 
+/* The level editor's controls sit in the HUD strip, across the canvas's
+   full width, with the whole playfield left visible above them. The
+   game's own HUD is hidden while editing (see Hud.js's VISIBLE_STATES),
+   so that band is free -- and using it means the canvas doesn't get
+   pushed down the page to make room for a toolbar, which is what the
+   editor used to do.
+   left/right/bottom pin it to the strip; the HEIGHT comes from
+   editor.js, derived from HUD_H/VIRTUAL_H rather than repeated here, so
+   it tracks the layout constants. */
 #editor-panel {
-  border: 1px solid var(--accent);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.82);
+  border-top: 1px solid var(--accent);
   color: var(--text);
+  /* Sized from the container -- the canvas at its current zoom, see
+     #game-container's container-type -- so the panel scales with the game
+     instead of being a fixed pixel size that would swamp the strip at
+     0.5x and be lost in it at 2x. */
+  font-size: 2.1cqh;
+  line-height: 1.2;
+  display: flex;
+  align-items: stretch;
+  gap: 1.1cqh;
+  padding: 0.8cqh 1.1cqh;
+  /* At 0.5x the strip is only 42 CSS px tall and browsers stop shrinking
+     form controls and text past a floor, so the groups genuinely cannot
+     fit there at any legible size. Scrolling is the honest answer:
+     nothing ends up unreachable, and at 1x and 2x -- where everything
+     does fit -- no scrollbar ever appears. */
+  overflow: auto;
+}
+
+/* One labelled unit of related controls -- brushes, what the next placed
+   thing carries, level-wide settings, file actions, and the run/exit
+   pair. Each stacks its own rows, so the panel reads as columns of rows
+   rather than one long undifferentiated strip of buttons. */
+.editor-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5cqh;
+  flex: none;
+}
+
+.editor-group + .editor-group {
+  border-left: 1px solid var(--panel-border);
+  padding-left: 1.1cqh;
+}
+
+/* Capped so one long option (a continent background name, a weapon) can't
+   push the groups after it off the end of the strip. */
+#editor-panel select {
+  max-width: 19cqh;
+  text-overflow: ellipsis;
+}
+
+.editor-group-title {
+  font-size: 1.6cqh;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.editor-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5cqh;
+}
+
+/* Pushed to the far end, so the counts never shuffle the controls about
+   as they change width. */
+.editor-group.editor-status {
+  margin-left: auto;
+  white-space: pre;
+  opacity: 0.8;
 }
 
 #debug-spawn-panel {
@@ -461,23 +531,37 @@ body {
 
 #debug-panel select,
 #debug-panel button,
-#debug-panel input,
-#editor-panel select,
-#editor-panel button,
-#editor-panel input,
-#editor-panel label {
+#debug-panel input {
   font-size: 10px;
   font-family: inherit;
 }
 
-#debug-panel button,
-#editor-panel button {
+/* Inherit, so every control scales with the panel's own cq-based size. */
+#editor-panel select,
+#editor-panel button,
+#editor-panel input,
+#editor-panel label {
+  font-size: inherit;
+  font-family: inherit;
+}
+
+#debug-panel button {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);
   border-radius: 3px;
   padding: 3px 6px;
   cursor: pointer;
+}
+
+#editor-panel button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 0.4cqh;
+  padding: 0.3cqh 0.7cqh;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 #debug-panel button:hover,
