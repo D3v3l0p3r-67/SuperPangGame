@@ -101,10 +101,17 @@ exactly that reason (see `GameScene.updatePlaying`).
 
 ## Weapons
 
-Two of the three are BEAMS: the foot stays on the ground the player fired
+Two of the three are BEAMS: the foot stays planted where the player fired
 from and the head climbs (`js/Projectile.js`). The whole length is lethal,
 not just the leading edge, so a ball drifting into the middle of an
-already-extended shot still pops. Which weapon a level gives the player is
+already-extended shot still pops.
+
+That foot is the firing player's FEET, not the ground line. On the floor
+the two are the same thing, which is why it was written as the ground to
+begin with -- but standing on a platform or holding a ladder they are not,
+and a beam anchored to the ground sprouted from the floor far below the
+player and swept everything in between. A shot now spans exactly from
+where it was fired up to whatever stops it, at any height. Which weapon a level gives the player is
 the level file's `weapon` field; all three are offered by the **LEVEL
 EDITOR**'s Weapon dropdown and the debug panel's **Give weapon** row, so
 any can be tried without editing a file.

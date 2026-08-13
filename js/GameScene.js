@@ -1050,13 +1050,16 @@ export class GameScene extends Phaser.Scene {
     }
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
-    // The beam's foot is planted on the ground (Projectile.js anchors it
-    // there itself); this is where its HEAD starts -- the muzzle, same
-    // height a shot has always appeared at.
+    // The beam spans the player: its foot is planted at their FEET (not
+    // at the ground line -- standing on a platform or holding a ladder,
+    // those are different heights, and anchoring to the ground would
+    // sprout the shot from the floor far below them), and its head starts
+    // at the muzzle, the same height above the feet a shot has always
+    // appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
     const proj = new Projectile(
-      this, tipX, tipY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType,
+      this, tipX, tipY, this.player.feetY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType,
       base.ceilingStickSec ?? 0, base.ceilingReleaseWarnSec ?? 0,
     );
     this.projectiles.add(proj);

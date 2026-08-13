@@ -231,9 +231,12 @@ export class Debug {
       graphics.strokeCircle(ball.x, ball.y, ball.radius);
     }
 
+    // Off the bodies: a beam is positioned by its HEAD (origin 0, 0.5 --
+    // see Projectile.js), so proj.y is its top edge rather than its middle.
     graphics.lineStyle(1, 0xffff00, 1);
     for (const proj of g.projectiles.getChildren()) {
-      graphics.strokeRect(proj.x - proj.body.width / 2, proj.y - proj.body.height / 2, proj.body.width, proj.body.height);
+      const b = proj.body;
+      graphics.strokeRect(b.x, b.y, b.width, b.height);
     }
 
     graphics.lineStyle(1, 0x00ffff, 1);

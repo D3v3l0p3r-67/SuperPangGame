@@ -1,14 +1,20 @@
 import { WEAPON_SHOTS_KEY, WEAPON_SHOTS_FRAME, SHOT_BEAM_WIDTH, weaponShotFrame } from './assets.js';
-import { BORDER_THICKNESS, GROUND_Y } from './constants.js';
+import { BORDER_THICKNESS } from './constants.js';
 
-// The shot is a BEAM, not a travelling bullet: its foot stays planted on
-// the ground the player fired from and its head climbs upward (at the
+// The shot is a BEAM, not a travelling bullet: its foot stays planted at
+// the height the player fired from and its head climbs upward (at the
 // weapon's shotSpeed, see config.js) until something stops it -- a ball or
 // obstacle it overlaps (GameScene's onProjectileHit* handlers destroy it,
 // or decrement its pierce count first), or the ceiling, which caps
 // its length and either ends the shot or anchors it there (see the phases
 // below). So it starts already spanning feet-to-muzzle and, at full
-// extension, runs the whole way from the ground to the ceiling.
+// extension, runs the whole way from there to the ceiling.
+//
+// That foot is `footY`, the firing player's FEET -- not the ground line.
+// On the floor the two are the same thing, which is why this was written
+// as the ground to begin with; standing on a platform or holding a ladder
+// they are not, and a beam anchored to the ground would sprout from the
+// floor far below the player and sweep everything in between.
 //
 // PHASES. A shot is 'flying' while its head climbs. On reaching the
 // ceiling a weapon with no ceilingStickSec is done; one with it instead
@@ -33,8 +39,8 @@ import { BORDER_THICKNESS, GROUND_Y } from './constants.js';
 // unscaled, an Arcade body sized in world pixels also stays exactly the
 // size it was set to (a scaled sprite would multiply it again).
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
-  constructor(scene, x, headY, width, speed, pierce, weaponType, stickSec = 0, releaseWarnSec = 0) {
-    super(scene, x, GROUND_Y, WEAPON_SHOTS_KEY, weaponShotFrame(weaponType, 'flying'));
+  constructor(scene, x, headY, footY, width, speed, pierce, weaponType, stickSec = 0, releaseWarnSec = 0) {
+    super(scene, x, footY, WEAPON_SHOTS_KEY, weaponShotFrame(weaponType, 'flying'));
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -50,6 +56,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.body.moves = false;
 
     this.beamX = x;
+    this.footY = footY;
     this.beamWidth = Math.max(SHOT_BEAM_WIDTH, Math.round(width));
     this.growSpeed = speed;
     this.hitsLeft = pierce;
@@ -65,16 +72,16 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
 
     // Already spanning from the ground up to the muzzle at the instant it
     // is fired, rather than starting as a stub at the muzzle.
-    this.setLength(Math.min(GROUND_Y - headY, this.maxLength));
+    this.setLength(Math.min(footY - headY, this.maxLength));
   }
 
   get maxLength() {
-    return GROUND_Y - BORDER_THICKNESS;
+    return this.footY - BORDER_THICKNESS;
   }
 
   setLength(length) {
     this.length = length;
-    const headY = GROUND_Y - length;
+    const headY = this.footY - length;
 
     this.setPosition(this.beamX, headY);
     // Show the top `length` px of the cell: head at the top, shaft below.
@@ -107,7 +114,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   // it normally would.
   anchorAt(headY) {
     if (this.stickSec <= 0 || this.isAnchored) return false;
-    this.setLength(Math.max(0, Math.min(GROUND_Y - headY, this.maxLength)));
+    this.setLength(Math.max(0, Math.min(this.footY - headY, this.maxLength)));
     this.stickLeft = this.stickSec;
     this.setPhase(this.stickSec <= this.releaseWarnSec ? 'releasing' : 'stuck');
     return true;
@@ -131,7 +138,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.setLength(this.maxLength);
-    return this.anchorAt(GROUND_Y - this.maxLength);
+    return this.anchorAt(this.footY - this.maxLength);
   }
 
   registerHit() {
