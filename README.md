@@ -256,10 +256,11 @@ at another size doesn't invalidate them.
 
 ## Level transitions
 
-Clearing a campaign level doesn't cut straight to the next one: the
-playfield is hidden with an effect, the next level is built underneath it,
-and the effect is drawn back off. The swap happens on the single frame the
-screen is fully covered, so it can never be seen happening.
+Clearing a campaign level doesn't cut straight to the next one: an effect
+carries the playfield from one level to the next, and the swap itself is
+never visible -- either because the screen is covered at the moment it
+happens, or because the levels on screen are photographs taken either
+side of it.
 
 Effects live in `js/LevelTransition.js`'s `LEVEL_TRANSITIONS`, the same
 kind of named registry as `WEAPON_TYPES` and `POWERUP_BEHAVIORS`, and
@@ -273,14 +274,30 @@ there is nothing else to keep in step.
 | `wipe` | a solid edge sweeping down, then off the bottom |
 | `iris` | four edges closing in on the centre and opening out |
 | `shutter` | horizontal slats drawing in from alternating sides |
+| `push` | the old level slides up and off while the next one follows it up from below (the default) |
 
-Adding one is a new entry with a `label`, a `durationSec` and a
-`draw(graphics, amount, covering)` -- `amount` runs 0 to 1 across each half
-and `covering` says which half it is, so an effect only has to be opaque at
-1 and transparent at 0. Effects cover the playfield and not the HUD bar, so
-the score and lives stay readable straight through. The debug panel's
-**Level transition** row plays any of them on demand, without having to
-clear a level to see it.
+There are two kinds of effect, and which one an entry is depends only on
+the method it carries:
+
+- An **overlay** effect implements `draw(graphics, amount, covering)`. It
+  paints over the playfield; `amount` runs 0 to 1 across each half and
+  `covering` says which half it is, so it only has to be opaque at 1 and
+  transparent at 0. The level swap happens on the single frame it is
+  fully opaque.
+- A **sliding** effect implements `place(leaving, arriving, amount)` and
+  hides nothing: it is handed a still photograph of each level (see
+  `LevelTransition.capture`) and moves them, with `amount` running 0 to 1
+  once across the whole duration. The swap happens at the START here --
+  the next level has to exist before it can be photographed -- and the
+  two stills have to cover the playfield between them the whole way, or
+  the live scene shows through behind them. `push` keeps them exactly one
+  playfield apart, which does that by construction.
+
+Either way the HUD bar stays clear: overlay effects simply don't paint
+over it, and the stills are masked to the playfield, so the score and
+lives stay readable straight through. The debug panel's **Level
+transition** row plays any of them on demand, without having to clear a
+level to see it.
 
 Only the level-to-level step gets one. Finishing the run doesn't -- there
 is no next level to reveal, just the victory screen -- and neither does a
@@ -454,7 +471,7 @@ seam between the canvas and the page behind it.
   together, and the leg between them is flown on a world map (see
   "Regions" below).
 - A level-to-level transition effect in campaign runs (fade / wipe / iris
-  / shutter, see "Level transitions" below) -- swappable by name.
+  / shutter / push, see "Level transitions" below) -- swappable by name.
 - 3 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
   "Weapons" below): the **harpoon**, which ends the moment it tops out,
   the **grapple**, which anchors to the ceiling for 4s and keeps killing

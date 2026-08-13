@@ -116,7 +116,7 @@ export const TIME_BONUS_TICK_SEC = 0.07;
 // swapped in underneath, and it is drawn back off. Change the name to
 // change the effect; each effect carries its own duration, so there is
 // nothing else to keep in step.
-export const LEVEL_TRANSITION = 'shutter';
+export const LEVEL_TRANSITION = 'push';
 
 // How many campaign levels are played on each continent before the run
 // moves on to the next one (see js/regions.js and the world-map interlude
