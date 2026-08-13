@@ -203,8 +203,17 @@ export class Debug {
   }
 
   render(graphics) {
+    // Nothing to clear unless something was drawn: debug mode is off for
+    // the entire game as shipped, and this runs every frame.
+    if (!this.enabled) {
+      if (this.drewLastFrame) {
+        graphics.clear();
+        this.drewLastFrame = false;
+      }
+      return;
+    }
     graphics.clear();
-    if (!this.enabled) return;
+    this.drewLastFrame = true;
     if (this.showGrid) this.drawGrid(graphics);
     this.drawCollisionBounds(graphics);
     this.updateText();

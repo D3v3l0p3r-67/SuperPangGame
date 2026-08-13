@@ -196,6 +196,8 @@ export class GameScene extends Phaser.Scene {
     this.keys.esc.on('down', () => this.handlePauseKey());
     initTouchInput();
 
+    this.buildBurstEmitters();
+
     this.debugGraphics = this.add.graphics();
     this.debugGraphics.setDepth(100);
 
@@ -233,6 +235,33 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(hexColor(COLORS.accent), 1);
     g.fillRect(0, PLAYFIELD_H, VIRTUAL_W, 2);
     g.setDepth(0);
+  }
+
+  // The two particle bursts the game ever plays -- a normal one (a ball or
+  // an obstacle breaking) and a smaller, shorter one (a power-up being
+  // collected) -- built ONCE here and re-fired for the rest of the
+  // session. Only the tint changes per burst, which is why two fixed
+  // emitters cover it rather than one reconfigured on the fly.
+  //
+  // Building one per burst instead (and destroying it on a timer 500ms
+  // later) meant a whole emitter, its particle pool and a fresh death-zone
+  // Geom for every ball popped -- the most frequent event in the game.
+  //
+  // Kept tight and short-lived on purpose: a wide/fast/long-lived burst
+  // visibly drifts away from the hit point before it fades, which reads as
+  // "the effect isn't where the ball was" even though it started exactly
+  // there.
+  buildBurstEmitters() {
+    // A burst near the ground can otherwise drift (via gravityY + its own
+    // outward speed) below GROUND_Y and render in the HUD strip, which
+    // nothing else in the game is ever allowed to do -- kill any particle
+    // the instant it leaves the playfield rectangle.
+    const deathZone = { type: 'onLeave', source: new Phaser.Geom.Rectangle(0, 0, VIRTUAL_W, GROUND_Y) };
+    const make = (lifespan, speed, scale) => this.add.particles(0, 0, PARTICLE_TEXTURE_KEY, {
+      lifespan, speed, scale, alpha: { start: 1, end: 0 }, gravityY: 60, emitting: false, deathZone,
+    }).setDepth(7);
+    this.burstNormal = make(280, { min: 15, max: 45 }, { start: 2, end: 0 });
+    this.burstSmall = make(220, { min: 10, max: 25 }, { start: 1.5, end: 0 });
   }
 
   // The tiled frame the ball/player can never cross -- identical on every
@@ -483,6 +512,15 @@ export class GameScene extends Phaser.Scene {
     // track; Panic Mode and editor playtests, being off the itinerary,
     // keep the two generic ones.
     this.pendingMusicName = region?.music ?? (this.isPanicMode ? 'music02' : 'music01');
+    // Warm it now rather than at the moment it is due. Music is fetched on
+    // demand (see BootScene's preload / audio.js's ensureMusicLoaded), and
+    // everything between here and the first ball moving -- the fanfare,
+    // READY/SET/GO, and on a continent change the whole world-map flight
+    // -- is cover for that fetch. The hurry-up track has no such cover
+    // (it cuts in at 15 seconds left, mid-play), so it is warmed here too;
+    // it is the smallest track in the game.
+    this.audio.ensureMusicLoaded(this.pendingMusicName);
+    if (def.timeLimitSec) this.audio.ensureMusicLoaded('music_hurry');
     return def;
   }
 
@@ -1108,28 +1146,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnBurst(x, y, colorHex, count, small = false) {
-    // Kept tight and short-lived on purpose: a wide/fast/long-lived burst
-    // visibly drifts away from the hit point before it fades, which reads
-    // as "the effect isn't where the ball was" even though it started
-    // exactly there.
-    const emitter = this.add.particles(x, y, PARTICLE_TEXTURE_KEY, {
-      lifespan: small ? 220 : 280,
-      speed: small ? { min: 10, max: 25 } : { min: 15, max: 45 },
-      scale: { start: small ? 1.5 : 2, end: 0 },
-      alpha: { start: 1, end: 0 },
-      gravityY: 60,
-      tint: hexColor(colorHex),
-      quantity: count,
-      emitting: false,
-      // A burst near the ground can otherwise drift (via gravityY + its
-      // own outward speed) below GROUND_Y and render in the HUD strip,
-      // which nothing else in the game is ever allowed to do -- kill any
-      // particle the instant it leaves the playfield rectangle.
-      deathZone: { type: 'onLeave', source: new Phaser.Geom.Rectangle(0, 0, VIRTUAL_W, GROUND_Y) },
-    });
-    emitter.setDepth(7);
+    const emitter = small ? this.burstSmall : this.burstNormal;
+    emitter.setParticleTint(hexColor(colorHex));
     emitter.explode(count, x, y);
-    this.time.delayedCall(500, () => emitter.destroy());
   }
 
   // -- Collision handlers -------------------------------------------------
@@ -1168,10 +1187,14 @@ export class GameScene extends Phaser.Scene {
     }
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;
+    // Read while the block still exists: takeHit() destroys it, which takes
+    // its body with it, and a block is positioned by its top-left corner.
+    const centerX = obstacleGO.x + obstacleGO.width / 2;
+    const centerY = obstacleGO.y + obstacleGO.height / 2;
     const destroyed = obstacleGO.takeHit();
     if (destroyed) {
       this.audio.play('walldestroy');
-      this.spawnBurst(obstacleGO.x, obstacleGO.y, obstacleGO.def.color, 10);
+      this.spawnBurst(centerX, centerY, obstacleGO.def.color, 10);
       // The destroyed block may have been shielding a neighbor's face
       // from ever registering a collision (see Obstacle.js's
       // refreshObstacleSeams) -- recompute now that it's actually gone,

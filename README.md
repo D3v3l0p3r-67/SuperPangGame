@@ -261,6 +261,52 @@ Only the level-to-level step gets one. Finishing the run doesn't -- there
 is no next level to reveal, just the victory screen -- and neither does a
 level restarting after a lost life.
 
+## Load
+
+Everything the game needs to reach the menu is fetched up front, with one
+deliberate exception: **music**. The 13 tracks are 4.7MB against 141KB for
+every sound effect in the game, only one of them ever plays at a time, and
+eight belong to continents a given run may never reach -- so loading them
+all before the menu can open spends most of the first load on audio that
+may never be heard.
+
+Instead `AudioManager.ensureMusicLoaded()` fetches a track the first time
+it is wanted, and `GameScene.loadLevel` asks for the coming level's track
+(and the hurry-up one, which cuts in mid-play with no cover of its own) as
+soon as the level is known -- so the fetch runs under the fanfare, the
+READY/SET/GO countdown, and on a continent change the whole world-map
+flight. `playMusic()` records the request first and honours it when the
+file lands, and only if that track is still the one wanted by then.
+
+Measured on this repo: **1796KB to the menu instead of 6456KB**, of which
+1327KB is Phaser itself. Each continent's track then arrives during the
+levels leading into it.
+
+## Frame rate
+
+Arcade Physics advances in a fixed 1/60s step whatever the display is
+doing, and that is the one number any exact movement has to be measured
+against -- never the render frame. A velocity worked out as "distance
+divided by this frame's delta" is right only when a frame and a step are
+the same length: on a 144Hz display the frame is 6.9ms and the step is
+still 16.7ms, so every such correction lands 2.4x past its target, and the
+next one overshoots back further. That reads as the player skidding
+sideways on a ladder, or bouncing up and down on a stair tread, and it
+happens on faster displays only -- which is exactly the kind of fault that
+never shows up on the machine it was written on.
+
+So the player's movement splits in two. Travel is velocity, because it
+should take time. Arriving somewhere exact -- on a tread, on a ladder's
+centre line, at either end of one -- is a placement instead, and Player.js
+does it through `teleport()`, which is deliberately more than
+`body.reset()`: reset drops the body onto the game object's corner
+ignoring the body's own offset, and Arcade would then read that
+discrepancy as motion and shove the SPRITE by it on the next step (about
+6px sideways and 20px down, every time). `teleport()` restores the body's
+relationship to the sprite and re-baselines the previous-position record
+that the write-back is measured from. Everything it takes is read off the
+body, never the sprite, which lags it by a frame mid-step.
+
 ## Display size
 
 The canvas is a fixed 800x500px. It splits into the bordered playing
@@ -506,10 +552,14 @@ js/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
   Player.js          Phaser.Physics.Arcade.Sprite: explicit per-frame
-                      velocity from input, the shield effect sprite, and
-                      5 Phaser animations (idle/move/shot/victory/dead,
-                      see assets.js) -- facing is setFlipX, never a
-                      separate left/right asset
+                      velocity from input, the step-up and the ladder
+                      climb, the shield effect sprite, and 5 Phaser
+                      animations (idle/move/shot/victory/dead, see
+                      assets.js) -- facing is setFlipX, never a separate
+                      left/right asset. Travel is velocity; landing on an
+                      exact spot (a tread, a ladder's centre line or its
+                      ends) is a placement -- see teleport/placeFeet and
+                      the note under "Frame rate" below
   Ball.js            Phaser.Physics.Arcade.Sprite: reads its one
                       BALL_ELEMENTS entry (shape+size) for every physical
                       parameter, deterministic landOnTop()/bounce methods,
@@ -517,8 +567,9 @@ js/
                       spin animation (setFrozen pauses/resumes it for
                       time_freeze)
   Projectile.js      Phaser.Physics.Arcade.Sprite for the harpoon shot
-  Obstacle.js         Phaser.GameObjects.Rectangle + static Arcade body,
-                      representing one obstacle block; destructible via
+  Obstacle.js         Phaser.GameObjects.TileSprite + static Arcade body,
+                      representing one obstacle block -- one object that
+                      both collides and draws itself; destructible via
                       takeHit()
   Bonus.js           Phaser.Physics.Arcade.Sprite for power-up pickups
   LevelManager.js    Owns the LEVELS array (populated by ElementsScene
@@ -539,7 +590,8 @@ js/
                       only thing in the game allowed to call Phaser's
                       Sound Manager -- every trigger elsewhere is
                       audio.play('<name>') / audio.playMusic('<name>'),
-                      never a filename/volume/loop flag
+                      never a filename/volume/loop flag. Music is fetched
+                      on demand rather than at boot -- see "Load" below
   input.js           Thin DOM bridge for the on-screen touch buttons only
                       (keyboard is native Phaser input, see GameScene)
   Hud.js             The graphic status bar (see "Swapping HUD graphics")

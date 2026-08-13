@@ -120,7 +120,18 @@ export class BootScene extends Phaser.Scene {
     // is self-contained, no manifest indirection needed -- see
     // ElementsScene.js) -- each sound is loaded under its own config key
     // name, so AudioManager can play it back by that same name.
+    //
+    // Music is deliberately NOT loaded here. The 13 tracks are 4.7MB
+    // against 141KB for every sound effect in the game, only one of them
+    // ever plays at a time, and eight of them belong to continents a run
+    // may never reach -- so waiting for all of them before the menu can
+    // open is most of the first load spent on audio that may never be
+    // heard. AudioManager fetches a track the first time it is asked for
+    // and GameScene warms the next continent's up during the world-map
+    // interlude, which is several seconds of cover (see audio.js's
+    // ensureMusicLoaded / GameScene.loadLevel).
     for (const [name, cfg] of Object.entries(AUDIO_CONFIG)) {
+      if (cfg.category === 'music') continue;
       this.load.audio(name, audioPath(cfg.file));
     }
 

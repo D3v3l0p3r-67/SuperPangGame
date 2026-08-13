@@ -224,19 +224,19 @@ export class Hud {
 
     for (let i = 0; i < this.lifeIcons.length; i++) this.lifeIcons[i].setVisible(i < g.lives);
 
-    const activeEffects = [...g.effects.active];
-    for (let i = 0; i < this.powerupSlots.length; i++) {
-      const slot = this.powerupSlots[i];
-      const entry = activeEffects[i];
-      if (!entry) {
-        slot.icon.setVisible(false);
-        slot.digits.setVisible(false);
-        continue;
-      }
-      const [type, expiresAt] = entry;
+    // Iterated straight off the Map rather than spread into an array
+    // first -- this runs every frame, and the array was pure garbage.
+    let slotIndex = 0;
+    for (const [type, expiresAt] of g.effects.active) {
+      if (slotIndex >= this.powerupSlots.length) break;
+      const slot = this.powerupSlots[slotIndex++];
       slot.icon.setVisible(true);
       slot.icon.setTexture(assets.powerupTextureKey(type));
       slot.digits.setValue(Math.max(0, Math.ceil((expiresAt - g.elapsedMs) / 1000)));
+    }
+    for (let i = slotIndex; i < this.powerupSlots.length; i++) {
+      this.powerupSlots[i].icon.setVisible(false);
+      this.powerupSlots[i].digits.setVisible(false);
     }
   }
 }
