@@ -1,0 +1,26 @@
+name: Tests
+
+# On every push and pull request, not only on main: the point of these is
+# to catch a broken level file or a missing asset before it is somewhere
+# it can be deployed from.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No npm install: the suite runs on Node's own test runner and the
+      # game has no dependencies (see tests/README.md).
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run the data and rule tests
+        run: node --test tests/*.test.mjs

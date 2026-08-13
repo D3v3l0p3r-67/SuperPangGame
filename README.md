@@ -70,6 +70,23 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 
   then open `http://localhost:8000`.
 
+## Tests
+
+```bash
+node --test tests/*.test.mjs
+```
+
+No install step and no test framework -- Node's own runner against the
+project's own files, since the game has no dependencies and neither does
+its test suite. It checks the things that can be answered without running
+the game: every level file (grid alignment, no two obstacles in one cell,
+everything it names existing), every asset the boot sequence asks for,
+every sound played by name, and the pure rules the rest is built on (the
+playfield geometry, the key bindings, the transition registry). See
+[`tests/README.md`](tests/README.md) for what each file covers and what is
+deliberately left to a real browser instead. `.github/workflows/tests.yml`
+runs the same line on every push.
+
 ## Controls
 
 | Action | Keyboard | Touch |
@@ -620,6 +637,9 @@ elements/            One JSON file per ball size/shape, obstacle type, or
                       see "Adding elements" below
 levels/              One level_NN.json per level, in level-editor Export
                       format -- see "Adding levels" below
+tests/               Node's own test runner against the data and the pure
+                      rules -- no framework, no dependencies, no browser
+                      (see "Tests" above and tests/README.md)
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
                       code -- see "Admin tool" below. Not linked from the
