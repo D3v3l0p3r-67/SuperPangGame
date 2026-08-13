@@ -254,6 +254,37 @@ body {
   width: min(96cqw, 720px);
 }
 
+/* One row per action (see ui.js's renderKeyList): its name, then one
+   button per key slot. A grid rather than flex rows so every action's
+   name occupies the same column width and the key buttons line up down
+   the screen instead of stepping in and out with the label lengths. */
+#keys-list {
+  display: grid;
+  grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 0.6cqmin 1.2cqmin;
+  width: min(90cqw, 520px);
+}
+
+/* The row element groups one action's controls in the DOM; `contents`
+   takes the wrapper itself out of the layout so its name and key buttons
+   are the grid's own items -- which is what makes every action line up
+   in a column instead of each row being one cell of three. */
+.keys-row {
+  display: contents;
+}
+
+.keys-row > span {
+  text-align: left;
+}
+
+/* Narrower than a menu button: there are two per row and they hold one
+   short word each. */
+.key-btn {
+  min-width: 0;
+  padding: 0.6cqmin 1.2cqmin;
+}
+
 /* This one screen sits high rather than centred -- fifty rows leave no
    slack to centre within, and the title would be pushed off the top. */
 #screen-level-select {

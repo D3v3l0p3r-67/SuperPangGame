@@ -46,12 +46,17 @@ export const GROUND_Y = BORDER_THICKNESS + INTERIOR_H;
 export const PLAYFIELD_H = GROUND_Y + BORDER_THICKNESS;
 export const HUD_H = VIRTUAL_H - PLAYFIELD_H;
 
-// The only display sizes the game can render at -- see DisplayZoom.js.
-// Deliberately NOT continuously responsive to the browser window: picking
-// one of these multiplies VIRTUAL_W/VIRTUAL_H directly into the canvas's
-// CSS size.
+// The fixed display sizes the game can render at -- see DisplayZoom.js.
+// Picking one of these multiplies VIRTUAL_W/VIRTUAL_H directly into the
+// canvas's CSS size.
 export const ZOOM_LEVELS = [0.5, 1, 2];
 export const DEFAULT_ZOOM = 1;
+
+// The one size setting that is not a fixed multiplier: fit the canvas to
+// the window, at whatever scale that takes. Stored and passed around
+// exactly like the numbers above, so everything that handles a zoom
+// handles this too -- see DisplayZoom.fitScale for what it resolves to.
+export const ZOOM_FIT = 'fit';
 
 export const STORAGE_PREFIX = 'balloonBuster.';
 export const SCHEMA_VERSION = 1;
@@ -83,6 +88,7 @@ export const GAME_STATES = Object.freeze({
   BOOT: 'BOOT',
   MENU: 'MENU',
   OPTIONS: 'OPTIONS',
+  KEY_CONFIG: 'KEY_CONFIG',
   LEVEL_SELECT: 'LEVEL_SELECT',
   EDITOR: 'EDITOR',
   LEVEL_INTRO: 'LEVEL_INTRO',

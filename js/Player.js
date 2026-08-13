@@ -76,10 +76,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // The ladder currently being climbed, or null when on foot. See
     // updateOnLadder() for what changes while it is set.
     this.ladder = null;
-    // Whether this frame's up/down input went into a ladder rather than
-    // being free for anything else. GameScene reads it to decide whether an
-    // Up press meant "shoot" or "climb" -- they share the key.
-    this.usedVerticalInput = false;
     // While set ('shot', 'victory', or 'dead'), update() leaves the
     // current one-shot animation alone instead of overriding it with
     // idle/move every frame; cleared automatically when that animation
@@ -149,7 +145,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.shielded = false;
     this.invulnTimer = 0;
     this.ladder = null;
-    this.usedVerticalInput = false;
     this.setAlpha(1);
     this.facing = 1;
     this.setFlipX(this.facing > 0);
@@ -500,18 +495,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(dt, inputState) {
-    // Up and down are the climb controls; up doubles as the shoot key, so
-    // this flag reports back which of the two this frame's press was spent
-    // on (see GameScene.updatePlaying).
-    this.usedVerticalInput = false;
-
     if (!this.ladder) {
       const mountDir = inputState.upPressed ? -1 : (inputState.downPressed ? 1 : 0);
       if (mountDir !== 0) this.ladder = this.ladderFor(mountDir);
     }
 
     if (this.ladder) {
-      this.usedVerticalInput = true;
       const dir = (inputState.down ? 1 : 0) - (inputState.up ? 1 : 0);
       this.isMoving = dir !== 0;
       // Physics has already stepped by the time this runs, so the feet are

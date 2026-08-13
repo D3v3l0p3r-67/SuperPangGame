@@ -1,16 +1,21 @@
-import { GAME_STATES, COLORS } from './constants.js';
+import { GAME_STATES, COLORS, ZOOM_FIT } from './constants.js';
 import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
-import { getZoom, setZoom } from './DisplayZoom.js';
+import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
+import { ACTIONS, SLOTS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
 
 // zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
 // bindEvents/updateZoomButtons below).
-const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x' };
+// zoom value -> the settings-row button that selects it. Keyed by the
+// value as a STRING, because one of them is not a number (see
+// constants.js's ZOOM_FIT) and object keys are strings regardless.
+const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x', [ZOOM_FIT]: 'btn-zoom-fit' };
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
   [GAME_STATES.OPTIONS]: 'screen-options',
+  [GAME_STATES.KEY_CONFIG]: 'screen-keys',
   [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
@@ -22,7 +27,8 @@ const SCREEN_IDS = {
 const ELEMENT_IDS = [
   'screen-menu', 'game-title-line1', 'game-title-line2',
   'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
-  'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x',
+  'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x', 'btn-zoom-fit',
+  'screen-keys', 'keys-title', 'keys-list', 'keys-hint', 'btn-keys-reset', 'btn-close-keys',
   'screen-level-select', 'level-select-title', 'level-select-list',
   'screen-pause', 'pause-title',
   'screen-game-over', 'gameover-title', 'final-score',
@@ -31,7 +37,7 @@ const ELEMENT_IDS = [
   'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
-  'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
+  'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -52,6 +58,11 @@ const STATIC_LABELS = [
   ['btn-zoom-half', '0.5X', 'button', COLORS.text],
   ['btn-zoom-1x', '1X', 'button', COLORS.text],
   ['btn-zoom-2x', '2X', 'button', COLORS.text],
+  ['btn-zoom-fit', 'FIT', 'button', COLORS.text],
+  ['keys-title', 'CONTROLS', 'h2', COLORS.accent],
+  ['btn-controls', 'CONTROLS', 'button', COLORS.text],
+  ['btn-keys-reset', 'RESET TO DEFAULTS', 'button', COLORS.text],
+  ['btn-close-keys', 'BACK', 'button', COLORS.text],
   ['level-select-title', 'START LEVEL', 'h2', COLORS.accent],
   ['pause-title', 'PAUSED', 'h2', COLORS.accent],
   ['gameover-title', 'GAME OVER', 'h2', COLORS.accent],
@@ -197,12 +208,67 @@ export class UI {
       this.storage.saveSettings({ musicVolume: v });
     });
 
+    // One of the values is a word, the rest are numbers (see ZOOM_FIT),
+    // so the key is only parsed as a number when it actually is one.
     for (const [zoom, id] of Object.entries(ZOOM_BUTTON_IDS)) {
       this.el[id].addEventListener('click', () => {
-        setZoom(parseFloat(zoom));
+        setZoom(zoom === ZOOM_FIT ? ZOOM_FIT : parseFloat(zoom));
         this.updateZoomButtons();
       });
     }
+    // A fitted canvas follows the window from here on (a fixed one has
+    // nothing to follow) -- see DisplayZoom.watchViewport.
+    watchViewport();
+
+    this.el['btn-controls'].addEventListener('click', () => this.game.showKeyConfig());
+    this.el['btn-close-keys'].addEventListener('click', () => this.game.showOptions());
+    this.el['btn-keys-reset'].addEventListener('click', () => {
+      resetBindings();
+      this.renderKeyList();
+    });
+  }
+
+  // One row per action, with a button per slot showing what that slot is
+  // bound to. Rebuilt from the bindings themselves every time rather than
+  // patched in place, so what is on screen is always what keys.js would
+  // actually answer with.
+  renderKeyList() {
+    const list = this.el['keys-list'];
+    list.innerHTML = '';
+    this.cancelKeyCapture?.();
+    this.cancelKeyCapture = null;
+    const bindings = getBindings();
+    for (const { id, label } of ACTIONS) {
+      const row = document.createElement('div');
+      row.className = 'keys-row';
+      const name = document.createElement('span');
+      setPixelText(name, label, 'body', COLORS.text);
+      row.appendChild(name);
+      for (let slot = 0; slot < SLOTS; slot++) {
+        const btn = document.createElement('button');
+        btn.className = 'menu-btn key-btn';
+        setPixelText(btn, keyLabel(bindings[id][slot]), 'button', COLORS.text);
+        btn.addEventListener('click', () => this.beginKeyCapture(id, slot, btn));
+        row.appendChild(btn);
+      }
+      list.appendChild(row);
+    }
+    setPixelText(this.el['keys-hint'], 'CLICK A KEY THEN PRESS ONE. ESC CANCELS.', 'body', COLORS.text);
+  }
+
+  // Asks keys.js for the next key pressed and gives it to this slot. Only
+  // one capture can be open at a time -- starting another cancels the
+  // first, so two half-armed buttons can never both be waiting.
+  beginKeyCapture(action, slot, btn) {
+    this.cancelKeyCapture?.();
+    setPixelText(btn, 'PRESS KEY', 'button', COLORS.accent);
+    this.cancelKeyCapture = captureNextKey((code) => {
+      this.cancelKeyCapture = null;
+      // null means the player pressed Escape to cancel; the binding is
+      // left exactly as it was.
+      if (code) setBinding(action, slot, code);
+      this.renderKeyList();
+    });
   }
 
   // A short hover/click blip on every menu button (main menu, pause,
@@ -253,7 +319,7 @@ export class UI {
   updateZoomButtons() {
     const zoom = getZoom();
     for (const [z, id] of Object.entries(ZOOM_BUTTON_IDS)) {
-      this.el[id].classList.toggle('active', parseFloat(z) === zoom);
+      this.el[id].classList.toggle('active', z === String(zoom));
     }
   }
 
@@ -350,6 +416,8 @@ export class UI {
       this.renderHighScores();
     } else if (state === GAME_STATES.LEVEL_SELECT) {
       this.renderLevelSelect();
+    } else if (state === GAME_STATES.KEY_CONFIG) {
+      this.renderKeyList();
     }
   }
 

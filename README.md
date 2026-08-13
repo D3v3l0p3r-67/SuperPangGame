@@ -76,9 +76,17 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 | --- | --- | --- |
 | Move | Arrow Left/Right or A/D | Joystick left/right |
 | Climb a ladder | Arrow Up/Down or W/S | Joystick up/down |
-| Shoot | Space, Arrow Up, or W | On-screen shoot button |
+| Shoot | Space | On-screen shoot button |
 | Pause | Esc or P | On-screen pause button |
 | Fullscreen | Button in menu/pause screen | Same |
+
+Every keyboard control is rebindable on the **CONTROLS** screen (Options
+-> CONTROLS): two keys per action, click one and press the key you want,
+Esc to cancel, and a **RESET TO DEFAULTS** button. Bindings are the
+physical key (`KeyboardEvent.code`), so a layout that puts Z where Y is
+binds the key actually pressed, and they persist with the rest of the
+settings (see `js/keys.js`). Up only climbs -- it used to shoot as well,
+which made shooting unreliable anywhere near a ladder.
 
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
@@ -342,15 +350,29 @@ rest on the floor -- and it would leave one row a different height from
 every other, which would break the player's step-up (every row has to be
 exactly one step above the one below).
 
-The canvas does **not** continuously resize with the browser window --
-there's no "fit to window" scaling. Instead, Options -> Size picks one of
-exactly three fixed display sizes: **0.5x**, **1x** (original), or **2x**
-(double), persisted the same way as mute/volume. `js/DisplayZoom.js` sets
-the canvas's (and `#game-container`'s) CSS size directly to
-`VIRTUAL_W/VIRTUAL_H` times the chosen zoom; `js/PixelText.js`'s DOM menu
-text reads that same rendered size back out, so it scales in lockstep
-without any separate logic. At 2x the canvas can be larger than the
-browser window -- the page scrolls rather than clipping it.
+Options -> Size picks the display size: the fixed **0.5x**, **1x**
+(original) and **2x** (double), or **FIT**, which scales the canvas to
+the window. Fitting keeps the true 8:5 shape and takes whichever of width
+and height runs out first, so the whole playfield is always on screen --
+filling the other dimension instead would push part of it off the edge,
+and in this game balls arrive from every edge. The debug panel's height
+is counted out of what is available, so opening it re-fits rather than
+pushing the floor off the bottom.
+
+A fitted canvas follows the window from then on (resize, rotation,
+fullscreen -- see `DisplayZoom.watchViewport`), and a fixed size that
+does not fit the window is fitted too: a phone in landscape is usually
+shorter than 500 CSS px, so even 1x would overflow it and take the
+canvas-anchored touch controls off the screen with it (see
+`DisplayZoom.activeZoom`). The choice itself is persisted the same way as
+mute/volume, so the fallback never overwrites it.
+
+`js/DisplayZoom.js` sets the canvas's (and `#game-container`'s) CSS size
+directly to `VIRTUAL_W/VIRTUAL_H` times the resolved scale;
+`js/PixelText.js`'s DOM menu text reads that same rendered size back out,
+so it scales in lockstep without any separate logic. At 2x the canvas can
+be larger than the browser window -- the page scrolls rather than
+clipping it.
 
 Wherever the game's own background is black (the HUD strip, the page
 around/outside the canvas at any zoom level) it's the exact same color
@@ -641,7 +663,10 @@ js/
                       never a filename/volume/loop flag. Music is fetched
                       on demand rather than at boot -- see "Load" below
   input.js           Thin DOM bridge for the on-screen touch buttons only
-                      (keyboard is native Phaser input, see GameScene)
+  keys.js            The keyboard: which physical key each action is bound
+                      to (rebindable, see the CONTROLS screen), the live
+                      pressed state GameScene reads, and the capture the
+                      rebinding screen uses
   Hud.js             The graphic status bar (see "Swapping HUD graphics")
                       -- Phaser Images/digit spritesheets drawn into the
                       HUD_H strip, entirely from loaded files, no drawn
@@ -668,8 +693,9 @@ js/
   ui.js              DOM menus/screens -- every heading/button/score/list
                       label goes through PixelText.js, not plain CSS text
   storage.js         Versioned localStorage persistence (high scores,
-                      settings, unlock progress, and the levels saved in
-                      the editor -- see "Adding levels")
+                      settings including the key bindings, unlock
+                      progress, and the levels saved in the editor -- see
+                      "Adding levels")
   editor.js          In-browser level editor: opens one campaign level
                       (picked from the same list as Start Level),
                       grid-snapped painting, Save/Revert/Export/Import

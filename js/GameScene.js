@@ -23,6 +23,7 @@ import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
+import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
 import * as storage from './storage.js';
 import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
@@ -199,13 +200,14 @@ export class GameScene extends Phaser.Scene {
     // the way to the ground -- see onPowerupHitObstacle/Bonus.js.
     this.physics.add.collider(this.powerups, this.obstacles, this.onPowerupHitObstacle, null, this);
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys({ w: 'W', a: 'A', d: 'D', s: 'S', space: 'SPACE', p: 'P', esc: 'ESC' });
-    // Event-based rather than a per-frame JustDown() poll, so the toggle
-    // reacts the instant Phaser's input manager processes the keydown --
-    // not gated behind this scene's own render-frame cadence.
-    this.keys.p.on('down', () => this.handlePauseKey());
-    this.keys.esc.on('down', () => this.handlePauseKey());
+    // Keyboard comes from js/keys.js rather than Phaser's own plugin,
+    // because every game key is rebindable (see the CONTROLS screen) and
+    // a binding is the physical KeyboardEvent.code the player pressed.
+    initKeyboard();
+    // Event-based rather than a per-frame poll, so the toggle reacts the
+    // instant the browser reports the keydown -- not gated behind this
+    // scene's own render-frame cadence.
+    onPauseKey(() => this.handlePauseKey());
     // Losing the window pauses a run, onto the same screen Escape opens.
     // Both signals are needed, because they are different situations and
     // Phaser handles them differently. HIDDEN (the tab switched away)
@@ -740,6 +742,13 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.OPTIONS;
   }
 
+  // Rebinding the game's keys, on a screen of its own rather than in the
+  // options list: six actions with two keys each is a table, not a row of
+  // settings (see ui.js's renderKeyList).
+  showKeyConfig() {
+    this.state = GAME_STATES.KEY_CONFIG;
+  }
+
   showLevelSelect(mode = 'play') {
     this.levelSelectMode = mode;
     this.state = GAME_STATES.LEVEL_SELECT;
@@ -860,13 +869,17 @@ export class GameScene extends Phaser.Scene {
   // once Player.update has said whether it had a ladder to spend it on.
   // `shoot` here is therefore only the keys that mean nothing else, so
   // that shooting still works with both hands on the ladder.
+  // The keyboard (whatever it is currently bound to, see keys.js) and the
+  // touch overlay (see input.js) folded into one set of booleans, so
+  // nothing downstream has to know which of the two a player is using.
   readInput() {
+    const keyboard = readKeyboard();
     return {
-      left: this.cursors.left.isDown || this.keys.a.isDown || touchInput.left,
-      right: this.cursors.right.isDown || this.keys.d.isDown || touchInput.right,
-      up: this.cursors.up.isDown || this.keys.w.isDown || touchInput.up,
-      down: this.cursors.down.isDown || this.keys.s.isDown || touchInput.down,
-      shoot: this.keys.space.isDown || touchInput.shoot,
+      left: keyboard.left || touchInput.left,
+      right: keyboard.right || touchInput.right,
+      up: keyboard.up || touchInput.up,
+      down: keyboard.down || touchInput.down,
+      shoot: keyboard.shoot || touchInput.shoot,
     };
   }
 
@@ -900,9 +913,9 @@ export class GameScene extends Phaser.Scene {
     if (this.isPanicMode) this.updatePanicSpawner();
 
     const inputState = this.readInput();
-    // Getting ON a ladder is a press, never a hold: up is also the shoot
-    // key, so without this the player would be grabbed by every ladder
-    // they shot past.
+    // Getting ON a ladder is a press, never a hold: holding up to climb
+    // one must not grab the next one the moment the player walks past its
+    // foot, and holding down on top of one must not re-mount it.
     inputState.upPressed = inputState.up && !this.wasUp;
     inputState.downPressed = inputState.down && !this.wasDown;
     this.wasUp = inputState.up;
@@ -915,14 +928,11 @@ export class GameScene extends Phaser.Scene {
     // only how many shots may be in the air at once (weaponState
     // .maxActiveShots, see tryFire) -- never how the trigger itself reads.
     //
-    // The two ways to fire keep SEPARATE edges, because up is also the
-    // climb key. Up fires on a fresh press the player had no ladder to
-    // spend it on (Player.update has already decided that by the time this
-    // runs) -- which is also why it can't just be OR-ed into one trigger:
-    // sharing an edge with space would swallow a space press made while up
-    // was still held, i.e. every shot fired from a ladder.
-    const upFired = inputState.upPressed && !this.player.usedVerticalInput;
-    if (upFired || (inputState.shoot && !this.wasShooting)) this.tryFire();
+    // One trigger, not two: up used to fire as well as climb, which meant
+    // the scene had to work out which of the two a press was meant for,
+    // and a ladder underfoot made shooting unreliable. Up climbs now (see
+    // keys.js's DEFAULT_BINDINGS).
+    if (inputState.shoot && !this.wasShooting) this.tryFire();
     this.wasShooting = inputState.shoot;
 
     // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
