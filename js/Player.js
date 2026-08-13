@@ -22,6 +22,25 @@ const STEP_EPSILON = 1;
 // on it, and an exact comparison would never see the climb arrive.
 const LADDER_EPSILON = 1;
 
+// A rise smaller than this is not the player stepping up onto anything --
+// it is the feet re-seating after a drop settled a fraction of a pixel
+// past the surface it landed on (see followGround's velocity-driven
+// descent). It is placed in silence: treated as a step, every single
+// stair tread walked DOWN would also play a step-up behind it.
+const SETTLE_PX = 2;
+
+// Which sound each movement one-shot plays (see playMoveAnim, and
+// assets/audio/audio.json for the sounds themselves). Named here rather
+// than played at each call site so the animation and its sound can never
+// drift apart: whatever plays the animation plays the sound.
+const MOVE_SOUNDS = {
+  stepup: 'playerstepup',
+  stepdown: 'playerstepdown',
+  // Stepping off the top of a ladder is a step up onto the surface, and
+  // sounds like one.
+  ladderoff: 'playerstepup',
+};
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene) {
     const x = VIRTUAL_W / 2;
@@ -72,10 +91,28 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.on('animationcomplete-player-victory', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-levelclear', () => { this.oneShotAnim = null; });
-    // Whether the feet are currently on their way DOWN to a lower surface.
-    // Only the moment a drop starts is a step down; the frames after it are
-    // the same drop still finishing (see followGround).
+    // A rung per climb cycle. Driven by the animation's own loop rather
+    // than by a timer of its own, so the sound is locked to the legs
+    // whatever the animation's frame rate is -- and it stops on its own
+    // when the climb does, because update() pauses the animation the
+    // moment the player stops moving on the ladder.
+    //
+    // Filtered by key rather than listened for as 'animationrepeat-player
+    // -climb': Phaser only emits the key-suffixed variant of an animation
+    // event when its emitter is given one to emit (see AnimationState's
+    // emitEvents), and the repeat event is raised without it -- unlike
+    // 'animationcomplete', whose suffixed form the handlers above rely on.
+    this.on('animationrepeat', (anim) => {
+      if (anim.key === 'player-climb') this.scene.audio.play('playerclimb');
+    });
+    // Whether the feet are currently on their way DOWN to a lower surface,
+    // and whether that drop is a step rather than a fall. Both are decided
+    // at the moment a drop starts and hold for the whole of it -- the
+    // frames after the first are the same drop still finishing, and it is
+    // the KIND of drop that decides what happens when it ends (a step
+    // taps, a fall lands in a cloud of dust -- see followGround).
     this.dropping = false;
+    this.steppingDown = false;
 
     // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
     // instead of a drawn outline -- see update()/reset() for how it
@@ -107,6 +144,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.placeFeet(spawn.x, spawn.y);
     this.body.setVelocity(0, 0);
     this.dropping = false;
+    this.steppingDown = false;
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
@@ -135,10 +173,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   // The one-shots the player's own movement plays: stepping up onto a
   // block, stepping down off one, and stepping off the top of a ladder.
-  // Each holds the animation until it finishes, same as the shot does.
+  // Each holds the animation until it finishes, same as the shot does,
+  // and each has a sound of its own (see MOVE_SOUNDS) -- the ladder exit
+  // borrows the step-up's, because that is the motion it is.
   playMoveAnim(name) {
     this.oneShotAnim = name;
     this.play(`player-${name}`, true);
+    const sound = MOVE_SOUNDS[name];
+    if (sound) this.scene.audio.play(sound);
   }
 
   // Plays once, same as playShotAnim -- see GameScene.onPlayerHitBall.
@@ -283,43 +325,72 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // physicsStepSec.
   //
   // Down stays a velocity, because a drop should read as a fall rather
-  // than a teleport; it is capped both by the fall speed and by what
-  // covers the remaining distance in ONE physics step, so it settles onto
-  // the surface instead of shooting past it and being pulled back.
+  // than a teleport -- but only until the surface is within reach, at
+  // which point the feet are placed on it exactly. Aiming a velocity at
+  // the last few pixels does not land on them: Arcade advances in fixed
+  // steps and may run TWO of them in one frame, so a speed sized to cover
+  // the remainder in one overshoots by a whole step's worth (7px at this
+  // fall speed) and the next frame yanks the player back up out of the
+  // floor they just landed on.
   followGround(dt) {
     if (dt <= 0) return;
     const surface = this.supportSurface();
     const dy = surface - this.feetY;
     if (Math.abs(dy) < 0.5) {
       this.body.setVelocityY(0);
-      // Arriving at the end of a drop is a landing, whether it fell one
-      // step or the whole height of the playfield: kick up dust at the feet
-      // that landed. The x comes off the BODY -- the sprite trails it by a
-      // frame, so the puff would otherwise appear a step behind the player.
-      // A climb never reaches here (update() returns in the ladder branch
-      // before followGround), so stepping down a ladder raises no dust.
-      if (this.dropping) this.scene.playLandingDust(this.body.center.x, surface);
-      this.dropping = false;
+      this.endDrop(surface);
       return;
     }
     if (dy < 0) {
       // Up onto a block. Never more than one (supportSurface only offers a
-      // surface within a step), so this is always the step-up.
+      // surface within a step), so a rise of any real size is the step-up
+      // -- and one of less than SETTLE_PX is a landing settling, which
+      // gets the placement without the animation or its sound.
       this.setFeet(this.feetY + dy);
       this.body.setVelocityY(0);
       this.dropping = false;
-      this.playMoveAnim('stepup');
+      if (-dy >= SETTLE_PX) this.playMoveAnim('stepup');
       return;
     }
-    // Down. Only the START of a drop is a step, and only one block's worth
-    // of it -- walking off something taller is a fall, and the frames after
-    // the first are the same drop still finishing.
+    // Down. What KIND of drop this is, is decided once, at its start: one
+    // block's worth or less is a step down, anything taller is a fall.
+    // (The frames after the first are the same drop still finishing, and
+    // must not re-decide it -- a fall passes through "one block left to
+    // go" on its way, which would turn every fall into a step.)
     if (!this.dropping) {
       this.dropping = true;
-      if (dy <= PLAYER_STEP_UP_PX + STEP_EPSILON) this.playMoveAnim('stepdown');
+      this.steppingDown = dy <= PLAYER_STEP_UP_PX + STEP_EPSILON;
+      if (this.steppingDown) this.playMoveAnim('stepdown');
     }
     const step = this.physicsStepSec || dt;
-    this.body.setVelocityY(Math.min(dy / step, this.dropSpeed));
+    // The last leg: near enough that this frame ends the drop, so the feet
+    // go exactly on the surface rather than being aimed at it (see above).
+    if (dy <= this.dropSpeed * step) {
+      this.setFeet(surface);
+      this.body.setVelocityY(0);
+      this.endDrop(surface);
+      return;
+    }
+    // Full fall speed, except over the last stretch, where it is sized so
+    // that even TWO physics steps in one frame cannot carry the feet past
+    // the surface -- the frame after that finishes the drop exactly, in
+    // the branch above. Only the final ~15px are affected, which reads as
+    // the fall settling rather than as a slower fall.
+    this.body.setVelocityY(Math.min(dy / (2 * step), this.dropSpeed));
+  }
+
+  // Ends a drop where the feet now are. Arriving at the end of a FALL is a
+  // landing: dust at the feet that landed, with the thud that goes with it
+  // (see GameScene.playLandingDust). A step down is not a fall -- it has
+  // its own animation and its own small sound, and adding a landing to it
+  // doubles both for every single stair tread. The x comes off the BODY:
+  // the sprite trails it by a frame, so the puff would otherwise appear a
+  // step behind the player. A climb never reaches here at all (update()
+  // returns in the ladder branch before followGround), so a ladder raises
+  // no dust -- and stepping off one raises none either.
+  endDrop(surface) {
+    if (this.dropping && !this.steppingDown) this.scene.playLandingDust(this.body.center.x, surface);
+    this.dropping = false;
   }
 
   // The ladder a press of `dir` (-1 up, 1 down) would put the player on,

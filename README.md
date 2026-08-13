@@ -409,9 +409,11 @@ seam between the canvas and the page behind it.
   stacked blocks is a staircase. Anything taller, or without room to
   stand on top, is still a wall it stops at: that headroom test is what
   keeps a wall built of stacked blocks from being a ladder. Steps up and
-  down have their own animations, and landing from a drop -- one step or
-  the whole height of the playfield -- kicks up a puff of dust at the
-  feet. Climbing raises none: a ladder is not a fall.
+  down have their own animations and their own small sounds; a real FALL
+  ends in a puff of dust at the feet and a thud, which a 16px step down
+  deliberately does not (a stair tread is a step, not a landing). Climbing
+  is neither -- it ticks a rung per cycle of the climb animation, and
+  raises no dust at all.
 - The level-select screen lists all 50 at once in three columns filled
   top-to-bottom (1-17, 18-34, 35-50) with no scrollbar -- a scroller would
   hide exactly the later levels you are most likely looking for.
@@ -458,7 +460,7 @@ seam between the canvas and the page behind it.
 - A graphic level-intro screen -- "LEVEL n", the level's name, then a
   blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
   from loaded images (`js/LevelIntro.js`), same as the HUD.
-- 18 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
+- 22 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
   `assets/audio/audio.json` through a central `AudioManager` -- see
   "Swapping / adding sounds". Music starts exactly when the balls do
   (right as "GO!" ends), switches to a more urgent loop with 15s left on
@@ -994,15 +996,18 @@ dimensions:
 - **Landing dust**: `assets/player/dust.webp` -- a `PLAYER_DUST_FRAMES`
   -frame (2) spritesheet, `PLAYER_DUST_SIZE x PLAYER_DUST_HEIGHT` (32x16)
   per frame stacked vertically, played once at the feet whenever the
-  player finishes a drop onto a surface -- one 16px step down or a fall
-  the height of the playfield alike (`Player.followGround` ->
-  `GameScene.playLandingDust`). Climbing raises none: a ladder is not a
-  fall, and both of its ends put the feet exactly on the surface they
-  arrive at so no leftover fraction of a pixel reads as one. Unlike the
-  bursts above it is deliberately not square (dust spreads sideways along
-  the ground rather than billowing up) and it is anchored by its BOTTOM
-  edge, so the cloud sits on the surface instead of straddling it, drawn
-  just under the player so they stand in it.
+  player lands from a FALL, together with the `playerland` thud
+  (`Player.followGround` -> `GameScene.playLandingDust`, which does both
+  so neither can happen without the other). A step down is not a fall:
+  a drop of one 16px block or less has its own animation and its own
+  small `playerstepdown` sound, and adding the landing to it doubles both
+  on every single stair tread. Climbing raises none either -- a ladder is
+  not a fall, and both of its ends put the feet exactly on the surface
+  they arrive at so no leftover fraction of a pixel reads as one. Unlike
+  the bursts above it is deliberately not square (dust spreads sideways
+  along the ground rather than billowing up) and it is anchored by its
+  BOTTOM edge, so the cloud sits on the surface instead of straddling it,
+  drawn just under the player so they stand in it.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
@@ -1088,7 +1093,7 @@ funnels back through the same LEVEL_INTRO -> PLAYING start, so a restarted
 or advanced level always begins silent-then-music, never two tracks
 overlapping.
 
-The 18 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
+The 22 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
 tones/noise bursts generated offline (see the synthesis style used
 elsewhere in this file) rather than original audio -- drop in real files
 with the same names to replace them, one for one, no other changes needed:
@@ -1098,7 +1103,12 @@ with the same names to replace them, one for one, no other changes needed:
 `itemshieldloose` (shield absorbs a hit), `hurryup` (a short low-time
 ping, independent of the `music_hurry` track switch above), `gameover`,
 `levelcomplete`, `superpang` (run-start jingle), `weaponhold` (picking up
-a weapon-boosting power-up), and the three looping tracks `music01` /
+a weapon-boosting power-up), the player's own movement -- `playerland`
+(the thud under the landing dust), `playerclimb` (one rung, played once
+per cycle of the climb animation, so it keeps time with the legs and
+stops when they do), `playerstepup` and `playerstepdown` (a 16px block
+walked up or down; the step up also plays when stepping off the top of a
+ladder) -- and the three looping tracks `music01` /
 `music02` (`GameScene.loadLevel()` splits `LEVELS` into two halves, one
 track per half, so adding levels keeps both tracks in use) and
 `music_hurry` (the last 15s of a timed level).

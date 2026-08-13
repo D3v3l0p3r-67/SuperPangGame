@@ -1134,10 +1134,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   // The puff a landing kicks up, at the feet that landed (see
-  // Player.followGround). Anchored by its BOTTOM edge so the cloud sits on
-  // the surface rather than straddling it, and drawn just under the player
-  // (depth 4) so they stand in it rather than behind it.
+  // Player.followGround), and the thud that goes with it -- one call, so
+  // the sound can't be triggered anywhere the dust isn't. Anchored by its
+  // BOTTOM edge so the cloud sits on the surface rather than straddling
+  // it, and drawn just under the player (depth 4) so they stand in it
+  // rather than behind it.
   playLandingDust(x, feetY) {
+    this.audio.play('playerland');
     const sprite = this.add.sprite(x, feetY, PLAYER_DUST_TEXTURE_KEY).setOrigin(0.5, 1);
     sprite.setDepth(3.8);
     sprite.play(PLAYER_DUST_ANIM_KEY);
