@@ -1,6 +1,7 @@
 import { WEAPON_TYPES } from './config.js';
 import { registerElement } from './elements.js';
-import { LEVELS, PANIC_LEVEL } from './LevelManager.js';
+import { LEVELS, SHIPPED_LEVELS, PANIC_LEVEL, isLevelDef } from './LevelManager.js';
+import * as storage from './storage.js';
 import { REGIONS } from './regions.js';
 import { AUDIO_CONFIG } from './audio.js';
 import {
@@ -62,9 +63,23 @@ export class ElementsScene extends Phaser.Scene {
   }
 
   create() {
+    // A level saved in the in-game LEVEL EDITOR is stored under its level
+    // number (see storage's levelEdits) and laid over the shipped file
+    // here -- that is what makes the editor's Save change the level the
+    // game actually plays, on a build nothing can write files back to.
+    // The file itself is kept alongside it in SHIPPED_LEVELS, so the
+    // editor's Revert has something to put back.
+    const edits = storage.loadLevelEdits();
     for (let n = 1; n <= MAX_LEVEL_FILES; n++) {
       const key = levelFileKey(n);
-      if (this.cache.json.has(key)) LEVELS.push(this.cache.json.get(key));
+      if (!this.cache.json.has(key)) continue;
+      const shipped = this.cache.json.get(key);
+      SHIPPED_LEVELS.push(shipped);
+      // A stored edit that isn't a level definition at all (hand-edited
+      // localStorage, a half-written value) is ignored rather than allowed
+      // to break the campaign.
+      const edit = edits[n];
+      LEVELS.push(isLevelDef(edit) ? edit : shipped);
     }
 
     Object.assign(PANIC_LEVEL, this.cache.json.get(PANIC_LEVEL_KEY) || {});

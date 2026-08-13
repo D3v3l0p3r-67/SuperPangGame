@@ -9,6 +9,29 @@ import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 // reassigned) so this exported reference stays valid for every importer.
 export const LEVELS = [];
 
+// The same levels as loaded from levels/*.json, before any locally saved
+// edit was laid over them (see ElementsScene / storage's levelEdits) --
+// same index as LEVELS. This is what the editor's Revert puts back, and
+// what tells it whether the level it has open is the shipped one.
+export const SHIPPED_LEVELS = [];
+
+// Swaps in a level definition at runtime, so saving in the editor changes
+// the level the game plays from that moment on rather than only after a
+// reload. LEVELS itself is never reassigned -- every importer holds this
+// one array.
+export function setLevel(index, def) {
+  LEVELS[index] = def;
+}
+
+// The minimum a level definition has to have to be loadable: the two
+// groups loadLevel() iterates. Everything else is optional and defaulted
+// (see playerSpawn, and `ladders`/`background`/`weapon` below). Used both
+// where a level file is read at boot and where the editor imports one, so
+// "is this a level?" has a single answer.
+export function isLevelDef(def) {
+  return !!def && typeof def === 'object' && Array.isArray(def.obstacles) && Array.isArray(def.balls);
+}
+
 // Panic Mode's single level definition (levels/panic.json), populated by
 // ElementsScene the same way as LEVELS above (Object.assign into this same
 // reference, never reassigned) -- kept separate from LEVELS so it's never

@@ -576,7 +576,9 @@ js/
                       power-up effects a JSON element's `kind` picks from
   ElementsScene.js   Boots first: loads every elements/*.json (see
                       elements/index.json) and every levels/*.json (see
-                      "Adding levels"), registers them, then starts Boot
+                      "Adding levels"), lays any level saved in the
+                      editor over its shipped file, registers them all,
+                      then starts Boot
   BootScene.js       Boots second (registries are populated by now, so it
                       knows exactly which files to ask for): loads every
                       graphic (see assets.js) and builds the player's
@@ -654,9 +656,13 @@ js/
                       current scale (see "Swapping intro graphics")
   ui.js              DOM menus/screens -- every heading/button/score/list
                       label goes through PixelText.js, not plain CSS text
-  storage.js         Versioned localStorage persistence
-  editor.js          In-browser level editor (grid-snapped painting,
-                      Export/Import) -- see "Adding levels" below
+  storage.js         Versioned localStorage persistence (high scores,
+                      settings, unlock progress, and the levels saved in
+                      the editor -- see "Adding levels")
+  editor.js          In-browser level editor: opens one campaign level
+                      (picked from the same list as Start Level),
+                      grid-snapped painting, Save/Revert/Export/Import
+                      -- see "Adding levels" below
   debug.js           Debug overlay (Phaser Graphics) and dev tools
   panelUi.js         The five DOM pieces both developer toolbars (the
                       editor's and the debug one) are built from, so the
@@ -745,14 +751,48 @@ names an `assets/audio/audio.json` entry to play on pickup (falls back to
 
 Levels live under `levels/`, one JSON file per level -- `LEVELS.length`
 (and the built-in level count) is always exactly how many files are
-there, no separate count or manifest to keep in sync. The easiest way to
-create one: open the in-game **LEVEL EDITOR**, paint it (left-click/drag
-places whatever brush is selected; right-click always erases whatever's
-under the cursor instead, regardless of the selected brush, alongside the
-dedicated **Erase** brush), then click **Export** to download a `.json`
-file already in the right shape, and drop that file into `levels/` as
-`level_NN.json` (the next free number, zero-padded to 2 digits --
-`level_11.json`, `level_12.json`, ...).
+there, no separate count or manifest to keep in sync.
+
+**The editor always edits one specific campaign level.** Opening **LEVEL
+EDITOR** from the main menu asks which one first, on the same screen and
+the same fifty levels as **START LEVEL** (`ui.js`'s `renderLevelSelect`,
+in its `edit` mode -- see `GameScene.showLevelSelect`). Unlike playing,
+editing ignores unlock progress: authoring level 40 shouldn't require
+playing to it first, and every level's name is shown rather than hidden
+behind `???`. A level this browser has its own saved version of is named
+in the accent color instead of white.
+
+Picking one opens it exactly as it currently stands, and the panel's
+**LEVEL n** heading says which. Then paint it: left-click/drag places
+whatever brush is selected; right-click always erases whatever's under
+the cursor instead, regardless of the selected brush, alongside the
+dedicated **Erase** brush.
+
+The **FILE** buttons all act on that same level:
+- **Save** stores the level under its own number. Nothing in a browser can
+  write `levels/level_NN.json`, so the save goes to `localStorage` (see
+  `storage.js`'s `levelEdits`) and `ElementsScene` lays it over the
+  shipped file on every boot -- which makes the saved version the one the
+  game actually plays, in the campaign and in Start Level alike. It also
+  replaces the live `LEVELS` entry immediately (`LevelManager.setLevel`),
+  so playing the level right after saving doesn't need a reload.
+- **Revert** drops this browser's saved version and puts the shipped file
+  back -- in storage, in `LEVELS` and on screen. `SHIPPED_LEVELS` keeps
+  every level as its file had it for exactly this.
+- **Export** downloads the level as `level_NN.json`, already named for
+  the file it belongs in: that is how an edit gets out of one browser and
+  into the project (drop it into `levels/` over the old one, or paste/
+  import it in the admin tool's Levels tab, see "Admin tool").
+- **Import** replaces what is being edited with a level file from disk,
+  and **Clear all** empties it -- neither writes anything until Save.
+- **Play** playtests what is on screen without saving it. Trying a change
+  is not committing it; Save is the only thing that writes. The unsaved
+  buffer travels with the playtest (`GameScene.editorDraft`), so leaving
+  it through the pause menu's **LEVEL EDITOR** resumes those exact edits.
+
+Adding a *new* level is still a file: Export a level, save it into
+`levels/` as the next free number (zero-padded to 2 digits --
+`level_51.json`, `level_52.json`, ...) and give it that `id`.
 
 The editor's controls occupy the **HUD strip**: the game's own HUD is
 hidden while editing (see Hud.js's `VISIBLE_STATES`), so that band across
@@ -760,12 +800,13 @@ the bottom of the canvas is free, and using it leaves the whole playfield
 visible with nothing pushing the canvas down the page. They are laid out
 as labelled columns of rows -- **BRUSH** (what the pointer paints, split
 into level structure and the balls to pop), **NEXT PLACED** (direction and
-guaranteed drop for the next ball/crate), **LEVEL** (background, weapon,
-clock), **FILE**, **GO**, and a **COUNT** readout -- so what each control
-belongs to is readable at a glance. The panel is sized from the canvas
-(`HUD_H`/`VIRTUAL_H` for the height, container query units for everything
-inside), so it scales with the display zoom; at 0.5x the strip is only 42
-CSS px and the panel scrolls rather than clipping anything out of reach.
+guaranteed drop for the next ball/crate), **LEVEL n** (background, weapon,
+clock -- and which level all of it belongs to), **FILE**, **GO**, and a
+**COUNT** readout -- so what each control belongs to is readable at a
+glance. The panel is sized from the canvas (`HUD_H`/`VIRTUAL_H` for the
+height, container query units for everything inside), so it scales with
+the display zoom; at 0.5x the strip is only 42 CSS px and the panel
+scrolls rather than clipping anything out of reach.
 
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json
@@ -812,6 +853,12 @@ makes opening one in the **LEVEL EDITOR** and saving it back give the same
 level: the editor snaps whatever it loads, so anything off the grid would
 quietly move.
 
+A level's `id` and `name` are left exactly as they were: the editor has
+no control for either, so saving one writes its own fields over the
+definition it opened rather than replacing it (`editor.js`'s `buildDef`),
+and anything a hand-edited file carries that the editor doesn't know
+about survives being edited too.
+
 `powerup` on an obstacle or ball is optional -- when set, that exact
 crate/ball guarantees that power-up drop when destroyed/popped, instead of
 the usual random chance. An obstacle can also use `{ "cells": [[dx, dy],
@@ -835,11 +882,11 @@ background updates the live preview immediately.
 Clicking **Play** starts the level exactly like real gameplay, except
 it's a playtest, not a run: clearing it or pressing Escape/P pauses on
 the usual pause screen with an extra **Restart Level** button instead of
-advancing to a next level or a victory screen (there's nothing to
-advance *to* -- an editor level isn't part of `LEVELS`), and a hit never
-costs a life or ends in game over (`GameScene.hitPlayer`/`advanceLevel`
-both branch on `isCustomLevel`) -- the point is testing the layout you
-just built, not beating it.
+advancing to a next level or a victory screen, and a hit never costs a
+life or ends in game over (`GameScene.hitPlayer`/`advanceLevel` both
+branch on `isCustomLevel`) -- the point is testing the layout you just
+built, not beating it, and it never touches unlock progress even though
+the level being tried is a campaign one.
 
 `BootScene.js` probes `levels/level_01.json` up to `MAX_LEVEL_FILES` (see
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static

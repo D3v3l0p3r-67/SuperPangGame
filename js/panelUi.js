@@ -58,3 +58,9 @@ export function group(title, ...rows) {
   el.append(heading, ...rows);
   return el;
 }
+
+// Relabels a group built above, for a title that isn't fixed: the
+// editor's LEVEL group names the level it currently has open.
+export function setGroupTitle(groupEl, title) {
+  groupEl.firstChild.textContent = title;
+}

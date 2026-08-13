@@ -152,9 +152,11 @@ export class UI {
       this.game.startPanicMode();
     });
 
+    // Editing starts by picking WHICH level to edit -- the same list as
+    // Start Level, in its 'edit' mode (see renderLevelSelect).
     this.el['btn-editor'].addEventListener('click', () => {
       this.audio.resumeContext();
-      this.game.enterEditor();
+      this.game.showLevelSelect('edit');
     });
 
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
@@ -352,24 +354,42 @@ export class UI {
   }
 
   // Rebuilt every time the screen opens (not cached) -- cheap, and picks
-  // up a level just unlocked by clearing the one before it.
+  // up a level just unlocked by clearing the one before it, or one just
+  // saved in the editor.
+  //
+  // One screen, two jobs (see GameScene.showLevelSelect): picking a level
+  // to PLAY, where progress applies and an unreached level is hidden
+  // behind "???", and picking one to EDIT, where it does not -- authoring
+  // level 40 shouldn't require playing to it first, and its name is
+  // exactly what you need to see to find it.
   renderLevelSelect() {
     const list = this.el['level-select-list'];
     list.innerHTML = '';
+    const editing = this.game.levelSelectMode === 'edit';
+    const edits = this.storage.loadLevelEdits();
+    setPixelText(this.el['level-select-title'], editing ? 'EDIT LEVEL' : 'START LEVEL', 'h2', COLORS.accent);
     const progress = this.storage.loadProgress();
     LEVELS.forEach((def, i) => {
-      const unlocked = i < progress.unlockedLevels;
+      const unlocked = editing || i < progress.unlockedLevels;
       const btn = document.createElement('button');
       btn.className = 'level-select-btn' + (unlocked ? '' : ' locked');
       const label = unlocked ? `${i + 1}. ${def.name}` : `${i + 1}. ???`;
+      // A level this browser has its own saved version of (see storage's
+      // levelEdits) is named in the accent color -- the one thing about a
+      // level worth knowing before opening it. Marked by color rather than
+      // by a symbol next to the name because the pixel font is letters,
+      // digits and three punctuation marks (see INTRO_FONT_CHARS): there
+      // is no star to put there.
+      const color = edits[i + 1] ? COLORS.accent : COLORS.text;
       // Dimming for a locked level comes from the .locked CSS class on
       // the button itself (opacity), not a different fill color here.
-      setPixelText(btn, label, 'body', COLORS.text);
+      setPixelText(btn, label, 'body', color);
       btn.disabled = !unlocked;
       if (unlocked) {
         btn.addEventListener('click', () => {
           this.audio.resumeContext();
-          this.game.startAtLevel(i);
+          if (editing) this.game.editLevel(i);
+          else this.game.startAtLevel(i);
         });
       }
       list.appendChild(btn);

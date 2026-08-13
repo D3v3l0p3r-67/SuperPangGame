@@ -117,6 +117,17 @@ export class GameScene extends Phaser.Scene {
     this.customLevelDef = null;
     this.isPanicMode = false;
     this.pausedFromEditor = false;
+    // Which campaign level the LEVEL EDITOR has open (an index into
+    // LEVELS), and the unsaved buffer a playtest of it left behind --
+    // playtesting replaces everything in the scene, so this is what lets
+    // coming back from one carry on editing instead of re-reading the
+    // level and dropping every unsaved change. See editLevel/Editor.play.
+    this.editorLevelIndex = 0;
+    this.editorDraft = null;
+    // Which list the level-select screen is showing: 'play' (Start Level)
+    // or 'edit' (pick the level to open in the editor). Same screen and
+    // the same fifty levels -- see ui.js's renderLevelSelect.
+    this.levelSelectMode = 'play';
     this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
@@ -401,6 +412,15 @@ export class GameScene extends Phaser.Scene {
     this.beginRun(0, null, true);
   }
 
+  // Opens the editor on a campaign level, from the level list (see
+  // showLevelSelect('edit')). A fresh pick starts from that level as it
+  // stands, so any buffer left by a previous session's playtest goes.
+  editLevel(levelIndex) {
+    this.editorLevelIndex = levelIndex;
+    this.editorDraft = null;
+    this.enterEditor();
+  }
+
   enterEditor() {
     this.audio.stopMusic();
     this.clearEntities();
@@ -413,7 +433,7 @@ export class GameScene extends Phaser.Scene {
     this.pausedFromEditor = false;
     this.state = GAME_STATES.EDITOR;
     this.physics.pause();
-    this.editor.enable();
+    this.editor.enable(this.editorLevelIndex, this.editorDraft);
   }
 
   // Escape while editing opens the same pause menu gameplay uses (it did
@@ -430,9 +450,9 @@ export class GameScene extends Phaser.Scene {
 
   // Back to editing from the pause menu, by either route: resuming an
   // editor session Escape interrupted (the level is still in the scene, so
-  // just show the panel again), or leaving a playtest of an editor level
-  // (which replaced the scene's contents, so the editor has to reload the
-  // level it saved to storage on Play -- what enterEditor does).
+  // just show the panel again), or leaving a playtest (which replaced the
+  // scene's contents, so the editor reloads -- from the draft the playtest
+  // was started from, saved or not, see editorDraft).
   returnToEditor() {
     if (this.pausedFromEditor) {
       this.pausedFromEditor = false;
@@ -707,7 +727,8 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.OPTIONS;
   }
 
-  showLevelSelect() {
+  showLevelSelect(mode = 'play') {
+    this.levelSelectMode = mode;
     this.state = GAME_STATES.LEVEL_SELECT;
   }
 

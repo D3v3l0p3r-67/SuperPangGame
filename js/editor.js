@@ -1,12 +1,15 @@
 import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
-import { backgroundTextureKey, DEFAULT_BACKGROUND } from './assets.js';
-import { LEVELS, DEFAULT_PLAYER_SPAWN, clampPlayerSpawn, playerSpawn } from './LevelManager.js';
+import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey } from './assets.js';
+import {
+  LEVELS, SHIPPED_LEVELS, setLevel, isLevelDef,
+  DEFAULT_PLAYER_SPAWN, clampPlayerSpawn, playerSpawn,
+} from './LevelManager.js';
 import { Obstacle, refreshObstacleSeams } from './Obstacle.js';
 import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
-import { makeButton, makeSelect, labelled, row, group } from './panelUi.js';
+import { makeButton, makeSelect, labelled, row, group, setGroupTitle } from './panelUi.js';
 import * as storage from './storage.js';
 
 // Split into the two brushes that TILE (painted cell by cell while the
@@ -214,16 +217,22 @@ export class Editor {
     // these three are the widest controls in the panel, and side by side
     // they made this group wide enough to push the ones after it off the
     // end of the strip.
-    this.panelEl.appendChild(group(
+    // The title is not fixed: it names the campaign level this session has
+    // open (see enable/setTargetTitle), which is the one thing about the
+    // editor's state that has to be visible at all times.
+    this.levelGroup = group(
       'LEVEL',
       row(labelled('Bg ', this.backgroundSelect)),
       row(labelled('Weapon ', this.weaponSelect)),
       row(labelled('Time ', this.timeInput)),
-    ));
+    );
+    this.panelEl.appendChild(this.levelGroup);
 
     // Everything that touches the level as a whole rather than one thing
     // in it. Clear all sits with them because it is the same kind of
-    // action -- one click, the whole level -- not a brush.
+    // action -- one click, the whole level -- not a brush. Revert is the
+    // way back out of an edit: it drops this browser's saved version of
+    // the level and restores the file the game shipped with.
     this.importFileInput = document.createElement('input');
     this.importFileInput.type = 'file';
     this.importFileInput.accept = '.json,application/json';
@@ -234,6 +243,7 @@ export class Editor {
       row(makeButton('Save', () => this.save()), makeButton('Export', () => this.exportJSON())),
       row(makeButton('Import', () => this.importFileInput.click()),
         makeButton('Clear all', () => this.clearAll()), this.importFileInput),
+      row(makeButton('Revert', () => this.revert(), 'Drop this browser\'s saved version and restore the shipped level')),
     ));
 
     // The two ways out of the editor, kept apart from everything that
@@ -278,20 +288,32 @@ export class Editor {
     }
   }
 
-  enable() {
+  // Opens the editor on one campaign level, picked from the level list
+  // (see GameScene.editLevel). `levelIndex` indexes LEVELS, so what loads
+  // is the level as it currently stands -- this browser's saved version of
+  // it if there is one, the shipped file otherwise, exactly what playing
+  // it would give you.
+  //
+  // `draft` is the unsaved buffer a playtest left behind (see play), used
+  // instead of re-reading the level so that coming back from one continues
+  // where it left off. Nothing else may pass it: opening the editor fresh
+  // must show the level, not whatever was in it last time.
+  enable(levelIndex, draft = null) {
     if (!this.panelBuilt) this.buildPanel();
     this.panelEl.classList.remove('hidden');
-    const existing = storage.loadCustomLevel();
+    this.levelIndex = levelIndex;
     this.clearAll();
-    if (existing) {
-      this.loadDef(existing);
-    } else {
-      // Resync the live preview with this.background/weapon (retained from
-      // the last editor session) -- whatever level was last played may
-      // have pointed scene.backgroundImage at a different texture since.
-      this.setBackground(this.background);
-      if (this.weaponSelect) this.weaponSelect.value = this.weapon;
-    }
+    this.loadDef(draft || LEVELS[levelIndex] || {});
+    this.setTargetTitle();
+  }
+
+  // The level number as levels/ names it -- 1-based, unlike the index.
+  get levelNumber() {
+    return this.levelIndex + 1;
+  }
+
+  setTargetTitle() {
+    if (this.levelGroup) setGroupTitle(this.levelGroup, `LEVEL ${this.levelNumber}`);
   }
 
   disable() {
@@ -301,10 +323,10 @@ export class Editor {
 
   // Re-shows the editor's panel after the pause menu hid it with disable()
   // (see GameScene.pauseFromEditor/returnToEditor). Deliberately NOT
-  // enable(): that reloads the last SAVED level from storage, which would
-  // throw away every edit made since -- whereas disable() only ever hides
-  // UI, so the scene still holds the exact in-progress layout and simply
-  // showing the panel again resumes editing it untouched.
+  // enable(): that reloads the level, which would throw away every edit
+  // made since -- whereas disable() only ever hides UI, so the scene still
+  // holds the exact in-progress layout and simply showing the panel again
+  // resumes editing it untouched.
   reshowPanel() {
     if (this.panelEl) this.panelEl.classList.remove('hidden');
   }
@@ -314,6 +336,11 @@ export class Editor {
   // is validated rather than trusted, and invalid entries are skipped
   // individually instead of aborting or crashing the whole import.
   loadDef(def) {
+    // Kept so buildDef() can write its edits back ON TOP of it -- a level
+    // carries fields this editor has no controls for (its id and name, and
+    // whatever a hand-edited file adds), and editing one must not silently
+    // drop them.
+    this.sourceDef = def;
     this.timeInput.value = String(def.timeLimitSec || 60);
     this.setBackground(backgroundNames().includes(def.background) ? def.background : DEFAULT_BACKGROUND);
     this.weapon = WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
@@ -626,32 +653,75 @@ export class Editor {
       return entry;
     });
     const timeLimitSec = Math.max(10, Math.min(300, parseInt(this.timeInput.value, 10) || 60));
-    const def = { id: 'custom', name: 'Custom Level', timeLimitSec, background: this.background, weapon: this.weapon, obstacles, balls };
-    // Optional, same as `ladders` below: a level that never had a start
-    // placed keeps the key out of its file entirely and takes the default
-    // (see LevelManager's playerSpawn), rather than writing the default
-    // out as though it had been chosen.
+    // Written over the definition this session opened, so a level's id and
+    // name -- and any field a hand-edited file carries that this editor has
+    // no control over -- survive being edited and saved. Only what the
+    // editor actually owns is replaced.
+    const def = {
+      id: this.levelNumber,
+      name: `Level ${this.levelNumber}`,
+      ...this.sourceDef,
+      timeLimitSec,
+      background: this.background,
+      weapon: this.weapon,
+      obstacles,
+      balls,
+    };
+    // Both optional keys, and both rewritten from scratch every time: a
+    // level that has none keeps the key out of its file entirely (see
+    // LevelManager's playerSpawn / loadLevel), and a start or a ladder just
+    // erased has to actually leave the file rather than linger from
+    // whatever was loaded.
+    delete def.playerStart;
     if (this.playerStart) def.playerStart = { ...this.playerStart };
-    // Only written when there is something to write: `ladders` is an
-    // optional key (see LevelManager), and emitting an empty array would
-    // rewrite every level that predates ladders for no reason.
+    delete def.ladders;
     const ladders = [...this.ladders.values()].map((l) => ({ type: l.type, x: l.x, y: l.y }));
     if (ladders.length) def.ladders = ladders;
     return def;
   }
 
+  // Saves back to the level this session opened -- the whole point of
+  // picking one first. Nothing can write levels/level_NN.json from a
+  // browser, so the save is stored under that level's number (see
+  // storage's levelEdits) and laid over the shipped file on every boot;
+  // Export writes the same definition out as the file itself, for putting
+  // the change into the project.
   save() {
-    storage.saveCustomLevel(this.buildDef());
+    const def = this.buildDef();
+    if (!storage.saveLevelEdit(this.levelNumber, def)) {
+      this.showStatusMessage('SAVE FAILED - STORAGE FULL?');
+      return;
+    }
+    // Live as well as stored, so playing the level right now -- from here,
+    // from Start Level or in the campaign -- uses what was just saved
+    // rather than what happened to boot.
+    setLevel(this.levelIndex, def);
+    this.showStatusMessage(`SAVED ${levelFileKey(this.levelNumber)}`);
   }
 
-  // Download the current level as a standalone .json file -- a second way
-  // to keep/share a level besides the single localStorage save slot.
+  // The way back out of an edit: drop this browser's saved version of the
+  // level and put the file the game shipped with back, in storage, in
+  // LEVELS and on screen.
+  revert() {
+    storage.clearLevelEdit(this.levelNumber);
+    const shipped = SHIPPED_LEVELS[this.levelIndex];
+    if (!shipped) return;
+    setLevel(this.levelIndex, shipped);
+    this.clearAll();
+    this.loadDef(shipped);
+    this.showStatusMessage(`REVERTED ${levelFileKey(this.levelNumber)}`);
+  }
+
+  // Downloads the level as the file it belongs in: named for the level
+  // being edited, so putting an edit into the project is dropping it into
+  // levels/ over the old one (or handing it to the admin tool's Levels
+  // tab), with nothing to rename or renumber first.
   exportJSON() {
     const blob = new Blob([JSON.stringify(this.buildDef(), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'balloon-buster-level.json';
+    a.download = `${levelFileKey(this.levelNumber)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -673,7 +743,7 @@ export class Editor {
         this.showStatusMessage('IMPORT FAILED: invalid JSON');
         return;
       }
-      if (!def || typeof def !== 'object' || !Array.isArray(def.obstacles) || !Array.isArray(def.balls)) {
+      if (!isLevelDef(def)) {
         this.showStatusMessage('IMPORT FAILED: not a level file');
         return;
       }
@@ -684,10 +754,16 @@ export class Editor {
     reader.readAsText(file);
   }
 
+  // Playtests what is on screen. Deliberately does NOT save first: the
+  // editor is pointed at a real campaign level now, and trying a change
+  // out is not the same as committing it -- Save is the only thing that
+  // writes. The definition goes to the scene as the editor's draft, so
+  // coming back from the playtest resumes these exact edits (see
+  // GameScene.returnToEditor/editorDraft).
   play() {
     if (this.balls.size === 0) return; // nothing to pop, refuse to start
-    this.save();
     const def = this.buildDef();
+    this.scene.editorDraft = def;
     this.disable();
     this.scene.startCustomLevel(def);
   }
