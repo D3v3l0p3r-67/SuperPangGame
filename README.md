@@ -70,6 +70,86 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 
   then open `http://localhost:8000`.
 
+The service worker (see "Install it on a phone" below) needs `https://`
+or `localhost` -- over `file://` it simply doesn't register and the game
+runs exactly as it always did.
+
+## Install it on a phone
+
+The game is a PWA: on Android it can be installed from the browser and on
+iOS added to the home screen, and either way it opens fullscreen, in
+landscape, with no address bar -- and plays with the network off.
+
+**Installing.** Chrome decides when a site is installable and fires
+`beforeinstallprompt`; `js/pwa.js` catches it, keeps the prompt, and shows
+the **INSTALL GAME** button in the main menu. The button exists only while
+there is something to install: it never appears before that event, and it
+goes away once the game has been installed or is already running from the
+home screen. iOS has no such event, so an iPhone or iPad that is not
+already running the installed copy gets one line of instructions instead
+(**INSTALL: SHARE MENU. ADD TO HOME SCREEN**) -- and nothing at all once
+it is.
+
+**What the phone is told.** `manifest.webmanifest` names the game, points
+at the icons, and asks for `display: fullscreen` and
+`orientation: landscape`; `index.html` carries the same in the tags iOS
+reads instead (`apple-mobile-web-app-capable`, its status-bar style and
+title, and the `apple-touch-icon`). Every path in both is **relative**
+(`"start_url": "./"`, `"scope": "./"`), because a GitHub Pages project
+site serves the game from `/<repo>/` rather than from the domain root --
+an absolute path would work on a custom domain and break everywhere else.
+
+**On screen.** The playfield is 800x500 and it stays that shape: the
+canvas is centred and scaled to whole CSS pixels with
+`image-rendering: pixelated`, never stretched (see "Display size"), and it
+is re-fitted on resize, rotation and entering/leaving fullscreen. The
+viewport is `viewport-fit=cover` and the game is laid out inside
+`env(safe-area-inset-*)`, so a notch or a home indicator never covers a
+corner of the playfield -- `DisplayZoom.fitScale` subtracts those insets
+too, since the window it is fitting into is bigger than the part of it
+that can be seen. Selection, the long-press callout, double-tap zoom and
+scroll-bouncing are all off. Held upright, a phone gets **ROTATE YOUR
+PHONE** over the whole screen rather than a squashed game.
+
+On the first touch the game asks for fullscreen and then for a landscape
+orientation lock (`js/pwa.js`'s `lockLandscape`) -- both from inside that
+gesture, which is the only time a browser will grant either. Both are
+allowed to fail: iOS Safari has no orientation lock at all, and the game
+plays the same without one.
+
+**Offline.** `service-worker.js` takes the whole game into one versioned
+cache (`super-pang-v1`) the first time it is opened -- HTML, CSS, every
+module, the vendored Phaser build, every graphic, every sound including
+the music, all the level and element JSON, the manifest and the icons.
+After that first visit the game starts and plays with no network at all;
+a page load offline is answered with `index.html` and the game routes
+itself from there. A new release is one line: bump `CACHE_VERSION`, and
+the old cache is deleted the moment the new worker activates, so a
+release can never be served half from the previous one.
+
+The list of files to cache is generated, not hand-kept:
+
+```bash
+node tools/build_precache.mjs     # writes sw-precache.json
+```
+
+Rerun it whenever a file is added, renamed or removed --
+`tests/pwa.test.mjs` compares the list against the folder and fails if
+they have drifted apart, which is what stops "works offline" from quietly
+becoming "works offline except the one level you added". Only what the
+browser actually fetches is in it: never `admin/` (PHP, and not part of
+the game), the tests or the tools. Requests to other origins, and
+anything that isn't a GET, are passed straight through and never cached,
+so an online scoreboard would fail offline while the game itself carried
+on keeping scores locally (`js/storage.js`).
+
+**Icons.** `tools/app_icons.py` draws them, all from one 16x16 pixel-art
+grid so each size is crisp rather than resampled: `icon-192`/`icon-512`
+(plain), `icon-maskable-192`/`icon-maskable-512` (the motif kept inside
+the middle 80% that survives Android's circular crop),
+`apple-touch-icon.png` at 180, and `favicon.ico`. `tests/pwa.test.mjs`
+reads each PNG's own header to check it is the size the manifest claims.
+
 ## Tests
 
 ```bash
@@ -669,6 +749,15 @@ index.html          Phaser injects its own canvas into #game-container;
                       power-up timers) is drawn in Phaser, see js/Hud.js
                       below
 style.css            All visual styling, responsive/touch layout
+manifest.webmanifest The installed app's name, icons, colours, and its
+                      fullscreen/landscape wishes -- see "Install it on a
+                      phone" above
+service-worker.js    The offline cache: one versioned store holding the
+                      whole game, filled on the first visit
+sw-precache.json     What that worker caches -- generated by
+                      tools/build_precache.mjs, never hand-edited
+favicon.ico          The tab icon (browsers ask for it by that name
+                      whether it is linked or not)
 assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
                       "Swapping HUD graphics" below
@@ -697,6 +786,8 @@ assets/              Every graphic and sound in the game, as real files --
   intro/             font_alpha.webp, the A-Z+digits font spritesheet
                       the level-intro screen AND every DOM menu's text
                       are drawn from -- see "Swapping intro graphics" below
+  icons/             The installed app's icons (plain, maskable, Apple)
+                      -- drawn by tools/app_icons.py
 elements/            One JSON file per ball size/shape, obstacle type, or
                       power-up, plus index.json listing which to load --
                       see "Adding elements" below
@@ -705,10 +796,12 @@ levels/              One level_NN.json per level, in level-editor Export
 tests/               Node's own test runner against the data and the pure
                       rules -- no framework, no dependencies, no browser
                       (see "Tests" above and tests/README.md)
-tools/               Authoring scripts run by hand when the art changes,
-                      never by the game: daylight_backgrounds.py relights
-                      a region's night frame into its five times of day
-                      (see "A day per continent")
+tools/               Scripts run by hand, never by the game:
+                      daylight_backgrounds.py relights a region's night
+                      frame into its five times of day (see "A day per
+                      continent"), app_icons.py draws the app icons, and
+                      build_precache.mjs writes the offline file list
+                      (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
                       code -- see "Admin tool" below. Not linked from the
@@ -716,8 +809,13 @@ admin/               A separate, PHP-backed, login-gated site for editing
                       PHP-capable server, see "Running it locally").
 js/
   vendor/phaser.min.js  Phaser 3 (Arcade Physics build), vendored locally
-  main.js            One line: new Phaser.Game(GAME_CONFIG) -- no manual
-                      requestAnimationFrame loop anywhere in the project
+  main.js            Two things: new Phaser.Game(GAME_CONFIG) -- no
+                      manual requestAnimationFrame loop anywhere in the
+                      project -- and registering the service worker
+  pwa.js             The installable side: registering that worker, the
+                      INSTALL GAME button's rules, the iOS instructions
+                      that stand in for it, and the landscape lock (see
+                      "Install it on a phone")
   GameConfig.js      Phaser.Game config (resolution, Arcade Physics,
                       pixel-art scaling, scene list: Elements -> Boot ->
                       Game)

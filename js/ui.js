@@ -3,6 +3,7 @@ import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
+import { initInstall, promptInstall, lockLandscape } from './pwa.js';
 import { ACTIONS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
 
 // zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
@@ -35,7 +36,7 @@ const ELEMENT_IDS = [
   'screen-victory', 'victory-title', 'victory-score',
   'screen-high-score-entry', 'entry-title', 'entry-score', 'entry-name',
   'screen-high-scores', 'highscores-title', 'high-score-list',
-  'touch-controls',
+  'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
@@ -59,6 +60,15 @@ const STATIC_LABELS = [
   ['btn-zoom-1x', '1X', 'button', COLORS.text],
   ['btn-zoom-2x', '2X', 'button', COLORS.text],
   ['btn-zoom-fit', 'FIT', 'button', COLORS.text],
+  ['btn-install', 'INSTALL GAME', 'button', COLORS.text],
+  // Both of these are drawn with the same bitmap font as everything else,
+  // which is uppercase letters, digits and three punctuation marks (see
+  // assets.js's INTRO_FONT_CHARS) -- so no apostrophes, commas or arrows.
+  // One line, and a short one: it takes the place of the keyboard hint
+  // (hidden on a phone, see style.css), so the menu is no taller on the
+  // screens where it shows than on the ones where it does not.
+  ['ios-install-hint', 'INSTALL: SHARE MENU. ADD TO HOME SCREEN', 'body', COLORS.text],
+  ['rotate-prompt-text', 'ROTATE YOUR PHONE', 'h2', COLORS.accent],
   ['keys-title', 'CONTROLS', 'h2', COLORS.accent],
   ['btn-controls', 'CONTROLS', 'button', COLORS.text],
   ['btn-keys-reset', 'RESET TO DEFAULTS', 'button', COLORS.text],
@@ -175,6 +185,14 @@ export class UI {
 
     this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
+    // Installing is the browser's own dialogue -- all this does is ask
+    // for it, and take the button away once there is nothing left to ask
+    // (see js/pwa.js: the prompt can only be shown once).
+    this.el['btn-install'].addEventListener('click', async () => {
+      this.audio.resumeContext();
+      await promptInstall();
+      this.el['btn-install'].classList.add('hidden');
+    });
     this.el['btn-options-fullscreen'].addEventListener('click', toggleFullscreen);
     this.el['btn-fullscreen-pause'].addEventListener('click', toggleFullscreen);
 
@@ -330,7 +348,23 @@ export class UI {
   // desktops with a touch monitor, where a keyboard is right there and
   // the overlay is just clutter sitting on top of the playfield.
   showTouchControlsIfNeeded() {
-    if (isMobileDevice()) this.el['touch-controls'].classList.remove('hidden');
+    if (!isMobileDevice()) return;
+    this.el['touch-controls'].classList.remove('hidden');
+    // What the ROTATE YOUR PHONE prompt keys off, together with the
+    // orientation itself (see style.css). Set here rather than in CSS
+    // because "is this a phone?" is not a media query -- a touchscreen
+    // laptop matches every one of them and needs neither the on-screen
+    // controls nor the prompt.
+    document.body.classList.add('is-touch');
+  }
+
+  // The two ways of installing the game, each shown only where it applies
+  // (see js/pwa.js, which owns those rules).
+  setupInstallOffers() {
+    initInstall(({ canInstall, showIOSHint }) => {
+      this.el['btn-install'].classList.toggle('hidden', !canInstall);
+      this.el['ios-install-hint'].classList.toggle('hidden', !showIOSHint);
+    });
   }
 
   // On a phone the browser's own chrome eats a lot of an already small
@@ -357,7 +391,11 @@ export class UI {
       const container = document.getElementById('game-container');
       const requestFs = container.requestFullscreen || container.webkitRequestFullscreen || container.msRequestFullscreen;
       try {
-        Promise.resolve(requestFs?.call(container)).catch(() => {});
+        // Landscape is asked for straight after fullscreen, since that is
+        // the only state a browser will honour an orientation lock in --
+        // and, like fullscreen itself, a refusal costs nothing: the game
+        // plays either way (see js/pwa.js's lockLandscape).
+        Promise.resolve(requestFs?.call(container)).then(lockLandscape).catch(() => {});
       } catch {
         /* refused -- the manual Fullscreen button in Options/pause still works */
       }

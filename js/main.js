@@ -1,5 +1,12 @@
 import { GAME_CONFIG } from './GameConfig.js';
 import { applyZoom, activeZoom, watchViewport } from './DisplayZoom.js';
+import { registerServiceWorker } from './pwa.js';
+
+// Makes the game installable and playable offline (see service-worker.js).
+// Registered before the game is built, but the worker's own install waits
+// for the window's load event, so filling its cache never competes with
+// the first screen appearing.
+registerServiceWorker();
 
 // Phaser owns the loop, canvas, and renderer entirely from here on --
 // there is no manual requestAnimationFrame code left in this project.
