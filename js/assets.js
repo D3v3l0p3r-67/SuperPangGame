@@ -57,7 +57,7 @@ export function ballPopAnimKey(shape, size) {
 // Player: a single spritesheet (one PNG, not one file per frame) of
 // PLAYER_CONFIG.spriteWidth x spriteHeight (36x72) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
-// dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down -- see
+// dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down, jump -- see
 // PLAYER_ANIM_FRAMES below for which index is which (see the
 // README's "Swapping graphics" for the full frame reference).
 //
@@ -96,11 +96,15 @@ export const PLAYER_ANIM_FRAMES = {
   // and a step down do not look alike.
   stepup: [12, 13],
   stepdown: [14, 15],
-  // Clearing a level: alternate idle/victory three times on the spot (see
-  // GameScene.levelClear/Player.playLevelClearAnim). Six frames at the
+  // Clearing a level: the player faces out and hops on the spot, arms up
+  // -- the standing victory pose alternating with frame 16, which is the
+  // same pose airborne (it is the one frame in the sheet drawn off the
+  // ground). It used to alternate idle/victory, which turned the player
+  // back and forth between facing away and facing out. Six frames at the
   // rate BootScene gives this state is exactly the LEVEL_CLEAR_MIN_SEC the
-  // scene holds the celebration for.
-  levelclear: [0, 6, 0, 6, 0, 6],
+  // scene holds the celebration for (see GameScene.levelClear/
+  // Player.playLevelClearAnim).
+  levelclear: [6, 16, 6, 16, 6, 16],
 };
 
 // Shield power-up effect: a PLAYER_SHIELD_FRAMES-frame looping animation

@@ -1300,14 +1300,26 @@ dimensions:
   playfield: idle, shot, both climb frames and both ladder-exit frames.
   The walk cycle and the step up/down frames are seen from the SIDE, and
   are the ones authored facing LEFT -- `Player.js` mirrors those for the
-  other direction via `setFlipX`. Victory and dead turn round to face the
-  player: they are the only two frames with a face in them.
+  other direction via `setFlipX`. Victory, the celebration jump and dead
+  turn round to face the player.
+
+  The weapon is drawn on the sprite's own centre line in the frames that
+  face away or towards you, because that is where a shot leaves from
+  (`tryFire` uses `player.x`). The side frames have no barrel over the
+  helmet at all: from there the weapon is in the hands, held across the
+  chest, which is what it looks like from the side.
+
+  **Clearing a level** alternates the standing victory pose with frame 16,
+  the same pose airborne -- the player faces out, throws their arms up and
+  hops on the spot. Frame 16 is the one frame in the sheet whose feet are
+  deliberately NOT on the cell's last row: that gap under the boots is the
+  jump.
 
   The art is drawn by `tools/player_sprite.py`, which authors each frame
   as ASCII art on an 18x36 grid (one letter per palette colour) and scales
   it 2x into its 36x72 cell -- so editing the character is editing those
   strings and rerunning the script. Replacing the .png by hand works just
-  as well: keep the same 32x(64 x 16) total size and frame order.
+  as well: keep the same 36x(72 x 17) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
   -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`

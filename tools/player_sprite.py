@@ -5,8 +5,9 @@
 
 The frames, their order and their meaning are fixed by the game (see
 js/assets.js's PLAYER_ANIM_FRAMES): idle, shot, 4 walk, victory, dead,
-2 climb, 2 ladder-exit, 2 step-up, 2 step-down, each 32x64. This script
-only draws them; it never adds or reorders any.
+2 climb, 2 ladder-exit, 2 step-up, 2 step-down and the celebration jump,
+each PLAYER_FRAME (36x72). This script only draws them; nothing here
+decides what any of them is used for.
 
 WHICH WAY THE PLAYER FACES. The game is played into the screen -- balls
 come down at you -- so the player is drawn from BEHIND for everything
@@ -36,7 +37,7 @@ OUT = ROOT / 'assets' / 'player' / 'player.png'
 
 CELL_W, CELL_H = 18, 36        # the grid the art is authored on
 SCALE = 2                      # -> the 32x64 cells the game loads
-FRAMES = 16
+FRAMES = 17
 
 # The palette, one letter per colour. Blue cap, blue pack and blue
 # trousers over a light shirt: the same blue the game is built out of
@@ -93,33 +94,34 @@ BACK = """
 ..oCCCCCCCCCCCCo..
 ...oCCCCCCCCCCo...
 ....oooooooooo....
-..oo.oOOOOOOo.oo..
-.oaoopppppppooao..
-.oaoOpppppppOoao..
-.oaoOpppppppOoao..
-.oAoopppppppooAo..
-.oaoooPPPPPoooao..
-.osoo.oOOOo..oso..
-..o....ooo....o...
-......ottttto.....
-.....oTtttttTo....
-.....oTttttttTo...
-.....oTtt.ttTo....
-.....oTt...tTo....
-.....oaa...aao....
-.....oaa...aao....
-.....oaa...aao....
-.....oAA...AAo....
-.....ooo...ooo....
+..ooooOOOOOOoooo..
+.oaaoopppppppooao.
+.oaaoOpppppppOoao.
+.oaaoOpppppppOoao.
+.oAAoopppppppooAo.
+.oaaoopppppppooao.
+.oaaoOpppppppOoao.
+.oAAooPPPPPPPooAo.
+.ossooOOOOOOOooso.
+..oo.opppppppo.o..
+...o.oPPPPPPPo....
+.....ooooooooo....
+....oTttttttTo....
+....oTtt..ttTo....
+....oaaa..aaao....
+....oaaa..aaao....
+....oAAA..AAAo....
+....ooo....ooo....
 """
 
-# Walking, seen from the left: the same helmet in profile with the face
-# slot at the front, the gun still up the middle, the pack behind.
+# Walking, seen from the left: the helmet in profile with the face slot at
+# the front, and the weapon held across the chest, under the head -- no
+# barrel over the helmet, because from here it is in the hands.
 SIDE = """
-........ogo.......
-........ogo.......
-........ogo.......
-........oGo.......
+..................
+..................
+..................
+..................
 ......oooooo......
 ....occcccccco....
 ...occcccccccco...
@@ -134,28 +136,27 @@ SIDE = """
 ..osssCCCCCCCCo...
 ...ossCCCCCCCo....
 ....oooooooooo....
-...oo.oOOOOOo.o...
-..oaowwwwwwwwoppo.
-..oaowwwwwwwwoppo.
-..oaowwwwwwwwoPPo.
-..oAowwwwwwwwoppo.
-..oaooOOOOOOooppo.
-..oso..oOOOo..oo..
-...o....ooo.......
-.....ottttto......
-....oTtttttTo.....
-....oTtto.ttTo....
-....oTto...tTo....
-....oaao...aao....
-....oaao...oaao...
-....oaao...oaao...
-....oAAo...oAAo...
-.....ooo....ooo...
-..................
+...oooOOOOOOooo...
+..ogooowwwwwwoppo.
+..oggoowwwwwwoppo.
+.oGggowwwwwwwoPPo.
+.oGgsowwwwwwwoppo.
+..osaowwwwwwwoppo.
+..oaaowwwwwwwoppo.
+..oAAoowwwwwwoPPo.
+...ooooOOOOOOooo..
+.....owwwwwwwo....
+.....oWwwwwwWo....
+.....ooooooooo....
+....oTttttttTo....
+...oTtto..ttTo....
+...oaaao..aaao....
+...oaaao..aaao....
+...oAAAo..AAAo....
+...oooo....ooo....
 """
 
-# Facing the player: the two frames that turn round -- the victory pose
-# and the moment a life is lost.
+# Facing the player: the victory pose and the moment a life is lost.
 FRONT = """
 ........ogo.......
 ........ogo.......
@@ -175,29 +176,28 @@ FRONT = """
 ..ossssssssssso...
 ...osssmmmssso....
 ....oooooooooo....
-..oo.oOOOOOOo.oo..
-.oaoowwwwwwwooao..
-.oaowwwwwwwwwoao..
-.oaowwwwwwwwwoao..
-.oAowwwwwwwwwoAo..
-.oaoooOOOOOoooao..
-.oso...oOOOo..so..
-..o.....ooo.......
-......ottttto.....
-.....oTtttttTo....
-.....oTttttttTo...
-.....oTtt.ttTo....
-.....oTt...tTo....
-.....oaa...aao....
-.....oaa...aao....
-.....oaa...aao....
-.....oAA...AAo....
-.....ooo...ooo....
+..ooooOOOOOOoooo..
+.oaaoowwwwwwwooao.
+.oaaowwwwwwwwwoao.
+.oaaowwwwwwwwwoao.
+.oAAowwwwwwwwwoAo.
+.oaaowwwwwwwwwoao.
+.oaaowwwwwwwwwoao.
+.oAAoowwwwwwwooAo.
+.ossooOOOOOOOooso.
+..oo.owwwwwwwo.o..
+...o.oWwwwwwWo....
+.....ooooooooo....
+....oTttttttTo....
+....oTtt..ttTo....
+....oaaa..aaao....
+....oaaa..aaao....
+....oAAA..AAAo....
+....ooo....ooo....
 """
 
 # Down: sitting where the hit put them, facing out, helmet tipped back.
 DEAD = """
-..................
 ..................
 ..................
 ..................
@@ -224,13 +224,57 @@ DEAD = """
 ..owwwwwwwwwwwwo..
 ..oswwwwwwwwwwso..
 ..osowwwwwwwwoso..
-...o.oOOOOOOOo.o..
-.....ottttttto....
-.....ottttttto....
-.....oaaaaaaao....
-.....oaaaaaaao....
-.....oAAAAAAAo....
+..oo.owwwwwwwo.o..
+.....oWwwwwwWo....
+.....oOOOOOOOo....
 .....ooooooooo....
+....oTttttttTo....
+....otttttttto....
+....oaaaaaaaao....
+....oaaaaaaaao....
+....oAAAAAAAAo....
+....oooooooooo....
+"""
+
+# The celebration: facing out, both arms thrown up, and off the ground --
+# the only frame in the sheet whose feet are NOT on the cell floor,
+# because that is what makes it a jump (see frames(), which pairs it with
+# the standing victory pose).
+JUMP = """
+..................
+..................
+..................
+........ogo.......
+......oooooo......
+....occcccccco....
+...occcccccccco...
+..occcccccccccco..
+..oclllcccccccco..
+..oclllcccccccco..
+..occlccccccccco..
+..occcccccccccco..
+..oCCCCCCCCCCCCo..
+..ossssssssssso...
+..osseossoessso...
+..ossssssssssso...
+...osssmmmssso....
+....oooooooooo....
+oaao.oOOOOOOo.oaao
+oaaoowwwwwwwooaao.
+oAAowwwwwwwwwoAAo.
+.ooowwwwwwwwwooo..
+...owwwwwwwwwo....
+...owwwwwwwwwo....
+...oowwwwwwwoo....
+....oOOOOOOOo.....
+....owwwwwwwo.....
+.....oWwwwwWo.....
+.....ooooooo......
+....oTttttttTo....
+...oTtto..ttTo....
+...oaaao..aaao....
+...oAAAo..AAAo....
+....ooo....ooo....
 ..................
 ..................
 """
@@ -310,110 +354,82 @@ def render(grid):
 # views above are bottom-aligned on parsing, and every pose below that
 # lowers the body keeps the feet where they are by drawing SHORTER legs
 # rather than by moving the whole figure down.
-LEG_TOP = 26        # the row the legs start at, in every standing view
+LEG_TOP = 30        # the row the legs start at, in every standing view
 
 # Legs, bottom-aligned: the last row of each of these lands on the last
 # row of the cell. A pose whose body sits `n` rows lower uses legs `n`
 # rows shorter, which is what makes the bob a bob and not a sink.
 LEGS_BACK_STAND = [
-    '......ottttto.....',
-    '.....oTtttttTo....',
-    '.....oTttttttTo...',
-    '.....oTtt.ttTo....',
-    '.....oTt...tTo....',
-    '.....oaa...aao....',
-    '.....oaa...aao....',
-    '.....oaa...aao....',
-    '.....oAA...AAo....',
-    '.....ooo...ooo....',
+    '....oTttttttTo....',
+    '....oTtt..ttTo....',
+    '....oaaa..aaao....',
+    '....oaaa..aaao....',
+    '....oAAA..AAAo....',
+    '....ooo....ooo....',
 ]
 LEGS_BACK_CROUCH = [
-    '.....oTtttttTo....',
-    '.....oTtt.ttTo....',
-    '.....oTt...tTo....',
-    '.....oaa...aao....',
-    '.....oaa...aao....',
-    '.....oAA...AAo....',
-    '.....ooo...ooo....',
+    '....oTtt..ttTo....',
+    '....oaaa..aaao....',
+    '....oaaa..aaao....',
+    '....oAAA..AAAo....',
+    '....ooo....ooo....',
 ]
 LEGS_FRONT = LEGS_BACK_STAND
 
 # The walk: two strides and the two passing poses between them, where the
 # legs come together and the body rides a pixel lower.
 LEGS_STRIDE_A = [
-    '.....ottttto......',
-    '....oTtttttTo.....',
-    '...oTtto..ttTo....',
-    '...oTto....tTo....',
-    '...oaao....aao....',
-    '...oaao....oaao...',
-    '...oaao....oaao...',
-    '...oAAo....oAAo...',
-    '...oaao....oaao...',
-    '...ooo......ooo...',
+    '...oTttttttTo.....',
+    '..oTtto..ttTo.....',
+    '..oaaao..oaaao....',
+    '..oaaao..oaaao....',
+    '..oAAAo..oAAAo....',
+    '..oooo....oooo....',
 ]
 LEGS_STRIDE_B = [
-    '.....ottttto......',
-    '....oTtttttTo.....',
-    '....oTttto.tTo....',
-    '...oTtto....tTo...',
-    '...oaao.....aao...',
-    '..oaao......oaao..',
-    '..oaao......oaao..',
-    '..oAAo......oAAo..',
-    '..oaao......oaao..',
-    '..ooo........ooo..',
+    '....oTttttttTo....',
+    '....oTtto.ttTo....',
+    '...oaaao..oaaao...',
+    '..oaaao....oaaao..',
+    '..oAAAo....oAAAo..',
+    '..oooo......oooo..',
 ]
 LEGS_PASSING = [
-    '.....ottttto......',
-    '.....ottttto......',
-    '.....oTtttTo......',
-    '.....ottttto......',
+    '....oTtttttTo.....',
     '.....oaaaaao......',
-    '.....oaa.aao......',
-    '.....oaa.aao......',
-    '.....oAA.AAo......',
-    '.....oo...oo......',
+    '.....oaaaaao......',
+    '.....oAAAAAo......',
+    '.....ooooooo......',
+]
+LEGS_SIDE_STAND = [
+    '....oTttttttTo....',
+    '...oTtto..ttTo....',
+    '...oaaao..aaao....',
+    '...oaaao..aaao....',
+    '...oAAAo..AAAo....',
+    '...oooo....ooo....',
 ]
 
 # One 16px block up: the leading knee is high and the trailing leg is
 # straight under the body.
 LEGS_STEP_UP = [
-    '.....ottttto......',
-    '....oTtttto.......',
-    '...oTtto..oTto....',
-    '...oaao...otto....',
-    '...oaao...otto....',
-    '....oo....oaao....',
-    '..........oaao....',
-    '..........oaao....',
-    '..........oAAo....',
-    '...........ooo....',
+    '...oTttttttTo.....',
+    '..oTtto...oTto....',
+    '..oaaao...otto....',
+    '..oaaao...oaaao...',
+    '...ooo....oaaao...',
+    '..........oAAAo...',
+    '...........oooo...',
 ]
 # ...and one down: the leading foot is reaching for the step below.
 LEGS_STEP_DOWN = [
-    '.....ottttto......',
-    '....oTtttttTo.....',
-    '...oTtto..ttTo....',
-    '...oTto....tTo....',
-    '..oaao.....tTo....',
-    '..oaao.....oao....',
-    '..oaao.....oaao...',
-    '..oaao.....oaao...',
-    '..oAAo.....oAAo...',
-    '..ooo.......ooo...',
-]
-LEGS_SIDE_STAND = [
-    '.....ottttto......',
-    '....oTtttttTo.....',
-    '....oTttto.tTo....',
-    '....oTto...tTo....',
-    '....oaao...aao....',
-    '....oaao...oaao...',
-    '....oaao...oaao...',
-    '....oAAo...oAAo...',
-    '....oaao...oaao...',
-    '.....ooo....ooo...',
+    '...oTttttttTo.....',
+    '..oTtto..ottTo....',
+    '..oaaao...otto....',
+    '..oaaao...oaaao...',
+    '..oAAAo...oaaao...',
+    '..oooo....oAAAo...',
+    '...........oooo...',
 ]
 
 
@@ -436,14 +452,22 @@ def frames():
     side = align_bottom(parse(SIDE))
     front = align_bottom(parse(FRONT))
     dead = align_bottom(parse(DEAD))
+    # NOT bottom-aligned, unlike every other frame: the celebration jump is
+    # drawn off the ground, and pushing it back down would land it.
+    jump = parse(JUMP)
     out = []
 
     # 0 idle -- standing, seen from behind.
     out.append(pose(back, LEGS_BACK_STAND))
 
     # 1 shot: the gun kicks, so the free hand comes up to the barrel too.
+    # The recoil: the shoulders come up, so both arm plates ride a row
+    # higher than they stand at.
     shot = copy(back)
-    stamp(shot, 1, 18, ['osa', 'oaa', 'oaa'])
+    erase(shot, 1, 18, 3, 27)
+    erase(shot, 14, 18, 16, 27)
+    stamp(shot, 1, 17, ['oaa', 'oaa', 'oAA', 'oaa', 'oaa', 'oAA', 'oss', '.oo'])
+    stamp(shot, 15, 17, ['aao', 'aao', 'AAo', 'aao', 'aao', 'AAo', 'sso', 'oo.'])
     out.append(pose(shot, LEGS_BACK_STAND))
 
     # 2-5 walk, from the side: stride, pass, stride, pass.
@@ -457,12 +481,16 @@ def frames():
     # 8-9 climb: the arms alternate up the ladder. The whole figure moves
     # here -- on a ladder the feet are on rungs, not on the floor.
     for i in range(2):
+        # One arm reaches for the next rung while the other holds: the
+        # plate on the reaching side is drawn four rows higher.
         climb = pose(back, LEGS_BACK_STAND)
-        erase(climb, 1, 15, 3, 24)
-        if i == 0:
-            stamp(climb, 1, 15, ['osa', 'oaa', 'oaa', 'oaa'])
-        else:
-            stamp(climb, 1, 19, ['osa', 'oaa', 'oaa'])
+        high, low = (1, 15) if i == 0 else (15, 15)
+        erase(climb, 1, 15, 3, 27)
+        erase(climb, 14, 15, 16, 27)
+        left = ['oss', 'oaa', 'oaa', 'oAA', 'oaa', 'oaa', 'oAA', '.oo']
+        right = ['sso', 'aao', 'aao', 'AAo', 'aao', 'aao', 'AAo', 'oo.']
+        stamp(climb, 1, 15 if i == 0 else 19, left)
+        stamp(climb, 15, 19 if i == 0 else 15, right)
         out.append(shift(climb, i))
 
     # 10-11 stepping off the top of a ladder: the weight comes down
@@ -480,6 +508,12 @@ def frames():
     # after it.
     out.append(pose(side, LEGS_STEP_DOWN))
     out.append(pose(side, LEGS_STEP_DOWN[1:]))
+
+    # 16 the celebration jump: the level-clear animation alternates it with
+    # the standing victory pose (see assets.js's PLAYER_ANIM_FRAMES), so
+    # the player hops on the spot facing out rather than turning round and
+    # back again.
+    out.append(jump)
 
     assert len(out) == FRAMES, f'{len(out)} frames, expected {FRAMES}'
     return out
