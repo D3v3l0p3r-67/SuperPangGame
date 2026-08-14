@@ -1,6 +1,6 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
-import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
+import { WEAPON_TYPES, PLAYER_CONFIG, SHOT_LOCK_SEC } from './config.js';
 import { LEVELS } from './LevelManager.js';
 import { daylightBackgroundNames } from './regions.js';
 import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
@@ -290,8 +290,13 @@ export class BootScene extends Phaser.Scene {
     // The step and ladder-exit states are brief on purpose: they cover a
     // single 16px move, and anything slower reads as the player pausing to
     // think about it rather than taking the step.
+    //
+    // shot's rate is the one that has to agree with something outside this
+    // file: its single frame has to be on screen for exactly as long as
+    // the player is held still by having fired (config.js's
+    // SHOT_LOCK_SEC), so the pose and the pause end together.
     const FRAME_RATE = {
-      idle: 1, move: 8, shot: 14, victory: 1, dead: 1, levelclear: 3,
+      idle: 1, move: 8, shot: 1 / SHOT_LOCK_SEC, victory: 1, dead: 1, levelclear: 3,
       climb: 6, ladderoff: 8, stepup: 12, stepdown: 12,
     };
     for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {

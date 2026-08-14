@@ -9,10 +9,10 @@
 // Player.js) -- every animation frame shares this one hitbox. P1 and P2
 // (when added) use the same dimensions.
 export const PLAYER_CONFIG = {
-  spriteWidth: 32,
-  spriteHeight: 64,
-  hitboxWidth: 20,
-  hitboxHeight: 44,
+  spriteWidth: 36,
+  spriteHeight: 72,
+  hitboxWidth: 22,
+  hitboxHeight: 50,
   shieldSize: 64,
   speed: 180,
   startLives: 3,
@@ -75,6 +75,13 @@ export const WEAPON_TYPES = {
     ceilingReleaseWarnSec: 1,
   },
 };
+
+// Firing plants the player: for this long after a shot the held
+// direction does nothing, so a shot is a decision to stand still rather
+// than something done in passing (see Player.update's shotLock). It is
+// also exactly how long the shot animation lasts -- BootScene derives the
+// frame rate from this number, so the pose and the pause end together.
+export const SHOT_LOCK_SEC = 0.15;
 
 // How high a ledge the player can walk straight up, without jumping (it
 // cannot jump at all). One obstacle block: anything taller is a wall to

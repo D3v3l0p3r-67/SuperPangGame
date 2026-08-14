@@ -206,6 +206,20 @@ weapon's `maxActiveShots` (see `tryFire`), which is what `rapid_shot`
 raises -- it changes how many shots may be in the air at once, never how
 the trigger reads.
 
+**Firing plants you.** For `SHOT_LOCK_SEC` (`js/config.js`, 0.15s) after a
+shot the held direction does nothing: the player stands where they fired
+from, on the ground or on a ladder alike, and moves again the moment it
+ends (`Player.update`, which drops the directions out of the input while
+the lock runs). That is exactly as long as the shot pose is on screen --
+`BootScene` derives the animation's frame rate from the same constant, so
+the pose and the pause always end together. Only the directions are
+dropped: gravity still applies, the shot itself still travels, and the
+trigger is read separately, so the lock can never swallow a shot.
+
+The shot leaves from the middle of the player, which is where the weapon
+is drawn -- `tryFire` uses `player.x`, and the sprite has the barrel on
+its own centre line (see "Swapping graphics").
+
 **Up is both the shoot key and the climb key.** A press of it means climb
 whenever there is a ladder to spend it on -- standing at the foot of one,
 or already holding one -- and means shoot otherwise, so away from ladders
@@ -1257,7 +1271,7 @@ dimensions:
   since a ball popped right under the border has less than 64px of room
   above it. All tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
-  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (32x64)
+  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (36x72)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
@@ -1290,8 +1304,8 @@ dimensions:
   player: they are the only two frames with a face in them.
 
   The art is drawn by `tools/player_sprite.py`, which authors each frame
-  as ASCII art on a 16x32 grid (one letter per palette colour) and scales
-  it 2x into its 32x64 cell -- so editing the character is editing those
+  as ASCII art on an 18x36 grid (one letter per palette colour) and scales
+  it 2x into its 36x72 cell -- so editing the character is editing those
   strings and rerunning the script. Replacing the .png by hand works just
   as well: keep the same 32x(64 x 16) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`

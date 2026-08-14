@@ -55,7 +55,7 @@ export function ballPopAnimKey(shape, size) {
 }
 
 // Player: a single spritesheet (one PNG, not one file per frame) of
-// PLAYER_CONFIG.spriteWidth x spriteHeight (32x64) cells stacked
+// PLAYER_CONFIG.spriteWidth x spriteHeight (36x72) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
 // dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down -- see
 // PLAYER_ANIM_FRAMES below for which index is which (see the
@@ -70,7 +70,7 @@ export function ballPopAnimKey(shape, size) {
 // tools/player_sprite.py.
 export const PLAYER_TEXTURE_KEY = 'player';
 export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
-export const PLAYER_FRAME = { frameWidth: 32, frameHeight: 64 };
+export const PLAYER_FRAME = { frameWidth: 36, frameHeight: 72 };
 
 // state -> its frame index (or indices, in play order) within the
 // spritesheet above.
