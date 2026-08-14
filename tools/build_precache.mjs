@@ -16,12 +16,14 @@
 // anything. Music is in the list like every other sound -- it is the bulk
 // of the download, but a game that goes quiet when the network does is
 // not really working offline.
-import { readdirSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, sep } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'sw-precache.json');
+const WORKER = join(ROOT, 'service-worker.js');
 
 // Files at the root of the game, and the folders it loads everything else
 // from. Order matters only in that the shell comes first -- the service
@@ -51,4 +53,29 @@ const files = [...ROOT_FILES, ...DIRS.flatMap((dir) => walk(dir))]
   .map((path) => path.split(sep).join('/'));
 
 writeFileSync(OUT, `${JSON.stringify(files, null, 2)}\n`);
+
+// The cache is named after what is IN it: a hash over every precached
+// file's contents, written into the worker itself. Two things follow, and
+// both are the point.
+//
+// The old cache is dropped whenever any file changes. A service worker
+// serves its cache first -- that is what makes the game work offline --
+// so a version that only moves when someone remembers to bump it means
+// players keep whatever they downloaded the first time. That is not
+// hypothetical: the player sprite was redrawn three times over before
+// anyone noticed the game was still handing out the first one.
+//
+// And the worker's own bytes change with it, which is what makes a
+// browser notice at all: it re-fetches service-worker.js and only
+// installs it if it differs from the copy it is running.
+const hash = createHash('sha256');
+for (const path of files) hash.update(path).update(readFileSync(join(ROOT, path)));
+const version = `super-pang-${hash.digest('hex').slice(0, 12)}`;
+
+const worker = readFileSync(WORKER, 'utf8');
+const updated = worker.replace(/const CACHE_VERSION = '[^']*';/, `const CACHE_VERSION = '${version}';`);
+if (!updated.includes(`'${version}'`)) throw new Error('service-worker.js has no CACHE_VERSION line to write');
+writeFileSync(WORKER, updated);
+
 console.log(`${relative(ROOT, OUT)}: ${files.length} files`);
+console.log(`${relative(ROOT, WORKER)}: ${version}`);

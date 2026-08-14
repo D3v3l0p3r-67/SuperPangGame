@@ -34,13 +34,39 @@ export function isIOS() {
   return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 }
 
+// How long after a page load a new worker taking over still counts as
+// "during boot", and so is worth reloading for (see below). Long enough
+// to cover a slow first paint on a phone, short enough that it can never
+// interrupt someone playing.
+const BOOT_RELOAD_MS = 20000;
+
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
+
+  // A page controlled by a service worker was BUILT from that worker's
+  // cache, so when a newer one takes over, what is on screen is still the
+  // previous release -- most visibly, its graphics. Reload once, while
+  // that is still free: only if this page had a controller to begin with
+  // (a first visit has nothing stale to replace) and only during boot,
+  // never mid-game.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading || performance.now() > BOOT_RELOAD_MS) return;
+    reloading = true;
+    window.location.reload();
+  });
   // After load: the worker's own install fetches every file in the game
   // into its cache, and doing that while the first screen is still
   // loading would have the two competing for the same connection.
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(SERVICE_WORKER).catch(() => {
+    navigator.serviceWorker.register(SERVICE_WORKER).then((registration) => {
+      // Ask on every load whether there is a newer worker rather than
+      // waiting for the browser to get round to it on its own schedule:
+      // it costs one conditional request for one small file, and without
+      // it a changed game can go on serving the old copy for a day.
+      registration.update().catch(() => {});
+    }).catch(() => {
       /* Not served over https (or file://) -- the game runs, just not offline. */
     });
   });

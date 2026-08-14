@@ -7,7 +7,8 @@
 // manifest, a missing icon or a stale precache list.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, readJSON, readText, exists, listFiles, pngSize } from './helpers.mjs';
 
@@ -78,8 +79,8 @@ test('the service worker registers relatively and versions its cache', () => {
   assert.match(pwa, /register\(SERVICE_WORKER\)/, 'js/pwa.js has to register the worker');
   assert.match(pwa, /const SERVICE_WORKER = '\.\/service-worker\.js'/,
     'the registration path must be relative, for a subdirectory install');
-  assert.match(SW, /const CACHE_VERSION = 'super-pang-v\d+'/,
-    'the cache needs a version to bump on a release');
+  assert.match(SW, /const CACHE_VERSION = 'super-pang-[0-9a-f]{12}';/,
+    'the cache version is generated from the precached files -- see tools/build_precache.mjs');
   // Nothing in the worker may be rooted at the domain: everything is
   // resolved against its own scope.
   assert.doesNotMatch(SW, /['"]\/[a-z]/i, 'the worker must not use absolute paths');
@@ -115,6 +116,22 @@ test('the precache list is exactly the files the game loads', () => {
       `"${path}" is loaded by the game but not in sw-precache.json -- rerun tools/build_precache.mjs`);
   }
   assert.ok(listed.size > 100, `only ${listed.size} files precached -- that cannot be the whole game`);
+});
+
+test('the cache is named after what is in it', () => {
+  // The worker answers from its cache first, so a version that does not
+  // move with the files means players keep the release they first
+  // downloaded. The tool writes a hash of every precached file into the
+  // worker; this recomputes it, so forgetting to rerun the tool fails
+  // here rather than quietly shipping a game that still hands out the old
+  // sprites -- which is precisely how three redrawn player sprites
+  // reached nobody.
+  const hash = createHash('sha256');
+  for (const path of PRECACHE) hash.update(path).update(readFileSync(join(ROOT, path)));
+  const expected = `super-pang-${hash.digest('hex').slice(0, 12)}`;
+  const actual = SW.match(/const CACHE_VERSION = '([^']*)'/)[1];
+  assert.equal(actual, expected,
+    'service-worker.js\'s CACHE_VERSION is stale -- rerun tools/build_precache.mjs');
 });
 
 test('the precache list is relative and holds nothing server-side', () => {

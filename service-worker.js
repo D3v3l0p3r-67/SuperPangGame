@@ -7,12 +7,17 @@
 // under /<repo>/, and nothing here may assume the site root. Every path
 // below is resolved against `self.registration.scope` for that reason.
 //
-// Bump CACHE_VERSION on a new release. The old cache is deleted the
-// moment the new worker activates (see activate), so a release can never
-// be served half from the previous one -- and rerun
-// `node tools/build_precache.mjs` in the same breath if any file was
-// added, renamed or removed.
-const CACHE_VERSION = 'super-pang-v1';
+// CACHE_VERSION is GENERATED: `node tools/build_precache.mjs` writes a
+// hash of every precached file's contents into the line below, so it
+// moves whenever any file in the game does. Do not edit it by hand, and
+// do not rely on remembering to bump it -- this worker answers from its
+// cache first, so a version that lags behind the files means players go
+// on playing whatever they downloaded first (which is exactly what
+// happened to a redrawn player sprite: three redraws, none of them
+// reaching anyone who had already opened the game). The old cache is
+// deleted the moment the new worker activates (see activate), so a
+// release is never served half from the previous one.
+const CACHE_VERSION = 'super-pang-e541c7db8664';
 const PRECACHE_LIST = 'sw-precache.json';
 
 // The files the game cannot start without. These have to cache for the
