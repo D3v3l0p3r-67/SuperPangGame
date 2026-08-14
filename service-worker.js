@@ -17,7 +17,7 @@
 // reaching anyone who had already opened the game). The old cache is
 // deleted the moment the new worker activates (see activate), so a
 // release is never served half from the previous one.
-const CACHE_VERSION = 'super-pang-e541c7db8664';
+const CACHE_VERSION = 'super-pang-9e173b0dd8a0';
 const PRECACHE_LIST = 'sw-precache.json';
 
 // The files the game cannot start without. These have to cache for the
@@ -25,26 +25,69 @@ const PRECACHE_LIST = 'sw-precache.json';
 // best-effort, so one missing sound can't cost the whole offline copy.
 const SHELL = ['./', 'index.html', 'style.css', 'js/main.js', 'js/vendor/phaser.min.js', 'manifest.webmanifest'];
 
-// How many requests are in flight at once while filling the cache. The
-// list is ~270 files: all at once is a burst most servers throttle
-// anyway, and a phone on a slow connection times some of them out.
+// How many requests are in flight at once while filling the cache, for
+// the files that do have to be fetched. The list is ~270: all at once is
+// a burst most servers throttle anyway, and a phone on a slow connection
+// times some of them out.
 const BATCH = 12;
 
 const url = (path) => new URL(path, self.registration.scope).toString();
 
+// The manifest of the cache being replaced, so an install can tell which
+// files actually changed. It is kept IN that cache (see precache below)
+// rather than worked out from the files themselves, because a cached
+// response says nothing about which version of a file it holds.
+async function previousManifest() {
+  for (const name of await caches.keys()) {
+    if (name === CACHE_VERSION || !name.startsWith('super-pang-')) continue;
+    const cache = await caches.open(name);
+    const hit = await cache.match(url(PRECACHE_LIST));
+    if (hit) return { cache, files: (await hit.json()).files || {} };
+  }
+  return null;
+}
+
 async function precache() {
   const cache = await caches.open(CACHE_VERSION);
+  const response = await fetch(url(PRECACHE_LIST), { cache: 'no-cache' });
+  if (!response.ok) throw new Error('no precache manifest');
+  const manifest = await response.json();
+  const files = manifest.files || {};
+  const previous = await previousManifest();
+
+  // The shell first and on its own: these are what a blank screen offline
+  // is made of, so the install only counts as done if they cached.
   await cache.addAll(SHELL.map(url));
 
-  const response = await fetch(url(PRECACHE_LIST), { cache: 'no-cache' });
-  if (!response.ok) return;
-  const files = (await response.json()).filter((path) => !SHELL.includes(path));
-  for (let i = 0; i < files.length; i += BATCH) {
+  const outstanding = Object.keys(files).filter((path) => !SHELL.includes(path));
+  const fetchAll = [];
+  for (const path of outstanding) {
+    // Unchanged since the release being replaced: take the copy that is
+    // already on the device. A new sprite then costs a sprite to install
+    // rather than the whole game, which is the difference between an
+    // update the player never notices and one that re-downloads 7MB over
+    // whatever connection they happen to be on.
+    if (previous && previous.files[path] === files[path]) {
+      const hit = await previous.cache.match(url(path));
+      if (hit) {
+        await cache.put(url(path), hit.clone());
+        continue;
+      }
+    }
+    fetchAll.push(path);
+  }
+
+  for (let i = 0; i < fetchAll.length; i += BATCH) {
     // allSettled, not all: a file that 404s (or a phone that drops the
     // connection halfway through) leaves the rest of the cache intact
     // rather than throwing the whole install away.
-    await Promise.allSettled(files.slice(i, i + BATCH).map((path) => cache.add(url(path))));
+    await Promise.allSettled(fetchAll.slice(i, i + BATCH).map((path) => cache.add(url(path))));
   }
+
+  // Kept so the NEXT install can diff against this release.
+  await cache.put(url(PRECACHE_LIST), new Response(JSON.stringify(manifest), {
+    headers: { 'Content-Type': 'application/json' },
+  }));
 }
 
 self.addEventListener('install', (event) => {

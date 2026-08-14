@@ -1,6 +1,8 @@
-// Writes sw-precache.json: the list of files the service worker takes
-// into its cache so the game can be started and played with no network
-// (see service-worker.js, which fetches this list on install).
+// Writes sw-precache.json: every file the service worker takes into its
+// cache so the game can be started and played with no network, each with
+// a hash of its contents (see service-worker.js, which fetches this on
+// install and copies the unchanged ones straight out of the previous
+// cache rather than downloading the whole game again).
 //
 //     node tools/build_precache.mjs
 //
@@ -52,7 +54,14 @@ const files = [...ROOT_FILES, ...DIRS.flatMap((dir) => walk(dir))]
   // every path here is resolved against the service worker's own scope.
   .map((path) => path.split(sep).join('/'));
 
-writeFileSync(OUT, `${JSON.stringify(files, null, 2)}\n`);
+// Per file, a hash of its contents. The worker diffs this against the
+// manifest of the cache it is replacing: a release that changes one
+// sprite then costs one sprite to install, not the whole 7MB game --
+// which matters on the phone this is meant to be installed on.
+const fileHashes = {};
+for (const path of files) {
+  fileHashes[path] = createHash('sha256').update(readFileSync(join(ROOT, path))).digest('hex').slice(0, 16);
+}
 
 // The cache is named after what is IN it: a hash over every precached
 // file's contents, written into the worker itself. Two things follow, and
@@ -69,8 +78,10 @@ writeFileSync(OUT, `${JSON.stringify(files, null, 2)}\n`);
 // browser notice at all: it re-fetches service-worker.js and only
 // installs it if it differs from the copy it is running.
 const hash = createHash('sha256');
-for (const path of files) hash.update(path).update(readFileSync(join(ROOT, path)));
+for (const path of files) hash.update(path).update(fileHashes[path]);
 const version = `super-pang-${hash.digest('hex').slice(0, 12)}`;
+
+writeFileSync(OUT, `${JSON.stringify({ version, files: fileHashes }, null, 2)}\n`);
 
 const worker = readFileSync(WORKER, 'utf8');
 const updated = worker.replace(/const CACHE_VERSION = '[^']*';/, `const CACHE_VERSION = '${version}';`);
