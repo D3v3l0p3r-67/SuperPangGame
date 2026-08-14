@@ -1059,7 +1059,7 @@ js/
                       deliberately none of the rest
   editor.js          In-browser level editor: opens one campaign level
                       (picked from the same list as Start Level),
-                      grid-snapped painting, Save/Revert/Export/Import
+                      grid-snapped painting, New/Save/Revert/Export/Import
                       -- see "Adding levels" below
   debug.js           Debug overlay (Phaser Graphics) and dev tools
   panelUi.js         The five DOM pieces both developer toolbars (the
@@ -1183,6 +1183,19 @@ The **FILE** buttons all act on that same level:
   import it in the admin tool's Levels tab, see "Admin tool").
 - **Import** replaces what is being edited with a level file from disk,
   and **Clear all** empties it -- neither writes anything until Save.
+- **New** starts a BLANK level in the slot this session has open, which is
+  what lets the editor author a level rather than only edit one. Not the
+  same thing as Clear all: that empties the field but leaves everything
+  the level IS -- its name, time limit, background and weapon all still
+  come from whatever was opened, so what you are left with is that level
+  with its contents removed. New resets those too. It writes nothing
+  either; Save puts it in the slot and the game plays it from then on,
+  Export downloads it as the level file, and Revert is still the way back
+  to what shipped. It discards more than any other button in the panel,
+  so it is the one that asks first -- and the question takes the place of
+  the row it was asked from rather than appearing under it, because the
+  panel is a fixed band across the HUD strip and a group that grew a row
+  while asking would push its own answer out of it.
 - **Play** playtests what is on screen without saving it. Trying a change
   is not committing it; Save is the only thing that writes. The unsaved
   buffer travels with the playtest (`GameScene.editorDraft`), so leaving

@@ -71,6 +71,26 @@ function backgroundNames() {
 // with the drawn border and every row is exactly one step above the row
 // below it, which is what the player's step-up needs to read a stack of
 // blocks as a staircase (see Player.js).
+// A level with nothing in it, in the shape loadDef/buildDef expect (see
+// the README's "Adding levels" for the full field list). Every field the
+// editor has a control for gets that control's own default, so New leaves
+// no trace of whatever was open before -- which is the whole difference
+// between it and Clear all. The name is the placeholder buildDef would
+// have used anyway for a level that never had one; there is no control
+// for it here, so a level authored this way is renamed by editing the
+// exported file.
+function blankLevelDef(levelNumber) {
+  return {
+    id: levelNumber,
+    name: `Level ${levelNumber}`,
+    timeLimitSec: 60,
+    background: DEFAULT_BACKGROUND,
+    weapon: 'harpoon',
+    obstacles: [],
+    balls: [],
+  };
+}
+
 function gridSnap(bt, grid, rawMax) {
   return bt + Math.floor((rawMax - bt) / grid) * grid;
 }
@@ -244,12 +264,34 @@ export class Editor {
     this.importFileInput.accept = '.json,application/json';
     this.importFileInput.style.display = 'none';
     this.importFileInput.onchange = (e) => this.importJSON(e);
+    // Starting from nothing throws away more than any other button here --
+    // not just what is placed, but the level's name, time, background and
+    // weapon -- so it is the one that asks first. The question lives in a
+    // row of its own that is hidden until it is asked, so it costs no
+    // panel height the rest of the time.
+    // The question TAKES THE PLACE of the row it is asked from, rather
+    // than appearing under it. This panel is a fixed band across the
+    // bottom of the HUD strip and is already wider than the canvas: a
+    // group that grew a row while asking would push its own buttons out
+    // of the band, which is a poor place to put the answer to a question.
+    // Same reason the labels are short and New shares Revert's row rather
+    // than sitting beside Save -- as laid out, it costs no width at all.
+    this.newRow = row(
+      makeButton('Revert', () => this.revert(), 'Drop this browser\'s saved version and restore the shipped level'),
+      makeButton('New', () => this.askNewLevel(true), 'Start a blank level in this slot'),
+    );
+    this.newConfirmRow = row(
+      makeButton('Blank it', () => this.newLevel()),
+      makeButton('Cancel', () => this.askNewLevel(false)),
+    );
+    this.newConfirmRow.classList.add('hidden');
     this.panelEl.appendChild(group(
       'FILE',
       row(makeButton('Save', () => this.save()), makeButton('Export', () => this.exportJSON())),
       row(makeButton('Import', () => this.importFileInput.click()),
         makeButton('Clear all', () => this.clearAll()), this.importFileInput),
-      row(makeButton('Revert', () => this.revert(), 'Drop this browser\'s saved version and restore the shipped level')),
+      this.newRow,
+      this.newConfirmRow,
     ));
 
     // The two ways out of the editor, kept apart from everything that
@@ -385,6 +427,34 @@ export class Editor {
       const powerup = POWERUP_TYPE_KEYS.includes(b.powerup) ? b.powerup : null;
       this.setBall(snapped, b.shape, b.size, vx, vy, powerup);
     }
+  }
+
+  // Swaps the Revert/New row for the "are you sure" and back (see the
+  // FILE group). One row is always showing, so the panel never changes
+  // height over it.
+  askNewLevel(asking) {
+    this.newRow?.classList.toggle('hidden', asking);
+    this.newConfirmRow?.classList.toggle('hidden', !asking);
+  }
+
+  // A level from NOTHING, in the slot this session has open.
+  //
+  // Not the same thing as Clear all, which empties the field but leaves
+  // everything the level IS -- its name, its time limit, its background
+  // and its weapon all still come from whatever was opened, so what you
+  // are left with is that level with its contents removed. This is a
+  // blank level instead, which is what the editor needs to AUTHOR one
+  // rather than only edit one.
+  //
+  // Nothing is written by it. Save puts it in this slot and the game
+  // plays it from then on; Export downloads it as the level file for
+  // putting into the project; and Revert -- which reads the shipped file,
+  // not this -- is still the way back to what shipped.
+  newLevel() {
+    this.askNewLevel(false);
+    this.clearAll();
+    this.loadDef(blankLevelDef(this.levelNumber));
+    this.showStatusMessage(`NEW LEVEL ${this.levelNumber} - EMPTY`);
   }
 
   clearAll() {

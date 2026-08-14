@@ -218,6 +218,61 @@ test('erasing progress takes the scores and leaves the settings', async () => {
   assert.equal(drainErrors(), '');
 });
 
+test('the editor can start a level from nothing', async () => {
+  // New has to leave nothing of what was open -- not just the placed
+  // things (Clear all already does that) but the level's name, time,
+  // background and weapon, which is the whole difference between the two.
+  // And it must ask first, because it discards more than any other button
+  // in that panel.
+  const click = (label) => game.page.evaluate((text) => {
+    const button = [...document.querySelectorAll('#editor-panel button')]
+      .find((b) => b.textContent === text && b.offsetParent !== null);
+    if (!button) return false;
+    button.click();
+    return true;
+  }, label);
+  const level = () => game.scene((s) => ({
+    balls: s.editor.balls.size,
+    blocks: s.editor.blocks.size,
+    weapon: s.editor.weapon,
+    time: s.editor.timeInput.value,
+    name: s.editor.sourceDef?.name,
+  }));
+  // The panel is a fixed band across the HUD strip, so the question has
+  // to fit in the height the panel already has.
+  const panelHeight = () => game.page.evaluate(() => document.getElementById('editor-panel').scrollHeight);
+
+  await game.scene((s) => s.editLevel(11)); // level 12, which has content
+  await game.frames(6);
+  const before = await level();
+  assert.ok(before.blocks > 0 && before.balls > 0, 'this test needs a level with something in it');
+  const restingHeight = await panelHeight();
+
+  assert.ok(await click('New'), 'no New button in the editor');
+  await game.frames(2);
+  assert.equal(await panelHeight(), restingHeight, 'asking must not push the panel out of its band');
+  assert.ok(await click('Cancel'));
+  await game.frames(2);
+  assert.deepEqual(await level(), before, 'cancelling changed the level');
+
+  await click('New');
+  assert.ok(await click('Blank it'));
+  await game.frames(2);
+  assert.deepEqual(await level(), {
+    balls: 0, blocks: 0, weapon: 'harpoon', time: '60', name: 'Level 12',
+  }, 'New must leave nothing of the level that was open');
+
+  const def = await game.scene((s) => s.editor.buildDef());
+  assert.deepEqual(def.obstacles, []);
+  assert.deepEqual(def.balls, []);
+  assert.equal(def.id, 12, 'a blank level still belongs to the slot it was started in');
+  assert.equal(def.playerStart, undefined, 'a blank level has no start placed yet');
+
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
 test('pausing and leaving stops the run without breaking it', async () => {
   // Its own run, like every test above: leaning on whatever the previous
   // one happened to leave behind is how a suite starts failing for
