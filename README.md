@@ -183,14 +183,34 @@ node --test tests/*.test.mjs
 
 No install step and no test framework -- Node's own runner against the
 project's own files, since the game has no dependencies and neither does
-its test suite. It checks the things that can be answered without running
-the game: every level file (grid alignment, no two obstacles in one cell,
-everything it names existing), every asset the boot sequence asks for,
-every sound played by name, and the pure rules the rest is built on (the
-playfield geometry, the key bindings, the transition registry). See
-[`tests/README.md`](tests/README.md) for what each file covers and what is
-deliberately left to a real browser instead. `.github/workflows/tests.yml`
-runs the same line on every push.
+this half of its test suite. It checks the things that can be answered
+without running the game: every level file (grid alignment, no two
+obstacles in one cell, everything it names existing), every asset the
+boot sequence asks for, every sound played by name, and the pure rules
+the rest is built on (the playfield geometry, the key bindings, the
+transition registry).
+
+And the other half, which runs the game for real:
+
+```bash
+npm install                          # Playwright, the project's only dependency
+node --test tests/smoke/*.test.mjs
+```
+
+That one opens the game in Chromium and presses on it: it boots, loads
+and runs **every** level it ships, walks and shoots with real key events,
+loses a life, clears a level into the next, pauses and quits -- failing
+on anything the game throws or logs along the way. It takes about 35
+seconds against a fifth of one, which is why it is a separate command and
+a separate CI job.
+
+The split is not tidiness, it is what each half can see. Set
+`PLAYER_CONFIG.speed` to 0 and every test in the first half still passes;
+the smoke suite fails with `player barely moved: 400 -> 400`. Every bug
+that has actually reached a player was of that kind. See
+[`tests/README.md`](tests/README.md) for what each file covers and which
+half a new test belongs in. `.github/workflows/tests.yml` runs both on
+every push.
 
 ## Controls
 

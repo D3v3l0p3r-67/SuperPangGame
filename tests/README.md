@@ -24,12 +24,36 @@ level in the editor and saving it back move them), three levels with two
 obstacles in the same cell, a level pointing at a background with no
 file, and up being bound to both climbing and shooting.
 
-## What is deliberately not here
+## The other half: the smoke tests
 
-Anything that needs a browser: rendering, physics, input, the editor's
-own behaviour. Those are checked by driving the real game in Chromium
-(Playwright), which is a truer test of them than a headless stand-in
-would be -- and a slower one, which is why the split exists.
+```
+npm install && node --test tests/smoke/*.test.mjs
+```
+
+Everything above answers its question without running the game. `smoke/`
+does the opposite: it opens the real game in a real browser (Playwright)
+and presses on it. That is slower -- about 35 seconds against a fifth of
+one -- which is exactly why the two are separate commands and separate CI
+jobs. It is also the only part of this project with a dependency; the
+game has none, and `node --test tests/*.test.mjs` still has none either.
+
+| file | what it does |
+|---|---|
+| `smoke.test.mjs` | boots the game; loads and runs **every** level it ships; walks, shoots and pops with real key events; loses a life and watches the ghost leave and the level restart; clears a level and lands on the next; pauses, resumes and quits |
+| `game.mjs` | opens the game past its loading screen and hands back the page, a reader into the live scene, a frame stepper, and everything it threw or logged as an error |
+| `server.mjs` | thirty lines of `node:http` serving the repo, so running the tests is one command instead of two |
+
+The split is not tidiness, it is what each kind can see. Set
+`PLAYER_CONFIG.speed` to 0 and all the tests above still pass -- a player
+who cannot move is not a fact about any JSON file. The smoke suite fails
+with `player barely moved: 400 -> 400`.
+
+Every bug that has actually reached a player was of that kind: a
+spritesheet served from a cache that never expired, a ladder with 32px of
+headroom for a 50px player, a countdown that opened over a level still
+sliding off the screen. So the rule for a new test is which half can see
+it -- if it is answerable from the files, it belongs above, because it
+will run in a fifth of a second forever.
 
 ## Adding a test
 

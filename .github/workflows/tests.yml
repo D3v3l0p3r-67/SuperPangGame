@@ -24,3 +24,30 @@ jobs:
 
       - name: Run the data and rule tests
         run: node --test tests/*.test.mjs
+
+  # The other half, and the slower one: the real game in a real browser
+  # (see tests/smoke/). Its own job so a broken level file still reports
+  # in seconds from the job above rather than waiting on a browser
+  # download -- and so it is obvious which kind of thing broke.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The one place this project installs anything. Playwright is a dev
+      # dependency of the tests, never of the game -- nothing under js/ or
+      # in index.html loads a line of it.
+      - name: Install Playwright
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the smoke tests
+        run: node --test tests/smoke/*.test.mjs

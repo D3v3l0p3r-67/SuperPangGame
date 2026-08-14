@@ -1,0 +1,14 @@
+{
+  "name": "balloon-buster",
+  "private": true,
+  "type": "module",
+  "description": "Build tooling and tests only -- the game itself has no dependencies and no build step. Nothing here is loaded by the browser: index.html loads js/ directly, and js/vendor/phaser.min.js is committed rather than installed.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:smoke": "node --test tests/smoke/*.test.mjs",
+    "precache": "node tools/build_precache.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
