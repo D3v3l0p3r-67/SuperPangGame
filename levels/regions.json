@@ -5,8 +5,8 @@
     "background": "europe",
     "music": "music_europe",
     "map": {
-      "x": 228,
-      "y": 45
+      "x": 211,
+      "y": 65
     }
   },
   {
@@ -15,8 +15,8 @@
     "background": "africa",
     "music": "music_africa",
     "map": {
-      "x": 220,
-      "y": 109
+      "x": 222,
+      "y": 117
     }
   },
   {
@@ -25,8 +25,8 @@
     "background": "middle_east",
     "music": "music_middle_east",
     "map": {
-      "x": 244,
-      "y": 69
+      "x": 250,
+      "y": 91
     }
   },
   {
@@ -35,8 +35,8 @@
     "background": "india",
     "music": "music_india",
     "map": {
-      "x": 284,
-      "y": 77
+      "x": 287,
+      "y": 96
     }
   },
   {
@@ -45,8 +45,8 @@
     "background": "asia",
     "music": "music_asia",
     "map": {
-      "x": 348,
-      "y": 61
+      "x": 317,
+      "y": 79
     }
   },
   {
@@ -55,8 +55,8 @@
     "background": "oceania",
     "music": "music_oceania",
     "map": {
-      "x": 332,
-      "y": 125
+      "x": 349,
+      "y": 148
     }
   },
   {
@@ -65,8 +65,8 @@
     "background": "pacific",
     "music": "music_pacific",
     "map": {
-      "x": 44,
-      "y": 133
+      "x": 33,
+      "y": 129
     }
   },
   {
@@ -75,8 +75,8 @@
     "background": "south_america",
     "music": "music_south_america",
     "map": {
-      "x": 84,
-      "y": 133
+      "x": 136,
+      "y": 134
     }
   },
   {
@@ -85,8 +85,8 @@
     "background": "america",
     "music": "music_america",
     "map": {
-      "x": 68,
-      "y": 53
+      "x": 91,
+      "y": 76
     }
   },
   {
@@ -95,8 +95,8 @@
     "background": "arctic",
     "music": "music_arctic",
     "map": {
-      "x": 148,
-      "y": 29
+      "x": 158,
+      "y": 38
     }
   }
 ]

@@ -49,6 +49,13 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
     return this.hitsLeft <= 0;
   }
 
+  // A bullet travels rather than climbing from a planted foot, so anything
+  // it reaches is in its way by definition. Answering the beam's question
+  // keeps GameScene's obstacle handler weapon-agnostic.
+  blockedBy() {
+    return true;
+  }
+
   // Where the dart's tip is -- the point an impact splash belongs at,
   // rather than the middle of the sprite.
   get tip() {

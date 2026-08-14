@@ -1,9 +1,9 @@
 {
   "id": 31,
   "name": "Stone Watchers",
-  "timeLimitSec": 55,
+  "timeLimitSec": 70,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "grapple",
   "obstacles": [
     {
       "type": "platform",
@@ -42,5 +42,9 @@
       "y": 320,
       "vx": -90
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 400,
+    "y": 400
+  }
 }

@@ -1,46 +1,10 @@
 import { VIRTUAL_W, GAME_STATES, COLORS, LEVEL_INTRO_SEC, LEVEL_INTRO_GO_SEC, LEVEL_INTRO_SET_SEC } from './constants.js';
-import * as assets from './assets.js';
 import { hexColor } from './colors.js';
+import { buildTextRow, buildDigitsRow, buildCenteredRow } from './introText.js';
+import { bestLevelTime, formatLevelTime } from './storage.js';
 
-const ACCENT = hexColor(COLORS.accent);
-const CHAR_ADVANCE = assets.INTRO_FONT_FRAME.frameWidth + 1; // 1px gap between glyphs, pre-scale
+const TEXT = hexColor(COLORS.text);
 const READY_BLINK_MS = 250;
-
-// Composes `text` into a row of Images from the intro font spritesheet
-// (monospaced, unknown characters fall back to a blank space frame),
-// starting at local (x, y) scaled up by `scale` -- returns the images and
-// the row's total pixel width so the caller can center it afterwards.
-function buildTextRow(scene, container, text, x, y, scale) {
-  const advance = CHAR_ADVANCE * scale;
-  const images = [];
-  let cx = x;
-  for (const ch of text.toUpperCase()) {
-    const idx = assets.INTRO_FONT_CHARS.indexOf(ch);
-    const img = scene.add.image(cx, y, assets.INTRO_FONT_KEY, idx === -1 ? 0 : idx)
-      .setOrigin(0, 0).setScale(scale).setTint(ACCENT);
-    container.add(img);
-    images.push(img);
-    cx += advance;
-  }
-  const width = text.length === 0 ? 0 : (text.length - 1) * advance + assets.INTRO_FONT_FRAME.frameWidth * scale;
-  return { images, width };
-}
-
-// Composes `value` as a row of the HUD's large digit strip (native size,
-// no scaling -- its 18px frame height already matches the "LEVEL" text
-// row at font scale 3, see ensureBuilt), same left-to-right + width
-// pattern as buildTextRow above.
-function buildDigitsRow(scene, container, value, x, y) {
-  const str = String(value);
-  const fw = assets.HUD_DIGITS_LARGE_FRAME.frameWidth;
-  const images = [];
-  for (let i = 0; i < str.length; i++) {
-    const img = scene.add.image(x + i * fw, y, assets.HUD_DIGITS_LARGE_KEY, Number(str[i])).setOrigin(0, 0).setTint(ACCENT);
-    container.add(img);
-    images.push(img);
-  }
-  return { images, width: str.length * fw };
-}
 
 // The graphic level-intro overlay: "LEVEL <n>", the level's name, then a
 // three-beat countdown -- blinking "READY", then blinking "SET", then a
@@ -68,7 +32,11 @@ export class LevelIntro {
     const g = this.scene;
     const levelNum = g.levelIndex + 1;
     const name = g.currentLevelDef?.name ?? '';
-    const key = `${levelNum}:${name}`;
+    // The record only exists for a campaign level -- an editor playtest and
+    // Panic Mode are not levels anything is kept for (see storage's
+    // saveLevelTime / GameScene.levelClear).
+    const best = g.isCustomLevel || g.isPanicMode ? null : bestLevelTime(g.levelIndex);
+    const key = `${levelNum}:${name}:${best ?? ''}`;
     if (this.builtFor === key) return;
     this.builtFor = key;
 
@@ -93,6 +61,16 @@ export class LevelIntro {
     const nameX = centerX - nameRow.width / 2;
     for (const img of nameRow.images) img.x += nameX;
     this.rowImages.push(...nameRow.images);
+
+    // The level's record, so the target is on screen before the level
+    // starts rather than only after it ends. Drawn in the plain text color
+    // (the rows above it are the accent) so the card still reads title
+    // first, and left out entirely on a level with no record yet -- an
+    // empty "BEST --:--" would be a row of nothing to aim at.
+    if (best !== null) {
+      const bestRow = buildCenteredRow(g, this.container, `BEST ${formatLevelTime(best)}`, 160, 2, TEXT);
+      this.rowImages.push(...bestRow.images);
+    }
 
     // All three countdown words share the same row -- only one is ever
     // visible at a time (see render()), each centred on its own width.

@@ -3,7 +3,7 @@
   "name": "Moai Line",
   "timeLimitSec": 95,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "machinegun",
   "obstacles": [
     {
       "type": "platform",
@@ -63,5 +63,9 @@
       "y": 160,
       "vx": 120
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 672,
+    "y": 400
+  }
 }

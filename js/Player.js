@@ -22,6 +22,25 @@ const STEP_EPSILON = 1;
 // on it, and an exact comparison would never see the climb arrive.
 const LADDER_EPSILON = 1;
 
+// A rise smaller than this is not the player stepping up onto anything --
+// it is the feet re-seating after a drop settled a fraction of a pixel
+// past the surface it landed on (see followGround's velocity-driven
+// descent). It is placed in silence: treated as a step, every single
+// stair tread walked DOWN would also play a step-up behind it.
+const SETTLE_PX = 2;
+
+// Which sound each movement one-shot plays (see playMoveAnim, and
+// assets/audio/audio.json for the sounds themselves). Named here rather
+// than played at each call site so the animation and its sound can never
+// drift apart: whatever plays the animation plays the sound.
+const MOVE_SOUNDS = {
+  stepup: 'playerstepup',
+  stepdown: 'playerstepdown',
+  // Stepping off the top of a ladder is a step up onto the surface, and
+  // sounds like one.
+  ladderoff: 'playerstepup',
+};
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene) {
     const x = VIRTUAL_W / 2;
@@ -57,19 +76,39 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // The ladder currently being climbed, or null when on foot. See
     // updateOnLadder() for what changes while it is set.
     this.ladder = null;
-    // Whether this frame's up/down input went into a ladder rather than
-    // being free for anything else. GameScene reads it to decide whether an
-    // Up press meant "shoot" or "climb" -- they share the key.
-    this.usedVerticalInput = false;
     // While set ('shot', 'victory', or 'dead'), update() leaves the
     // current one-shot animation alone instead of overriding it with
     // idle/move every frame; cleared automatically when that animation
     // finishes.
     this.oneShotAnim = null;
-    this.on('animationcomplete-player-shot', () => { this.oneShotAnim = null; });
+    for (const key of ['shot', 'ladderoff', 'stepup', 'stepdown']) {
+      this.on(`animationcomplete-player-${key}`, () => { this.oneShotAnim = null; });
+    }
     this.on('animationcomplete-player-victory', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-dead', () => { this.oneShotAnim = null; });
     this.on('animationcomplete-player-levelclear', () => { this.oneShotAnim = null; });
+    // A rung per climb cycle. Driven by the animation's own loop rather
+    // than by a timer of its own, so the sound is locked to the legs
+    // whatever the animation's frame rate is -- and it stops on its own
+    // when the climb does, because update() pauses the animation the
+    // moment the player stops moving on the ladder.
+    //
+    // Filtered by key rather than listened for as 'animationrepeat-player
+    // -climb': Phaser only emits the key-suffixed variant of an animation
+    // event when its emitter is given one to emit (see AnimationState's
+    // emitEvents), and the repeat event is raised without it -- unlike
+    // 'animationcomplete', whose suffixed form the handlers above rely on.
+    this.on('animationrepeat', (anim) => {
+      if (anim.key === 'player-climb') this.scene.audio.play('playerclimb');
+    });
+    // Whether the feet are currently on their way DOWN to a lower surface,
+    // and whether that drop is a step rather than a fall. Both are decided
+    // at the moment a drop starts and hold for the whole of it -- the
+    // frames after the first are the same drop still finishing, and it is
+    // the KIND of drop that decides what happens when it ends (a step
+    // taps, a fall lands in a cloud of dust -- see followGround).
+    this.dropping = false;
+    this.steppingDown = false;
 
     // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
     // instead of a drawn outline -- see update()/reset() for how it
@@ -87,17 +126,25 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return this.invulnTimer > 0;
   }
 
-  reset() {
-    const x = VIRTUAL_W / 2;
-    const y = GROUND_Y - PLAYER_CONFIG.spriteHeight / 2;
-    this.setPosition(x, y);
-    this.body.reset(x, y);
+  // `spawn` is where the feet go: { x: centre line, y: the surface they
+  // stand on }. It always comes from the level being loaded (see
+  // LevelManager's playerSpawn, which supplies the default for a level
+  // that doesn't name one) -- the player never picks its own start.
+  //
+  // placeFeet, not body.reset(): reset() puts the body on the sprite's
+  // top-left and ignores the body's own offset, which would leave the feet
+  // a hitbox's worth of sprite above the surface. The first frame of play
+  // would then be a fall down to it -- with the landing dust to match (see
+  // followGround).
+  reset(spawn) {
+    this.placeFeet(spawn.x, spawn.y);
     this.body.setVelocity(0, 0);
+    this.dropping = false;
+    this.steppingDown = false;
     this.speedMultiplier = 1;
     this.shielded = false;
     this.invulnTimer = 0;
     this.ladder = null;
-    this.usedVerticalInput = false;
     this.setAlpha(1);
     this.facing = 1;
     this.setFlipX(this.facing > 0);
@@ -108,7 +155,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // without this a shield still active right as a level ends would sit
     // frozen at its old position/visible through the next level's intro
     // instead of following the player's fresh spawn point.
-    this.shieldEffect.setPosition(x, y);
+    this.shieldEffect.setPosition(this.x, this.y);
     this.shieldEffect.setVisible(false);
   }
 
@@ -117,6 +164,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   playShotAnim() {
     this.oneShotAnim = 'shot';
     this.play('player-shot', true);
+  }
+
+  // The one-shots the player's own movement plays: stepping up onto a
+  // block, stepping down off one, and stepping off the top of a ladder.
+  // Each holds the animation until it finishes, same as the shot does,
+  // and each has a sound of its own (see MOVE_SOUNDS) -- the ladder exit
+  // borrows the step-up's, because that is the motion it is.
+  playMoveAnim(name) {
+    this.oneShotAnim = name;
+    this.play(`player-${name}`, true);
+    const sound = MOVE_SOUNDS[name];
+    if (sound) this.scene.audio.play(sound);
   }
 
   // Plays once, same as playShotAnim -- see GameScene.onPlayerHitBall.
@@ -261,23 +320,72 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // physicsStepSec.
   //
   // Down stays a velocity, because a drop should read as a fall rather
-  // than a teleport; it is capped both by the fall speed and by what
-  // covers the remaining distance in ONE physics step, so it settles onto
-  // the surface instead of shooting past it and being pulled back.
+  // than a teleport -- but only until the surface is within reach, at
+  // which point the feet are placed on it exactly. Aiming a velocity at
+  // the last few pixels does not land on them: Arcade advances in fixed
+  // steps and may run TWO of them in one frame, so a speed sized to cover
+  // the remainder in one overshoots by a whole step's worth (7px at this
+  // fall speed) and the next frame yanks the player back up out of the
+  // floor they just landed on.
   followGround(dt) {
     if (dt <= 0) return;
-    const dy = this.supportSurface() - this.feetY;
+    const surface = this.supportSurface();
+    const dy = surface - this.feetY;
     if (Math.abs(dy) < 0.5) {
       this.body.setVelocityY(0);
+      this.endDrop(surface);
       return;
     }
     if (dy < 0) {
+      // Up onto a block. Never more than one (supportSurface only offers a
+      // surface within a step), so a rise of any real size is the step-up
+      // -- and one of less than SETTLE_PX is a landing settling, which
+      // gets the placement without the animation or its sound.
       this.setFeet(this.feetY + dy);
       this.body.setVelocityY(0);
+      this.dropping = false;
+      if (-dy >= SETTLE_PX) this.playMoveAnim('stepup');
       return;
     }
+    // Down. What KIND of drop this is, is decided once, at its start: one
+    // block's worth or less is a step down, anything taller is a fall.
+    // (The frames after the first are the same drop still finishing, and
+    // must not re-decide it -- a fall passes through "one block left to
+    // go" on its way, which would turn every fall into a step.)
+    if (!this.dropping) {
+      this.dropping = true;
+      this.steppingDown = dy <= PLAYER_STEP_UP_PX + STEP_EPSILON;
+      if (this.steppingDown) this.playMoveAnim('stepdown');
+    }
     const step = this.physicsStepSec || dt;
-    this.body.setVelocityY(Math.min(dy / step, this.dropSpeed));
+    // The last leg: near enough that this frame ends the drop, so the feet
+    // go exactly on the surface rather than being aimed at it (see above).
+    if (dy <= this.dropSpeed * step) {
+      this.setFeet(surface);
+      this.body.setVelocityY(0);
+      this.endDrop(surface);
+      return;
+    }
+    // Full fall speed, except over the last stretch, where it is sized so
+    // that even TWO physics steps in one frame cannot carry the feet past
+    // the surface -- the frame after that finishes the drop exactly, in
+    // the branch above. Only the final ~15px are affected, which reads as
+    // the fall settling rather than as a slower fall.
+    this.body.setVelocityY(Math.min(dy / (2 * step), this.dropSpeed));
+  }
+
+  // Ends a drop where the feet now are. Arriving at the end of a FALL is a
+  // landing: dust at the feet that landed, with the thud that goes with it
+  // (see GameScene.playLandingDust). A step down is not a fall -- it has
+  // its own animation and its own small sound, and adding a landing to it
+  // doubles both for every single stair tread. The x comes off the BODY:
+  // the sprite trails it by a frame, so the puff would otherwise appear a
+  // step behind the player. A climb never reaches here at all (update()
+  // returns in the ladder branch before followGround), so a ladder raises
+  // no dust -- and stepping off one raises none either.
+  endDrop(surface) {
+    if (this.dropping && !this.steppingDown) this.scene.playLandingDust(this.body.center.x, surface);
+    this.dropping = false;
   }
 
   // The ladder a press of `dir` (-1 up, 1 down) would put the player on,
@@ -340,11 +448,32 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (dir > 0 && this.feetY >= l.bottom - LADDER_EPSILON) {
       const next = this.ladderFor(dir);
       if (next) this.ladder = next;
-      else this.dismountLadder();
+      else {
+        // Same exactness as the top exit below, for the same reason: when
+        // there IS a surface right at the ladder's foot, the feet go ON it
+        // rather than a fraction above it, or followGround reads the
+        // remainder as a drop and climbing down raises landing dust. A
+        // ladder ending in mid-air has no such surface, and the player
+        // falls off the bottom of it exactly as they would off a ledge.
+        const surface = this.supportSurface(l.bottom);
+        if (Math.abs(surface - l.bottom) < LADDER_EPSILON) this.placeFeet(l.centerX, surface);
+        this.dismountLadder();
+      }
     } else if (dir < 0 && this.feetY <= l.top + LADDER_EPSILON) {
       const next = this.ladderFor(dir);
       if (next) this.ladder = next;
-      else if (Math.abs(this.supportSurface(l.top) - l.top) < 0.5) this.dismountLadder();
+      else if (Math.abs(this.supportSurface(l.top) - l.top) < 0.5) {
+        // Put the feet ON the surface being stepped onto, not merely
+        // within LADDER_EPSILON of it: left a fraction off, followGround
+        // reads the remainder as a step and plays a step-down (then a
+        // step-up correcting it) right over the top of the ladder-exit.
+        this.placeFeet(l.centerX, l.top);
+        // Off the TOP of a ladder and onto the ground: the one place the
+        // player steps off rather than simply standing off it, so the one
+        // place this plays. Coming off the bottom is just standing.
+        this.playMoveAnim('ladderoff');
+        this.dismountLadder();
+      }
       else {
         // Nothing to step off onto up here -- hold at the top instead.
         this.placeFeet(l.centerX, l.top);
@@ -366,18 +495,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(dt, inputState) {
-    // Up and down are the climb controls; up doubles as the shoot key, so
-    // this flag reports back which of the two this frame's press was spent
-    // on (see GameScene.updatePlaying).
-    this.usedVerticalInput = false;
-
     if (!this.ladder) {
       const mountDir = inputState.upPressed ? -1 : (inputState.downPressed ? 1 : 0);
       if (mountDir !== 0) this.ladder = this.ladderFor(mountDir);
     }
 
     if (this.ladder) {
-      this.usedVerticalInput = true;
       const dir = (inputState.down ? 1 : 0) - (inputState.up ? 1 : 0);
       this.isMoving = dir !== 0;
       // Physics has already stepped by the time this runs, so the feet are
@@ -385,7 +508,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.updateOnLadder(dir);
 
       this.updateInvulnerability(dt);
-      if (!this.oneShotAnim) this.play(this.isMoving ? 'player-move' : 'player-idle', true);
+      // Frozen on the climb, not dropped back to the standing idle: the
+      // player who stops partway up a ladder is still holding onto it.
+      if (!this.oneShotAnim) {
+        if (this.anims.getName() !== 'player-climb') this.play('player-climb', true);
+        if (this.isMoving && this.anims.isPaused) this.anims.resume();
+        else if (!this.isMoving && !this.anims.isPaused) this.anims.pause();
+      }
       this.setFlipX(this.facing > 0);
       this.shieldEffect.setPosition(this.x, this.y);
       this.shieldEffect.setVisible(this.shielded);
@@ -403,6 +532,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.updateInvulnerability(dt);
 
     if (!this.oneShotAnim) {
+      // Coming off a ladder or a step leaves the animation paused (see the
+      // climb branch above), which would freeze the walk on one frame.
+      if (this.anims.isPaused) this.anims.resume();
       this.play(this.isMoving ? 'player-move' : 'player-idle', true);
     }
     // Frames are authored facing left (see the class comment above), so

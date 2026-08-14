@@ -1,6 +1,5 @@
 import { GAME_CONFIG } from './GameConfig.js';
-import { applyZoom, getZoom, fittedZoom } from './DisplayZoom.js';
-import { isMobileDevice } from './input.js';
+import { applyZoom, activeZoom, watchViewport } from './DisplayZoom.js';
 
 // Phaser owns the loop, canvas, and renderer entirely from here on --
 // there is no manual requestAnimationFrame code left in this project.
@@ -12,18 +11,12 @@ window.game = new Phaser.Game(GAME_CONFIG);
 // the window (see DisplayZoom.js). #game-container is sized to match
 // exactly, so #ui-layer's CSS `inset: 0` always lines up with the canvas
 // with no letterboxing gap to correct for.
-// On a phone the stored zoom preference is ignored in favour of whatever
-// actually fits the screen (see fittedZoom) -- at 1x the canvas is taller
-// than a typical landscape phone viewport, and since the touch controls
-// are anchored to the canvas they'd be pushed off-screen with it. Re-run
-// on rotation and on entering/leaving fullscreen, both of which change the
-// viewport the fit was computed against.
-const applyDisplayZoom = () => applyZoom(isMobileDevice() ? fittedZoom() : getZoom());
-
+// activeZoom rather than the stored preference: a window too small for
+// the chosen size (a phone in landscape, typically) is fitted to instead,
+// so no part of the playfield -- or of the touch controls anchored to it
+// -- can end up off the screen. watchViewport keeps a fitted canvas
+// fitted through rotation, resize and fullscreen.
 window.game.events.once(Phaser.Core.Events.READY, () => {
-  applyDisplayZoom();
-  if (!isMobileDevice()) return;
-  window.addEventListener('resize', applyDisplayZoom);
-  window.addEventListener('orientationchange', applyDisplayZoom);
-  document.addEventListener('fullscreenchange', applyDisplayZoom);
+  applyZoom(activeZoom());
+  watchViewport();
 });

@@ -1,9 +1,9 @@
 {
   "id": 25,
   "name": "Shrine Peak",
-  "timeLimitSec": 70,
+  "timeLimitSec": 90,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "grapple",
   "obstacles": [
     {
       "type": "platform",
@@ -54,7 +54,8 @@
       "size": 5,
       "x": 400,
       "y": 352,
-      "vx": 75
+      "vx": 75,
+      "powerup": "time_freeze"
     },
     {
       "shape": "hex",
@@ -77,5 +78,9 @@
       "y": 96,
       "vx": 120
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 48,
+    "y": 400
+  }
 }

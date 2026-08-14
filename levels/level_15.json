@@ -1,9 +1,9 @@
 {
   "id": 15,
   "name": "Palace of Sand",
-  "timeLimitSec": 70,
+  "timeLimitSec": 90,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "grapple",
   "obstacles": [
     {
       "type": "platform",
@@ -89,7 +89,8 @@
       "size": 5,
       "x": 400,
       "y": 288,
-      "vx": 75
+      "vx": 75,
+      "powerup": "rapid_shot"
     },
     {
       "shape": "hex",
@@ -105,5 +106,9 @@
       "y": 216,
       "vx": -105
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 144,
+    "y": 400
+  }
 }

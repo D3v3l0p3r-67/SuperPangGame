@@ -2,7 +2,7 @@ import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POW
 import { AUDIO_CONFIG } from './audio.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
-import { REGIONS } from './regions.js';
+import { daylightBackgroundNames } from './regions.js';
 import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
 import { hexColor } from './colors.js';
 import {
@@ -11,6 +11,8 @@ import {
   PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
   PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, PLAYER_HIT_FRAMES, PLAYER_HIT_SIZE, PLAYER_HIT_ANIM_KEY,
+  PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, PLAYER_DUST_FRAMES,
+  PLAYER_DUST_SIZE, PLAYER_DUST_HEIGHT, PLAYER_DUST_ANIM_KEY,
   BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
@@ -82,6 +84,7 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME);
     this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
     this.load.spritesheet(PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, { frameWidth: PLAYER_HIT_SIZE, frameHeight: PLAYER_HIT_SIZE });
+    this.load.spritesheet(PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, { frameWidth: PLAYER_DUST_SIZE, frameHeight: PLAYER_DUST_HEIGHT });
     this.load.image(BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH);
     this.load.spritesheet(BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, { frameWidth: BULLET_HIT_SIZE, frameHeight: BULLET_HIT_SIZE });
     this.load.image(WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH);
@@ -106,11 +109,15 @@ export class BootScene extends Phaser.Scene {
 
     // DEFAULT_BACKGROUND is always loaded (the level editor's own starting
     // background, before any level-specific one is chosen), plus every
-    // distinct `background` a loaded level actually names.
+    // distinct `background` a loaded level actually names, plus every
+    // region's frame at each of its five times of day -- a campaign level
+    // picks one of those by where it falls in its region (see regions.js's
+    // daylightPhaseForLevel), so all five have to be loaded before the
+    // region's first level starts.
     const backgroundNames = new Set([
       DEFAULT_BACKGROUND,
       ...LEVELS.map((lvl) => lvl.background).filter(Boolean),
-      ...REGIONS.map((r) => r.background).filter(Boolean),
+      ...daylightBackgroundNames(),
     ]);
     for (const name of backgroundNames) {
       this.load.image(backgroundTextureKey(name), backgroundTexturePath(name));
@@ -228,6 +235,14 @@ export class BootScene extends Phaser.Scene {
       frameRate: 12,
       repeat: 0,
     });
+    // Slower than the impact bursts above on purpose: dust settles, it
+    // doesn't snap.
+    this.anims.create({
+      key: PLAYER_DUST_ANIM_KEY,
+      frames: this.anims.generateFrameNumbers(PLAYER_DUST_TEXTURE_KEY, { start: 0, end: PLAYER_DUST_FRAMES - 1 }),
+      frameRate: 9,
+      repeat: 0,
+    });
 
     // Hold the finished loading screen briefly before handing over. On a
     // fast (or cached) load the whole thing can complete in a few frames,
@@ -268,11 +283,17 @@ export class BootScene extends Phaser.Scene {
   // shot/victory/dead play once and Player.js switches back to idle/move
   // itself when they end (see Player.js's 'animationcomplete' handling).
   buildPlayerAnimations() {
-    const LOOPING = new Set(['idle', 'move']);
+    const LOOPING = new Set(['idle', 'move', 'climb']);
     // levelclear's rate is what makes its 6 frames (three idle/victory
     // alternations, see assets.js) last exactly the LEVEL_CLEAR_MIN_SEC that
     // GameScene holds the celebration for -- change one and change both.
-    const FRAME_RATE = { idle: 1, move: 8, shot: 14, victory: 1, dead: 1, levelclear: 3 };
+    // The step and ladder-exit states are brief on purpose: they cover a
+    // single 16px move, and anything slower reads as the player pausing to
+    // think about it rather than taking the step.
+    const FRAME_RATE = {
+      idle: 1, move: 8, shot: 14, victory: 1, dead: 1, levelclear: 3,
+      climb: 6, ladderoff: 8, stepup: 12, stepdown: 12,
+    };
     for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {
       this.anims.create({
         key: `player-${state}`,

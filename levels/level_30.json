@@ -75,7 +75,8 @@
       "size": 5,
       "x": 400,
       "y": 320,
-      "vx": 80
+      "vx": 80,
+      "powerup": "extra_life"
     },
     {
       "shape": "hex",
@@ -97,6 +98,27 @@
       "x": 392,
       "y": 104,
       "vx": 95
+    }
+  ],
+  "playerStart": {
+    "x": 88,
+    "y": 400
+  },
+  "ladders": [
+    {
+      "type": "ladder",
+      "x": 64,
+      "y": 304
+    },
+    {
+      "type": "ladder",
+      "x": 288,
+      "y": 208
+    },
+    {
+      "type": "ladder",
+      "x": 288,
+      "y": 304
     }
   ]
 }

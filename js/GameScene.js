@@ -11,23 +11,29 @@ import { Bullet } from './Bullet.js';
 import { Bonus } from './Bonus.js';
 import { refreshObstacleSeams } from './Obstacle.js';
 import { createWeaponState, EffectManager } from './weapons.js';
-import { loadLevel as loadLevelData, LEVELS, PANIC_LEVEL } from './LevelManager.js';
+import { loadLevel as loadLevelData, playerSpawn, DEFAULT_PLAYER_SPAWN, LEVELS, PANIC_LEVEL } from './LevelManager.js';
 import { AudioManager } from './audio.js';
 import { UI } from './ui.js';
 import { Hud } from './Hud.js';
 import { LevelIntro } from './LevelIntro.js';
+import { LevelClearCard } from './LevelClearCard.js';
 import { LevelTransition } from './LevelTransition.js';
 import { WorldMapInterlude } from './WorldMapInterlude.js';
-import { regionForLevel, regionIndexForLevel, crossesRegion } from './regions.js';
+import {
+  regionForLevel, regionIndexForLevel, crossesRegion,
+  daylightBackground, daylightPhaseForLevel,
+} from './regions.js';
 import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
+import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
 import * as storage from './storage.js';
 import {
   obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
+  PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
@@ -110,12 +116,28 @@ export class GameScene extends Phaser.Scene {
     this.introLeadInSec = 0; // see startLevelIntro/beginRun
     this.levelClearElapsed = 0;
     this.levelClearPhase = 'pause';
+    // How long the level just cleared took, and whether that beat its
+    // record -- what the cleared-level card shows (see LevelClearCard.js).
+    // null outside a clear, and on a clear with no record to keep.
+    this.clearTimeSec = null;
+    this.clearIsRecord = false;
     this.justSubmittedEntry = null;
     this.lastOutcome = null;
     this.isCustomLevel = false;
     this.customLevelDef = null;
     this.isPanicMode = false;
     this.pausedFromEditor = false;
+    // Which campaign level the LEVEL EDITOR has open (an index into
+    // LEVELS), and the unsaved buffer a playtest of it left behind --
+    // playtesting replaces everything in the scene, so this is what lets
+    // coming back from one carry on editing instead of re-reading the
+    // level and dropping every unsaved change. See editLevel/Editor.play.
+    this.editorLevelIndex = 0;
+    this.editorDraft = null;
+    // Which list the level-select screen is showing: 'play' (Start Level)
+    // or 'edit' (pick the level to open in the editor). Same screen and
+    // the same fifty levels -- see ui.js's renderLevelSelect.
+    this.levelSelectMode = 'play';
     this.panicWaveIndex = 0;
     this.panicPopCount = 0;
     this.weaponType = 'harpoon';
@@ -187,13 +209,27 @@ export class GameScene extends Phaser.Scene {
     // the way to the ground -- see onPowerupHitObstacle/Bonus.js.
     this.physics.add.collider(this.powerups, this.obstacles, this.onPowerupHitObstacle, null, this);
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.keys = this.input.keyboard.addKeys({ w: 'W', a: 'A', d: 'D', s: 'S', space: 'SPACE', p: 'P', esc: 'ESC' });
-    // Event-based rather than a per-frame JustDown() poll, so the toggle
-    // reacts the instant Phaser's input manager processes the keydown --
-    // not gated behind this scene's own render-frame cadence.
-    this.keys.p.on('down', () => this.handlePauseKey());
-    this.keys.esc.on('down', () => this.handlePauseKey());
+    // Keyboard comes from js/keys.js rather than Phaser's own plugin,
+    // because every game key is rebindable (see the CONTROLS screen) and
+    // a binding is the physical KeyboardEvent.code the player pressed.
+    initKeyboard();
+    // Event-based rather than a per-frame poll, so the toggle reacts the
+    // instant the browser reports the keydown -- not gated behind this
+    // scene's own render-frame cadence.
+    onPauseKey(() => this.handlePauseKey());
+    // Losing the window pauses a run, onto the same screen Escape opens.
+    // Both signals are needed, because they are different situations and
+    // Phaser handles them differently. HIDDEN (the tab switched away)
+    // already stops its game loop, so nothing simulates while you are
+    // gone -- but coming back would drop you straight into a live ball
+    // with no warning. BLUR (another window in front, the game still on
+    // screen) does NOT stop the loop: the level clock would go on running
+    // while nobody is playing, which is the one that actually costs you
+    // the level. Neither has a matching resume: coming back is a decision
+    // the player makes on the pause screen, not one focus makes for them.
+    for (const event of [Phaser.Core.Events.BLUR, Phaser.Core.Events.HIDDEN]) {
+      this.game.events.on(event, () => this.pauseFromFocusLoss());
+    }
     initTouchInput();
 
     this.buildBurstEmitters();
@@ -206,6 +242,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.setupMobileFullscreen();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
+    this.levelClearCard = new LevelClearCard(this);
     this.transition = new LevelTransition(this);
     this.worldMap = new WorldMapInterlude(this);
     this.debug = new Debug(this);
@@ -400,6 +437,15 @@ export class GameScene extends Phaser.Scene {
     this.beginRun(0, null, true);
   }
 
+  // Opens the editor on a campaign level, from the level list (see
+  // showLevelSelect('edit')). A fresh pick starts from that level as it
+  // stands, so any buffer left by a previous session's playtest goes.
+  editLevel(levelIndex) {
+    this.editorLevelIndex = levelIndex;
+    this.editorDraft = null;
+    this.enterEditor();
+  }
+
   enterEditor() {
     this.audio.stopMusic();
     this.clearEntities();
@@ -412,7 +458,7 @@ export class GameScene extends Phaser.Scene {
     this.pausedFromEditor = false;
     this.state = GAME_STATES.EDITOR;
     this.physics.pause();
-    this.editor.enable();
+    this.editor.enable(this.editorLevelIndex, this.editorDraft);
   }
 
   // Escape while editing opens the same pause menu gameplay uses (it did
@@ -429,9 +475,9 @@ export class GameScene extends Phaser.Scene {
 
   // Back to editing from the pause menu, by either route: resuming an
   // editor session Escape interrupted (the level is still in the scene, so
-  // just show the panel again), or leaving a playtest of an editor level
-  // (which replaced the scene's contents, so the editor has to reload the
-  // level it saved to storage on Play -- what enterEditor does).
+  // just show the panel again), or leaving a playtest (which replaced the
+  // scene's contents, so the editor reloads -- from the draft the playtest
+  // was started from, saved or not, see editorDraft).
   returnToEditor() {
     if (this.pausedFromEditor) {
       this.pausedFromEditor = false;
@@ -480,16 +526,20 @@ export class GameScene extends Phaser.Scene {
     const def = loadLevelData(this, idxOrDef);
     for (const popup of this.scorePopups) popup.destroy();
     this.scorePopups = [];
-    this.player.reset();
+    this.player.reset(playerSpawn(def) || DEFAULT_PLAYER_SPAWN);
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
     // A campaign level takes its look and its music from the continent
     // it is played on (see js/regions.js), not from its own file -- that's
-    // what makes five levels in a row feel like one place. Editor/custom
-    // levels and Panic Mode aren't on the itinerary and keep their own.
+    // what makes five levels in a row feel like one place. The look also
+    // moves through the day as the region is played: the same view of the
+    // same place, lit for the time of day this level falls at. Editor/
+    // custom levels and Panic Mode aren't on the itinerary and keep the
+    // background their own file names.
     const region = typeof idxOrDef === 'number' ? regionForLevel(idxOrDef) : null;
-    this.backgroundImage.setTexture(backgroundTextureKey(
-      region?.background || def.background || DEFAULT_BACKGROUND));
+    this.backgroundImage.setTexture(backgroundTextureKey(region?.background
+      ? daylightBackground(region.background, daylightPhaseForLevel(idxOrDef))
+      : (def.background || DEFAULT_BACKGROUND)));
     this.effects.reset(this);
     this.levelTimer = 0;
     // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
@@ -581,6 +631,13 @@ export class GameScene extends Phaser.Scene {
     this.levelClearPhase = this.timeBonusSecondsLeft > 0 ? 'tally' : 'pause';
     // Custom/editor levels aren't part of LEVELS and never unlock anything.
     if (!this.isCustomLevel) storage.markLevelCleared(this.levelIndex);
+    // The level's record: how long this attempt took. levelTimer restarts
+    // with the level (including after a life is lost, see loadLevel), so
+    // this is the run the player just made, not the sum of their tries --
+    // the same number the HUD's clock was showing.
+    this.clearTimeSec = this.isCustomLevel || this.isPanicMode ? null : this.levelTimer;
+    this.clearIsRecord = this.clearTimeSec !== null
+      && storage.saveLevelTime(this.levelIndex, this.clearTimeSec).isRecord;
     this.audio.stopMusic();
     this.audio.play('levelcomplete');
     // Celebrate standing still rather than coasting onward: physics keeps
@@ -706,7 +763,15 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.OPTIONS;
   }
 
-  showLevelSelect() {
+  // Rebinding the game's keys, on a screen of its own rather than in the
+  // options list: six actions with two keys each is a table, not a row of
+  // settings (see ui.js's renderKeyList).
+  showKeyConfig() {
+    this.state = GAME_STATES.KEY_CONFIG;
+  }
+
+  showLevelSelect(mode = 'play') {
+    this.levelSelectMode = mode;
     this.state = GAME_STATES.LEVEL_SELECT;
   }
 
@@ -746,6 +811,15 @@ export class GameScene extends Phaser.Scene {
   handlePauseKey() {
     if (this.state === GAME_STATES.EDITOR) this.pauseFromEditor();
     else if (this.state === GAME_STATES.PLAYING || this.state === GAME_STATES.PAUSED) this.togglePause();
+  }
+
+  // The window went away mid-run (see create). Only actual play is worth
+  // freezing: a menu and the editor have nothing running, an already-open
+  // pause screen is where this would put you anyway, and pausing the
+  // level intro would cut its countdown short (leaving the pause screen
+  // goes straight to PLAYING).
+  pauseFromFocusLoss() {
+    if (this.state === GAME_STATES.PLAYING) this.pause();
   }
 
   update(time, delta) {
@@ -803,6 +877,7 @@ export class GameScene extends Phaser.Scene {
     this.ui.render();
     this.hud.render();
     this.levelIntro.render();
+    this.levelClearCard.render();
     // Ticked outside the state switch, and last: the transition spans the
     // very change of state it wraps (LEVEL_CLEAR out, LEVEL_INTRO in), so
     // it can't belong to either case, and it has to paint over everything
@@ -816,13 +891,17 @@ export class GameScene extends Phaser.Scene {
   // once Player.update has said whether it had a ladder to spend it on.
   // `shoot` here is therefore only the keys that mean nothing else, so
   // that shooting still works with both hands on the ladder.
+  // The keyboard (whatever it is currently bound to, see keys.js) and the
+  // touch overlay (see input.js) folded into one set of booleans, so
+  // nothing downstream has to know which of the two a player is using.
   readInput() {
+    const keyboard = readKeyboard();
     return {
-      left: this.cursors.left.isDown || this.keys.a.isDown || touchInput.left,
-      right: this.cursors.right.isDown || this.keys.d.isDown || touchInput.right,
-      up: this.cursors.up.isDown || this.keys.w.isDown || touchInput.up,
-      down: this.cursors.down.isDown || this.keys.s.isDown || touchInput.down,
-      shoot: this.keys.space.isDown || touchInput.shoot,
+      left: keyboard.left || touchInput.left,
+      right: keyboard.right || touchInput.right,
+      up: keyboard.up || touchInput.up,
+      down: keyboard.down || touchInput.down,
+      shoot: keyboard.shoot || touchInput.shoot,
     };
   }
 
@@ -856,9 +935,9 @@ export class GameScene extends Phaser.Scene {
     if (this.isPanicMode) this.updatePanicSpawner();
 
     const inputState = this.readInput();
-    // Getting ON a ladder is a press, never a hold: up is also the shoot
-    // key, so without this the player would be grabbed by every ladder
-    // they shot past.
+    // Getting ON a ladder is a press, never a hold: holding up to climb
+    // one must not grab the next one the moment the player walks past its
+    // foot, and holding down on top of one must not re-mount it.
     inputState.upPressed = inputState.up && !this.wasUp;
     inputState.downPressed = inputState.down && !this.wasDown;
     this.wasUp = inputState.up;
@@ -871,14 +950,11 @@ export class GameScene extends Phaser.Scene {
     // only how many shots may be in the air at once (weaponState
     // .maxActiveShots, see tryFire) -- never how the trigger itself reads.
     //
-    // The two ways to fire keep SEPARATE edges, because up is also the
-    // climb key. Up fires on a fresh press the player had no ladder to
-    // spend it on (Player.update has already decided that by the time this
-    // runs) -- which is also why it can't just be OR-ed into one trigger:
-    // sharing an edge with space would swallow a space press made while up
-    // was still held, i.e. every shot fired from a ladder.
-    const upFired = inputState.upPressed && !this.player.usedVerticalInput;
-    if (upFired || (inputState.shoot && !this.wasShooting)) this.tryFire();
+    // One trigger, not two: up used to fire as well as climb, which meant
+    // the scene had to work out which of the two a press was meant for,
+    // and a ladder underfoot made shooting unreliable. Up climbs now (see
+    // keys.js's DEFAULT_BINDINGS).
+    if (inputState.shoot && !this.wasShooting) this.tryFire();
     this.wasShooting = inputState.shoot;
 
     // Last 3s of time_freeze: blink the (harmless, see onPlayerHitBall)
@@ -1050,13 +1126,16 @@ export class GameScene extends Phaser.Scene {
     }
     const activeCount = this.projectiles.countActive(true);
     if (activeCount >= this.weaponState.maxActiveShots) return;
-    // The beam's foot is planted on the ground (Projectile.js anchors it
-    // there itself); this is where its HEAD starts -- the muzzle, same
-    // height a shot has always appeared at.
+    // The beam spans the player: its foot is planted at their FEET (not
+    // at the ground line -- standing on a platform or holding a ladder,
+    // those are different heights, and anchoring to the ground would
+    // sprout the shot from the floor far below them), and its head starts
+    // at the muzzle, the same height above the feet a shot has always
+    // appeared at.
     const tipX = this.player.x;
     const tipY = this.player.y - PLAYER_CONFIG.spriteHeight / 2;
     const proj = new Projectile(
-      this, tipX, tipY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType,
+      this, tipX, tipY, this.player.feetY, base.width, base.shotSpeed, this.weaponState.pierce, this.weaponType,
       base.ceilingStickSec ?? 0, base.ceilingReleaseWarnSec ?? 0,
     );
     this.projectiles.add(proj);
@@ -1105,6 +1184,20 @@ export class GameScene extends Phaser.Scene {
     const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
     sprite.setDepth(6);
     sprite.play(BULLET_HIT_ANIM_KEY);
+    sprite.once('animationcomplete', () => sprite.destroy());
+  }
+
+  // The puff a landing kicks up, at the feet that landed (see
+  // Player.followGround), and the thud that goes with it -- one call, so
+  // the sound can't be triggered anywhere the dust isn't. Anchored by its
+  // BOTTOM edge so the cloud sits on the surface rather than straddling
+  // it, and drawn just under the player (depth 4) so they stand in it
+  // rather than behind it.
+  playLandingDust(x, feetY) {
+    this.audio.play('playerland');
+    const sprite = this.add.sprite(x, feetY, PLAYER_DUST_TEXTURE_KEY).setOrigin(0.5, 1);
+    sprite.setDepth(3.8);
+    sprite.play(PLAYER_DUST_ANIM_KEY);
     sprite.once('animationcomplete', () => sprite.destroy());
   }
 
@@ -1173,6 +1266,9 @@ export class GameScene extends Phaser.Scene {
     // An already-hanging beam keeps hold of what it caught -- it mustn't
     // spend itself, or chip away at anything, on a second contact.
     if (projGO.isAnchored) return;
+    // Nor on the surface the player is standing on: a beam climbs, so only
+    // what is above its foot is in its way (see Projectile.blockedBy).
+    if (!projGO.blockedBy(obstacleGO.body)) return;
     // A grapple catches under an indestructible block exactly as it does
     // under the ceiling: a block it can never shoot through is something
     // to hang from, not something to waste the shot on. Destructible

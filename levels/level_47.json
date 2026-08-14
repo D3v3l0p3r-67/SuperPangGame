@@ -3,7 +3,7 @@
   "name": "Frozen Sound",
   "timeLimitSec": 95,
   "background": "default",
-  "weapon": "harpoon",
+  "weapon": "machinegun",
   "obstacles": [
     {
       "type": "platform",
@@ -49,5 +49,9 @@
       "y": 320,
       "vx": -90
     }
-  ]
+  ],
+  "playerStart": {
+    "x": 304,
+    "y": 400
+  }
 }

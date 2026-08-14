@@ -57,7 +57,8 @@ export function ballPopAnimKey(shape, size) {
 // Player: a single spritesheet (one PNG, not one file per frame) of
 // PLAYER_CONFIG.spriteWidth x spriteHeight (32x64) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
-// dead -- see PLAYER_ANIM_FRAMES below for which index is which (see the
+// dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down -- see
+// PLAYER_ANIM_FRAMES below for which index is which (see the
 // README's "Swapping graphics" for the full frame reference). Every frame
 // is authored facing LEFT; Player.js mirrors it (setFlipX) for
 // right-facing instead of needing a separate left/right file.
@@ -73,6 +74,22 @@ export const PLAYER_ANIM_FRAMES = {
   move: [2, 3, 4, 5],
   victory: [6],
   dead: [7],
+  // Climbing a ladder: both hands stay on it (the weapon arm is already
+  // up, so the free one is too, changing rung), the legs alternate, and
+  // the body rises and falls with the effort. Loops while climbing and is
+  // held frozen when the player stops partway up -- they are still on the
+  // ladder, so the standing idle would be wrong (see Player.update).
+  climb: [8, 9],
+  // Stepping off the TOP of a ladder onto the ground: the weight comes
+  // down through a crouch and straightens back into idle. Only at the top
+  // -- at the bottom the player simply stands off it.
+  ladderoff: [10, 11],
+  // Walking up onto a block, and down off one (PLAYER_STEP_UP_PX): the
+  // leading knee comes up and the body follows it, or the leading foot
+  // reaches down and the body dips after it. Separate, because a step up
+  // and a step down do not look alike.
+  stepup: [12, 13],
+  stepdown: [14, 15],
   // Clearing a level: alternate idle/victory three times on the spot (see
   // GameScene.levelClear/Player.playLevelClearAnim). Six frames at the
   // rate BootScene gives this state is exactly the LEVEL_CLEAR_MIN_SEC the
@@ -103,6 +120,19 @@ export const PLAYER_HIT_TEXTURE_PATH = 'assets/player/hit.webp';
 export const PLAYER_HIT_FRAMES = 2;
 export const PLAYER_HIT_SIZE = 32;
 export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
+
+// The puff of dust a landing kicks up at the player's feet (see
+// Player.followGround / GameScene.playLandingDust). Same one-shot,
+// frames-stacked-vertically layout as the burst sheets above, but
+// DELIBERATELY not square -- PLAYER_DUST_SIZE is the frame's width and
+// PLAYER_DUST_HEIGHT its height, because dust spreads sideways along the
+// ground rather than billowing up.
+export const PLAYER_DUST_TEXTURE_KEY = 'player-dust';
+export const PLAYER_DUST_TEXTURE_PATH = 'assets/player/dust.webp';
+export const PLAYER_DUST_FRAMES = 2;
+export const PLAYER_DUST_SIZE = 32;
+export const PLAYER_DUST_HEIGHT = 16;
+export const PLAYER_DUST_ANIM_KEY = 'player-dust-puff';
 
 // Obstacles: one beveled-block wall tile per distinct tileTexture named by
 // an elements/obstacle-*.json (see elements.js's OBSTACLE_TYPES) -- tiled
@@ -227,6 +257,12 @@ export function powerupTexturePath(type) {
 // every level and the level editor start out pointing at (see
 // DEFAULT_BACKGROUND) -- add a new name here and reference it from a
 // level's `background` field for a level-specific look.
+//
+// A campaign level doesn't use its own: it gets its region's frame at the
+// time of day it falls at, "<region background>_<phase>" (see regions.js's
+// daylightBackground). Those five variants are generated from the region's
+// one authored night frame by tools/daylight_backgrounds.py rather than
+// drawn five times over, so a redrawn region is still one file to redraw.
 export const BACKGROUND_TEXTURE_DIR = 'assets/backgrounds/';
 export const DEFAULT_BACKGROUND = 'default';
 

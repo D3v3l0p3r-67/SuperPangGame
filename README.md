@@ -70,18 +70,53 @@ The game is plain HTML/CSS/JavaScript with no build step. Two ways to run it:
 
   then open `http://localhost:8000`.
 
+## Tests
+
+```bash
+node --test tests/*.test.mjs
+```
+
+No install step and no test framework -- Node's own runner against the
+project's own files, since the game has no dependencies and neither does
+its test suite. It checks the things that can be answered without running
+the game: every level file (grid alignment, no two obstacles in one cell,
+everything it names existing), every asset the boot sequence asks for,
+every sound played by name, and the pure rules the rest is built on (the
+playfield geometry, the key bindings, the transition registry). See
+[`tests/README.md`](tests/README.md) for what each file covers and what is
+deliberately left to a real browser instead. `.github/workflows/tests.yml`
+runs the same line on every push.
+
 ## Controls
 
 | Action | Keyboard | Touch |
 | --- | --- | --- |
-| Move | Arrow Left/Right or A/D | Joystick left/right |
-| Climb a ladder | Arrow Up/Down or W/S | Joystick up/down |
-| Shoot | Space, Arrow Up, or W | On-screen shoot button |
-| Pause | Esc or P | On-screen pause button |
+| Move | Arrow Left/Right | Joystick left/right |
+| Climb a ladder | Arrow Up/Down | Joystick up/down |
+| Shoot | Space | On-screen shoot button |
+| Pause | Esc | On-screen pause button |
 | Fullscreen | Button in menu/pause screen | Same |
+
+Every keyboard control is rebindable on the **CONTROLS** screen (Options
+-> CONTROLS): one key per action, click it and press the key you want,
+Esc to cancel, and a **RESET TO DEFAULTS** button. Binding a key another
+action holds takes it from that action rather than leaving two owners.
+Bindings are the physical key (`KeyboardEvent.code`), so a layout that
+puts Z where Y is binds the key actually pressed, and they persist with
+the rest of the settings (see `js/keys.js`). Up only climbs -- it used to
+shoot as well, which made shooting unreliable anywhere near a ladder.
 
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
+
+A run also pauses itself the moment the window goes away -- switching tab,
+clicking another window, or (on a phone) leaving the app -- onto the same
+screen Esc opens (`GameScene.pauseFromFocusLoss`). Both cases need
+catching, because the browser treats them differently: a hidden tab stops
+Phaser's game loop on its own, but a window that merely loses focus does
+not, and the level clock would keep counting down while nobody is
+playing. Coming back never resumes by itself: the pause screen waits, so
+you are not dropped back in front of a ball you cannot see coming.
 
 Shoot fires once per press, for every weapon and power-up alike -- the
 key/button has to be released and pressed again for another shot, so
@@ -101,10 +136,17 @@ exactly that reason (see `GameScene.updatePlaying`).
 
 ## Weapons
 
-Two of the three are BEAMS: the foot stays on the ground the player fired
+Two of the three are BEAMS: the foot stays planted where the player fired
 from and the head climbs (`js/Projectile.js`). The whole length is lethal,
 not just the leading edge, so a ball drifting into the middle of an
-already-extended shot still pops. Which weapon a level gives the player is
+already-extended shot still pops.
+
+That foot is the firing player's FEET, not the ground line. On the floor
+the two are the same thing, which is why it was written as the ground to
+begin with -- but standing on a platform or holding a ladder they are not,
+and a beam anchored to the ground sprouted from the floor far below the
+player and swept everything in between. A shot now spans exactly from
+where it was fired up to whatever stops it, at any height. Which weapon a level gives the player is
 the level file's `weapon` field; all three are offered by the **LEVEL
 EDITOR**'s Weapon dropdown and the debug panel's **Give weapon** row, so
 any can be tried without editing a file.
@@ -176,8 +218,9 @@ five levels in a row read as one place rather than five unrelated screens.
 
 The itinerary is `levels/regions.json`, read at boot into `js/regions.js`'s
 `REGIONS`, the same kind of registry as `LEVELS` and `BALL_ELEMENTS`. Order
-is the route. Each entry names an `assets/backgrounds/<background>.webp`,
-an `audio.json` music key, and where the region sits on the world map:
+is the route. Each entry names a background (the base name of a frame in
+`assets/backgrounds/`, see "A day per continent" below), an `audio.json`
+music key, and where the region sits on the world map:
 
 | # | region | landmark | levels |
 |---|---|---|---|
@@ -212,15 +255,61 @@ continent, nine flights across a run.
 Panic Mode and editor playtests are not on the itinerary and keep the
 default background and the generic `music02`/`music01`.
 
+### A day per continent
+
+The five levels on a continent are five times of day in the same place.
+`daylightPhaseForLevel` (`js/regions.js`) spreads `DAYLIGHT_PHASES` --
+morning, noon, afternoon, dusk, night -- across `LEVELS_PER_REGION`, so a
+region opens in the morning, ends at night, and the next continent starts
+the day over. The background a level shows is
+`assets/backgrounds/<region background>_<phase>.webp`.
+
+Only the light changes; the view does not. Each region's frame is drawn
+once, at night (`<region>.webp`), and
+`tools/daylight_backgrounds.py` writes the five variants from it: the sky
+gradient is repainted, the silhouettes are relit onto that phase's
+building tones (keeping their own light-to-dark ordering, so the hazy far
+skyline stays behind the dark near one), the windows go out during the
+day, the stars fade with them, the aurora only burns at night, and the
+moon becomes the sun. It reads the layers back out of the source image
+rather than being told them, so a redrawn or brand-new region background
+is still one file to draw:
+
+```
+python3 tools/daylight_backgrounds.py            # every region
+python3 tools/daylight_backgrounds.py europe     # just one
+```
+
+It needs Pillow and NumPy, which the game itself does not -- it is an
+authoring tool run by hand when the art changes, not a build step (there
+is no build). `tests/assets.test.mjs` checks that all five variants of
+every region exist, so a forgotten rerun fails the tests rather than
+showing up as a missing background mid-run.
+
 ### The flight between them
 
 Crossing to a new continent doesn't just cut. The level transition covers
 the screen as usual, but uncovers onto a world map
 (`js/WorldMapInterlude.js`) with the whole route marked on it, and a plane
 flies the leg just earned along a bowed dotted trail that fills in behind
-it. The destination's name is composed from the same loaded font the
+it, with its engine running for as long as the map is up (`planefly`).
+The destination's name is composed from the same loaded font the
 level-intro uses. Once the plane lands the map fades, and only then does
 the new level's own "LEVEL n / READY / SET / GO" begin.
+
+Every continent on the itinerary is marked, and each marker says whether
+the run has been there: **green** for the ones already played, **red**
+for the ones still ahead. The destination stays red for the whole flight
+and turns green as the plane lands on it -- which is the moment the
+interlude exists to show, so the landed plane parks just past the marker
+rather than on top of it.
+
+The map itself (`assets/ui/worldmap.webp`, 400x210 -- exactly half the
+playfield, so it scales 2x with no resampling) is drawn from real
+coastlines: landmasses given as lon/lat outlines, projected
+equirectangular at one scale on both axes and rasterised onto a 4px cell
+grid, which keeps the chunky look while leaving the continents their own
+shapes, down to the big islands.
 
 Like the transition it wraps, the interlude is not a game state -- it
 spans the same `LEVEL_CLEAR`-to-`LEVEL_INTRO` handover and is ticked from
@@ -229,12 +318,34 @@ are in the map image's **own** pixels; the interlude scales them to
 however large it draws the map, so re-authoring `assets/ui/worldmap.webp`
 at another size doesn't invalidate them.
 
+## What each level is made of
+
+The 50 levels are not all walls, balls and a harpoon. What the engine has
+is used across the run, and where it is used is a property of the level
+file, not of any code:
+
+| feature | levels | what it does there |
+|---|---|---|
+| **ladders** | 3, 5, 7, 10, 13, 16, 20, 24, 26, 27, 28, 30, 37, 38, 40, 50 | a climb from the floor to a shelf worth shooting from -- a level is always solvable from the ground (see "Features"), so a ladder is a route, never the route |
+| **stepped shapes** | 37, 38 | the shelf a ladder lands on is a staircase you walk up, built from `cells` rather than `w`/`h` |
+| **player starts** | 42 of 50 | where the level puts you, chosen so nothing can reach you for about two seconds -- a few levels used to open with a ball sitting exactly on the middle of the floor, which is where a level with no start of its own puts the player |
+| **machine gun** | 12, 22, 29, 34, 42, 47 | levels with several small/hex balls at once, where a fanned volley is worth more than one beam |
+| **grapple** | 15, 25, 31, 39, 45, 49 | levels with open sky to hang a shot in; each is given a quarter more clock, since a grapple holds its one shot against the ceiling for four seconds |
+| **guaranteed drops** | 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 (ball), 13, 28, 44 (crate) | the last level of each region hands out something for the region ahead -- a shield, an extra life, time freeze -- and three levels hide one in a one-block crate to shoot open |
+
+A ladder has to reach the floor in whole elements (they are 96px tall, so
+its top is 304, 208 or 112) and land on a platform wide enough to step off
+onto, with a clear column below it. `tests/levels.test.mjs` checks both
+ends of every ladder, that no start is inside an obstacle or a ball, and
+that a guaranteed drop sits on a single breakable block.
+
 ## Level transitions
 
-Clearing a campaign level doesn't cut straight to the next one: the
-playfield is hidden with an effect, the next level is built underneath it,
-and the effect is drawn back off. The swap happens on the single frame the
-screen is fully covered, so it can never be seen happening.
+Clearing a campaign level doesn't cut straight to the next one: an effect
+carries the playfield from one level to the next, and the swap itself is
+never visible -- either because the screen is covered at the moment it
+happens, or because the levels on screen are photographs taken either
+side of it.
 
 Effects live in `js/LevelTransition.js`'s `LEVEL_TRANSITIONS`, the same
 kind of named registry as `WEAPON_TYPES` and `POWERUP_BEHAVIORS`, and
@@ -248,14 +359,34 @@ there is nothing else to keep in step.
 | `wipe` | a solid edge sweeping down, then off the bottom |
 | `iris` | four edges closing in on the centre and opening out |
 | `shutter` | horizontal slats drawing in from alternating sides |
+| `push` | the old level slides up and off while the next one follows it up from below (the default) |
 
-Adding one is a new entry with a `label`, a `durationSec` and a
-`draw(graphics, amount, covering)` -- `amount` runs 0 to 1 across each half
-and `covering` says which half it is, so an effect only has to be opaque at
-1 and transparent at 0. Effects cover the playfield and not the HUD bar, so
-the score and lives stay readable straight through. The debug panel's
-**Level transition** row plays any of them on demand, without having to
-clear a level to see it.
+Whichever effect is running, the change of level itself is heard:
+`LevelTransition.start` plays `leveltransition`, so the sound belongs to
+the level changing rather than to any one way of showing it.
+
+There are two kinds of effect, and which one an entry is depends only on
+the method it carries:
+
+- An **overlay** effect implements `draw(graphics, amount, covering)`. It
+  paints over the playfield; `amount` runs 0 to 1 across each half and
+  `covering` says which half it is, so it only has to be opaque at 1 and
+  transparent at 0. The level swap happens on the single frame it is
+  fully opaque.
+- A **sliding** effect implements `place(leaving, arriving, amount)` and
+  hides nothing: it is handed a still photograph of each level (see
+  `LevelTransition.capture`) and moves them, with `amount` running 0 to 1
+  once across the whole duration. The swap happens at the START here --
+  the next level has to exist before it can be photographed -- and the
+  two stills have to cover the playfield between them the whole way, or
+  the live scene shows through behind them. `push` keeps them exactly one
+  playfield apart, which does that by construction.
+
+Either way the HUD bar stays clear: overlay effects simply don't paint
+over it, and the stills are masked to the playfield, so the score and
+lives stay readable straight through. The debug panel's **Level
+transition** row plays any of them on demand, without having to clear a
+level to see it.
 
 Only the level-to-level step gets one. Finishing the run doesn't -- there
 is no next level to reveal, just the victory screen -- and neither does a
@@ -326,15 +457,29 @@ rest on the floor -- and it would leave one row a different height from
 every other, which would break the player's step-up (every row has to be
 exactly one step above the one below).
 
-The canvas does **not** continuously resize with the browser window --
-there's no "fit to window" scaling. Instead, Options -> Size picks one of
-exactly three fixed display sizes: **0.5x**, **1x** (original), or **2x**
-(double), persisted the same way as mute/volume. `js/DisplayZoom.js` sets
-the canvas's (and `#game-container`'s) CSS size directly to
-`VIRTUAL_W/VIRTUAL_H` times the chosen zoom; `js/PixelText.js`'s DOM menu
-text reads that same rendered size back out, so it scales in lockstep
-without any separate logic. At 2x the canvas can be larger than the
-browser window -- the page scrolls rather than clipping it.
+Options -> Size picks the display size: the fixed **0.5x**, **1x**
+(original) and **2x** (double), or **FIT**, which scales the canvas to
+the window. Fitting keeps the true 8:5 shape and takes whichever of width
+and height runs out first, so the whole playfield is always on screen --
+filling the other dimension instead would push part of it off the edge,
+and in this game balls arrive from every edge. The debug panel's height
+is counted out of what is available, so opening it re-fits rather than
+pushing the floor off the bottom.
+
+A fitted canvas follows the window from then on (resize, rotation,
+fullscreen -- see `DisplayZoom.watchViewport`), and a fixed size that
+does not fit the window is fitted too: a phone in landscape is usually
+shorter than 500 CSS px, so even 1x would overflow it and take the
+canvas-anchored touch controls off the screen with it (see
+`DisplayZoom.activeZoom`). The choice itself is persisted the same way as
+mute/volume, so the fallback never overwrites it.
+
+`js/DisplayZoom.js` sets the canvas's (and `#game-container`'s) CSS size
+directly to `VIRTUAL_W/VIRTUAL_H` times the resolved scale;
+`js/PixelText.js`'s DOM menu text reads that same rendered size back out,
+so it scales in lockstep without any separate logic. At 2x the canvas can
+be larger than the browser window -- the page scrolls rather than
+clipping it.
 
 Wherever the game's own background is black (the HUD strip, the page
 around/outside the canvas at any zoom level) it's the exact same color
@@ -353,6 +498,13 @@ seam between the canvas and the page behind it.
   smallest-size balls (4 heading left, 4 right, each bouncing off a wall
   before its path can ever reach the player) for a gentle but active first
   look at movement, shooting, and ball physics.
+- The campaign uses what the engine has rather than only walls and balls:
+  **16 levels have ladders** up to a shelf worth shooting from (two of
+  them, 37 and 38, onto a stepped staircase you then walk up), **42 name
+  their own player start** so no level opens with a ball already on top of
+  you, **12 are played with the machine gun or the grapple** instead of the
+  harpoon, and **13 hold a guaranteed power-up** -- ten on a ball, three
+  in a one-block crate to shoot open. See "What each level is made of".
 - Every level is checked for solvability before it ships. The player
   cannot jump: the beam leaves their feet and climbs straight up, so a
   ball is shootable exactly when the column between it and the floor is
@@ -379,6 +531,9 @@ seam between the canvas and the page behind it.
   ground, so the bottom row rests on the floor and a stack of them is a
   staircase the player can climb. The interior is a whole number of rows
   (see "Display size"), so the top row is flush against the ceiling too.
+  It also places where the player starts the level (the **Start** brush,
+  saved as the level's `playerStart` -- see "Adding levels"); a level that
+  places none starts them in the middle of the floor as before.
 - **Ladders** (48x96, three by six blocks) are climbable scenery rather
   than obstacles: nothing collides with one, so balls and shots pass
   straight through, and so does the player -- which is what lets a ladder
@@ -390,12 +545,20 @@ seam between the canvas and the page behind it.
   there -- and if there is nothing to stand on at the top they simply stop
   and keep holding rather than being dropped the whole way back down.
   Ladders stack, so a taller run is several of them end to end and the
-  seams are invisible to the climb.
+  seams are invisible to the climb. The player has their own animations
+  for it: a climbing cycle that freezes rather than reverting to the
+  standing idle when they stop partway up, and a step-off played when they
+  leave the TOP of a ladder.
 - The player walks up a ledge one obstacle block (`PLAYER_STEP_UP_PX`,
   16px) high without jumping -- it cannot jump at all -- so a run of
   stacked blocks is a staircase. Anything taller, or without room to
   stand on top, is still a wall it stops at: that headroom test is what
-  keeps a wall built of stacked blocks from being a ladder.
+  keeps a wall built of stacked blocks from being a ladder. Steps up and
+  down have their own animations and their own small sounds; a real FALL
+  ends in a puff of dust at the feet and a thud, which a 16px step down
+  deliberately does not (a stair tread is a step, not a landing). Climbing
+  is neither -- it ticks a rung per cycle of the climb animation, and
+  raises no dust at all.
 - The level-select screen lists all 50 at once in three columns filled
   top-to-bottom (1-17, 18-34, 35-50) with no scrollbar -- a scroller would
   hide exactly the later levels you are most likely looking for.
@@ -404,7 +567,7 @@ seam between the canvas and the page behind it.
   together, and the leg between them is flown on a world map (see
   "Regions" below).
 - A level-to-level transition effect in campaign runs (fade / wipe / iris
-  / shutter, see "Level transitions" below) -- swappable by name.
+  / shutter / push, see "Level transitions" below) -- swappable by name.
 - 3 weapons, chosen per level (`js/config.js`'s `WEAPON_TYPES`, see
   "Weapons" below): the **harpoon**, which ends the moment it tops out,
   the **grapple**, which anchors to the ceiling for 4s and keeps killing
@@ -429,9 +592,12 @@ seam between the canvas and the page behind it.
   every currently active power-up -- entirely drawn in Phaser, no DOM
   overlay for any of it. Picking up `rapid_shot` swaps the weapon socket's
   own icon to match for as long as it's active.
-- Score, lives, a locally-persisted top-10 high score table, and per-level
-  unlock progress (`localStorage`, with a versioned schema for safe future
-  upgrades) -- see "Start Campaign vs. Start Level" below.
+- Score, lives, a locally-persisted top-10 high score table, per-level
+  unlock progress, and a **record per level** -- its fastest clear, lower
+  being better, shown before the level starts, when it is cleared, and
+  next to it in the level list (`localStorage`, with a versioned schema
+  for safe future upgrades) -- see "Start Campaign vs. Start Level" and
+  "Records: fastest time per level" below.
 - Full menu flow: main menu, options (mute/volume/fullscreen, split out
   onto its own screen), level select, a graphic level-intro screen (see
   "Swapping intro graphics"), pause, game over, victory, high score
@@ -442,7 +608,7 @@ seam between the canvas and the page behind it.
 - A graphic level-intro screen -- "LEVEL n", the level's name, then a
   blinking "READY" for 2s and a solid "GO!" for 1s -- entirely composed
   from loaded images (`js/LevelIntro.js`), same as the HUD.
-- 18 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
+- 24 sounds (sfx, ui, and 3 looping music tracks) driven entirely by
   `assets/audio/audio.json` through a central `AudioManager` -- see
   "Swapping / adding sounds". Music starts exactly when the balls do
   (right as "GO!" ends), switches to a more urgent loop with 15s left on
@@ -459,7 +625,12 @@ Useful while tuning levels or ball behavior:
 - Shows an FPS counter, the current game state/level, remaining time,
   score/lives/weapon, and live entity counts.
 - Draws collision bounds for the player, balls, projectiles, power-ups,
-  and obstacles directly over the game.
+  and obstacles directly over the game -- switched on and off with the
+  **Colliders** button under **VIEW**, or the **C** key, alongside the
+  **16x16 grid** (**G**). Both start out matching what debug mode has
+  always shown: outlines on, grid off. Either button carries the outline
+  the editor's selected brush does while its overlay is showing, so what
+  is on is visible in the panel itself.
 - A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
   clear every ball on the field instantly with **Remove all balls**; one
   quick-spawn button per power-up (bonus fruit, shield, every weapon
@@ -473,9 +644,21 @@ Useful while tuning levels or ball behavior:
   `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
   the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
   any transition effect on demand.
-- Lives above the playfield's own ceiling, in its own `#tool-bar` row
-  (see index.html/style.css) -- never overlapping actual gameplay the way
-  an in-canvas overlay would.
+- Lives entirely above the playfield's own ceiling, in its own
+  `#tool-bar` row (see index.html/style.css) -- never overlapping actual
+  gameplay the way an in-canvas overlay would. It spans the canvas's exact
+  width and is as tall as its contents need, laid out as labelled columns
+  of rows -- **BALL**, **SPAWN POWER-UP**, **GIVE WEAPON**, **CAMPAIGN**,
+  **VIEW**, and a **STATE** readout -- which wrap onto a second line when
+  they don't all fit across.
+- It is styled as the same tool as the level editor's panel: both are
+  built from `js/panelUi.js` and share style.css's `.panel-*` rules, so
+  the two have identical controls, grouping and size. Everything in them
+  is measured in `--panel-unit`, a hundredth of the canvas's rendered
+  height published by `DisplayZoom.js`, so both scale with the display
+  zoom. (A container query unit would cover the editor's panel, which
+  is inside `#game-container` -- but not the debug one, which sits
+  outside it, and the two have to match.)
 
 ## Project structure
 
@@ -491,8 +674,10 @@ assets/              Every graphic and sound in the game, as real files --
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
   player/            player.png, a single spritesheet (idle, shot, 4 walk,
-                      victory, dead) + shield.webp, the looping shield
-                      effect -- see "Swapping graphics" below
+                      victory, dead, 2 climb, 2 ladder-exit, 2 step-up,
+                      2 step-down) + shield.webp, the looping shield
+                      effect, + hit.webp and dust.webp, the hit burst and
+                      the landing puff -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   ladders/           <ladder texture>.webp, the whole element at its
                       authored size (48x96) rather than a repeating tile,
@@ -500,7 +685,9 @@ assets/              Every graphic and sound in the game, as real files --
                       ladders keep their rung spacing across the join
   powerups/          <powerup type>.webp
   backgrounds/       <name>.webp, one per distinct levels/*.json
-                      `background` field -- see "Swapping graphics" below
+                      `background` field, plus <region>_<time of day>.webp
+                      for each region's five (see "A day per continent")
+                      -- see "Swapping graphics" below
   projectile.webp, particle.webp
   audio/             audio.json (every sound's config) + one .ogg file per
                       sound named there -- see "Swapping sounds" below
@@ -515,6 +702,13 @@ elements/            One JSON file per ball size/shape, obstacle type, or
                       see "Adding elements" below
 levels/              One level_NN.json per level, in level-editor Export
                       format -- see "Adding levels" below
+tests/               Node's own test runner against the data and the pure
+                      rules -- no framework, no dependencies, no browser
+                      (see "Tests" above and tests/README.md)
+tools/               Authoring scripts run by hand when the art changes,
+                      never by the game: daylight_backgrounds.py relights
+                      a region's night frame into its five times of day
+                      (see "A day per continent")
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
                       code -- see "Admin tool" below. Not linked from the
@@ -541,7 +735,9 @@ js/
                       power-up effects a JSON element's `kind` picks from
   ElementsScene.js   Boots first: loads every elements/*.json (see
                       elements/index.json) and every levels/*.json (see
-                      "Adding levels"), registers them, then starts Boot
+                      "Adding levels"), lays any level saved in the
+                      editor over its shipped file, registers them all,
+                      then starts Boot
   BootScene.js       Boots second (registries are populated by now, so it
                       knows exactly which files to ask for): loads every
                       graphic (see assets.js) and builds the player's
@@ -575,7 +771,8 @@ js/
                       from levels/*.json) and loads a level definition
                       into a GameScene's groups; decomposes each obstacle
                       into independent 16x16 Obstacle blocks (see
-                      OBSTACLE_BLOCK_SIZE)
+                      OBSTACLE_BLOCK_SIZE) and reads the level's optional
+                      player start point (playerSpawn/DEFAULT_PLAYER_SPAWN)
   config.js          Static gameplay tuning that isn't per-element data
                       (player movement, weapon base stats, power-up drop
                       chance/fall speed/ttl)
@@ -592,7 +789,10 @@ js/
                       never a filename/volume/loop flag. Music is fetched
                       on demand rather than at boot -- see "Load" below
   input.js           Thin DOM bridge for the on-screen touch buttons only
-                      (keyboard is native Phaser input, see GameScene)
+  keys.js            The keyboard: the one physical key each action is
+                      bound to (rebindable, see the CONTROLS screen), the
+                      live pressed state GameScene reads, and the capture
+                      the rebinding screen uses
   Hud.js             The graphic status bar (see "Swapping HUD graphics")
                       -- Phaser Images/digit spritesheets drawn into the
                       HUD_H strip, entirely from loaded files, no drawn
@@ -611,17 +811,31 @@ js/
                       run crosses to a new continent (see "Regions")
   LevelIntro.js      The graphic level-intro overlay (see "Swapping intro
                       graphics") -- "LEVEL n" + the level's name composed
-                      from a loaded A-Z font, then blinking READY/GO!
-  PixelText.js       The DOM equivalent of LevelIntro.js's text -- renders
+                      from a loaded A-Z font, the level's record, then
+                      blinking READY/GO!
+  LevelClearCard.js  The cleared-level card: the run's own time and a
+                      blinking NEW RECORD when it beat the level's (see
+                      "Records: fastest time per level")
+  introText.js       The font rows both cards are composed of -- one
+                      Image per character from the intro font sheet
+  PixelText.js       The DOM equivalent of introText.js -- renders
                       any string to a <canvas> from the same font_alpha
                       .webp spritesheet, sized off the game canvas's own
                       current scale (see "Swapping intro graphics")
   ui.js              DOM menus/screens -- every heading/button/score/list
                       label goes through PixelText.js, not plain CSS text
-  storage.js         Versioned localStorage persistence
-  editor.js          In-browser level editor (grid-snapped painting,
-                      Export/Import) -- see "Adding levels" below
+  storage.js         Versioned localStorage persistence (high scores,
+                      settings including the key bindings, unlock
+                      progress, the per-level records, and the levels
+                      saved in the editor -- see "Adding levels")
+  editor.js          In-browser level editor: opens one campaign level
+                      (picked from the same list as Start Level),
+                      grid-snapped painting, Save/Revert/Export/Import
+                      -- see "Adding levels" below
   debug.js           Debug overlay (Phaser Graphics) and dev tools
+  panelUi.js         The five DOM pieces both developer toolbars (the
+                      editor's and the debug one) are built from, so the
+                      two read as one tool -- see style.css's .panel-*
 ```
 
 ### Adding elements
@@ -706,14 +920,48 @@ names an `assets/audio/audio.json` entry to play on pickup (falls back to
 
 Levels live under `levels/`, one JSON file per level -- `LEVELS.length`
 (and the built-in level count) is always exactly how many files are
-there, no separate count or manifest to keep in sync. The easiest way to
-create one: open the in-game **LEVEL EDITOR**, paint it (left-click/drag
-places whatever brush is selected; right-click always erases whatever's
-under the cursor instead, regardless of the selected brush, alongside the
-dedicated **Erase** brush), then click **Export** to download a `.json`
-file already in the right shape, and drop that file into `levels/` as
-`level_NN.json` (the next free number, zero-padded to 2 digits --
-`level_11.json`, `level_12.json`, ...).
+there, no separate count or manifest to keep in sync.
+
+**The editor always edits one specific campaign level.** Opening **LEVEL
+EDITOR** from the main menu asks which one first, on the same screen and
+the same fifty levels as **START LEVEL** (`ui.js`'s `renderLevelSelect`,
+in its `edit` mode -- see `GameScene.showLevelSelect`). Unlike playing,
+editing ignores unlock progress: authoring level 40 shouldn't require
+playing to it first, and every level's name is shown rather than hidden
+behind `???`. A level this browser has its own saved version of is named
+in the accent color instead of white.
+
+Picking one opens it exactly as it currently stands, and the panel's
+**LEVEL n** heading says which. Then paint it: left-click/drag places
+whatever brush is selected; right-click always erases whatever's under
+the cursor instead, regardless of the selected brush, alongside the
+dedicated **Erase** brush.
+
+The **FILE** buttons all act on that same level:
+- **Save** stores the level under its own number. Nothing in a browser can
+  write `levels/level_NN.json`, so the save goes to `localStorage` (see
+  `storage.js`'s `levelEdits`) and `ElementsScene` lays it over the
+  shipped file on every boot -- which makes the saved version the one the
+  game actually plays, in the campaign and in Start Level alike. It also
+  replaces the live `LEVELS` entry immediately (`LevelManager.setLevel`),
+  so playing the level right after saving doesn't need a reload.
+- **Revert** drops this browser's saved version and puts the shipped file
+  back -- in storage, in `LEVELS` and on screen. `SHIPPED_LEVELS` keeps
+  every level as its file had it for exactly this.
+- **Export** downloads the level as `level_NN.json`, already named for
+  the file it belongs in: that is how an edit gets out of one browser and
+  into the project (drop it into `levels/` over the old one, or paste/
+  import it in the admin tool's Levels tab, see "Admin tool").
+- **Import** replaces what is being edited with a level file from disk,
+  and **Clear all** empties it -- neither writes anything until Save.
+- **Play** playtests what is on screen without saving it. Trying a change
+  is not committing it; Save is the only thing that writes. The unsaved
+  buffer travels with the playtest (`GameScene.editorDraft`), so leaving
+  it through the pause menu's **LEVEL EDITOR** resumes those exact edits.
+
+Adding a *new* level is still a file: Export a level, save it into
+`levels/` as the next free number (zero-padded to 2 digits --
+`level_51.json`, `level_52.json`, ...) and give it that `id`.
 
 The editor's controls occupy the **HUD strip**: the game's own HUD is
 hidden while editing (see Hud.js's `VISIBLE_STATES`), so that band across
@@ -721,12 +969,13 @@ the bottom of the canvas is free, and using it leaves the whole playfield
 visible with nothing pushing the canvas down the page. They are laid out
 as labelled columns of rows -- **BRUSH** (what the pointer paints, split
 into level structure and the balls to pop), **NEXT PLACED** (direction and
-guaranteed drop for the next ball/crate), **LEVEL** (background, weapon,
-clock), **FILE**, **GO**, and a **COUNT** readout -- so what each control
-belongs to is readable at a glance. The panel is sized from the canvas
-(`HUD_H`/`VIRTUAL_H` for the height, container query units for everything
-inside), so it scales with the display zoom; at 0.5x the strip is only 42
-CSS px and the panel scrolls rather than clipping anything out of reach.
+guaranteed drop for the next ball/crate), **LEVEL n** (background, weapon,
+clock -- and which level all of it belongs to), **FILE**, **GO**, and a
+**COUNT** readout -- so what each control belongs to is readable at a
+glance. The panel is sized from the canvas (`HUD_H`/`VIRTUAL_H` for the
+height, container query units for everything inside), so it scales with
+the display zoom; at 0.5x the strip is only 42 CSS px and the panel
+scrolls rather than clipping anything out of reach.
 
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json
@@ -738,6 +987,7 @@ The file format is exactly `editor.js`'s `buildDef()` output:
   "weapon": "harpoon",
   "obstacles": [{ "type": "crate", "x": 368, "y": 288, "w": 16, "h": 16, "powerup": "shield" }],
   "ladders": [{ "type": "ladder", "x": 368, "y": 304 }],
+  "playerStart": { "x": 328, "y": 368 },
   "balls": [{ "shape": "hex", "size": 2, "x": 400, "y": 120, "vx": 45, "vy": -45, "powerup": "extra_life" }]
 }
 ```
@@ -745,6 +995,25 @@ The file format is exactly `editor.js`'s `buildDef()` output:
 that predates ladders simply has no such key. A ladder entry is a type and
 a top-left corner; its size comes from the element (see "Adding elements"),
 so a taller run is several entries stacked rather than a height field.
+
+`playerStart` is optional the same way: it says where the player begins
+the level (and where they come back after losing a life), and a level
+without it starts them in the middle of the floor, exactly as every level
+did before the field existed. It is stored as the FEET -- `x` the sprite's
+centre line, `y` the surface they stand on -- which is the pair
+`Player.placeFeet` takes, so the file says literally where the player is
+put. `LevelManager.js`'s `playerSpawn` clamps whatever it reads into the
+playfield, so a hand-edited start can't put the player inside the border,
+and falls back to the default for a missing or malformed one. Place it in
+the **LEVEL EDITOR** with the **Start** brush: the click's grid cell is
+where the player stands, centred across it with their feet on its bottom
+edge, and the scene's real player sprite moves there so what you see is
+what the level will spawn. Erasing that cell (**Erase** or right-click)
+drops the start again and the player returns to the default position; the
+**COUNT** readout shows `Start 1` or `Start 0` for which of the two the
+level is on. A start with nothing under it is allowed and means what it
+looks like: the player stands there through the READY/GO countdown and
+falls to whatever is below the moment play begins.
 An obstacle's `x`/`y`/`w`/`h` are on the 16x16 grid, and so is a ball,
 though a ball's `x`/`y` is its CENTRE rather than a corner -- the grid cell
 is its bounding box's top-left, so a ball sits on the grid when `x - radius`
@@ -753,14 +1022,24 @@ makes opening one in the **LEVEL EDITOR** and saving it back give the same
 level: the editor snaps whatever it loads, so anything off the grid would
 quietly move.
 
+A level's `id` and `name` are left exactly as they were: the editor has
+no control for either, so saving one writes its own fields over the
+definition it opened rather than replacing it (`editor.js`'s `buildDef`),
+and anything a hand-edited file carries that the editor doesn't know
+about survives being edited too.
+
 `powerup` on an obstacle or ball is optional -- when set, that exact
 crate/ball guarantees that power-up drop when destroyed/popped, instead of
-the usual random chance. An obstacle can also use `{ "cells": [[dx, dy],
-...] }` instead of `w`/`h` for a non-rectangular/stepped shape (the level
-editor never produces this itself, but `LevelManager.js` still reads it,
-so it's still available for hand-edited files). `type`/`shape` values
-must match a `type`/`shape` from some loaded element (see "Adding
-elements" above).
+the usual random chance. On an obstacle the tag goes onto **every block**
+it becomes (`LevelManager.js`'s `obstacleBlocks`), so a power-up belongs on
+a one-block crate: a four-block one bursts four of them. `tests/levels
+.test.mjs` holds that rule, along with the crate having to be breakable at
+all. An obstacle can also use `{ "cells": [[dx, dy], ...] }` instead of
+`w`/`h` for a non-rectangular/stepped shape -- the level editor never
+produces this itself, but `LevelManager.js` reads it, and the campaign
+uses it for the staircases in levels 37 and 38. `type`/`shape` values must
+match a `type`/`shape` from some loaded element (see "Adding elements"
+above).
 
 `background` names an `assets/backgrounds/<name>.webp` image (see
 "Swapping graphics" below) drawn behind the whole playfield; `weapon`
@@ -776,11 +1055,11 @@ background updates the live preview immediately.
 Clicking **Play** starts the level exactly like real gameplay, except
 it's a playtest, not a run: clearing it or pressing Escape/P pauses on
 the usual pause screen with an extra **Restart Level** button instead of
-advancing to a next level or a victory screen (there's nothing to
-advance *to* -- an editor level isn't part of `LEVELS`), and a hit never
-costs a life or ends in game over (`GameScene.hitPlayer`/`advanceLevel`
-both branch on `isCustomLevel`) -- the point is testing the layout you
-just built, not beating it.
+advancing to a next level or a victory screen, and a hit never costs a
+life or ends in game over (`GameScene.hitPlayer`/`advanceLevel` both
+branch on `isCustomLevel`) -- the point is testing the layout you just
+built, not beating it, and it never touches unlock progress even though
+the level being tried is a campaign one.
 
 `BootScene.js` probes `levels/level_01.json` up to `MAX_LEVEL_FILES` (see
 `js/assets.js`) at boot and keeps whichever ones actually exist -- static
@@ -805,6 +1084,39 @@ same versioned-schema pattern as high scores/settings) as a single
 raises the count to at least `n + 2`, unlocking level `n + 1`. The
 level-select screen re-reads this every time it opens, so a level you
 just cleared is immediately pickable the next time you back out to it.
+
+### Records: fastest time per level
+
+Every campaign level keeps its own record: **how long it took to clear,
+lower is better**. That is the one thing a level can be replayed to beat
+-- a score mostly measures what dropped, and the unlock only ever happens
+once.
+
+The time is the level's own clock (`GameScene.levelTimer`), the one the
+HUD counts down, so what is recorded is the run you just made: it restarts
+with the level, including when a lost life restarts it, and a record is
+therefore always a single clean run through the level rather than a total
+across attempts. `levelClear()` hands it to `storage.saveLevelTime()`,
+which only writes a faster one -- so replaying a level you have already
+beaten can improve the record but never spoil it -- and returns whether
+this run set it. Editor playtests and Panic Mode keep nothing: neither is
+a level records are held for.
+
+They are stored under their own `localStorage` key (`balloonBuster.
+levelTimes`, `{ "<level index>": seconds }`) with the same versioned
+schema as everything else, in hundredths of a second, and read back
+defensively -- an entry that isn't a sane number is dropped rather than
+shown as a record no run could beat.
+
+The record shows up in three places, all of them where it is useful:
+
+- the **level-intro card** (`LevelIntro.js`), under the level's name, so
+  the target is on screen before the level starts. A level with no record
+  yet simply doesn't show the line.
+- the **cleared-level card** (`LevelClearCard.js`), which states the run's
+  own time and blinks **NEW RECORD** when it beat the old one.
+- the **Start Level list**, right-aligned on each row (`M:SS` there, where
+  the row is narrow; the cards show hundredths).
 
 ### Swapping graphics
 
@@ -850,7 +1162,16 @@ dimensions:
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
   played once when a run ends without a game over), dead (1, played once
-  per hit). The walk cycle carries its own vertical bob: the two
+  per hit), then four two-frame states the player's own movement plays:
+  **climb** (looping, while on a ladder -- both hands stay on it, the legs
+  alternate, and the body rises and falls with the effort), **ladderoff**
+  (stepping off the TOP of a ladder onto the ground, through a crouch;
+  only at the top -- at the bottom the player simply stands off it), and
+  **stepup**/**stepdown**, one 16px block up onto a ledge and one down off
+  it. Those last two are separate states because a step up and a step down
+  do not look alike: going up the leading knee comes up and the body
+  follows it, going down the leading foot reaches down and the body dips
+  after it. The walk cycle carries its own vertical bob: the two
   double-support frames (both feet down) are drawn with the whole upper
   body 2px lower and the legs correspondingly shorter, so the head rides
   up and down as it does in a real gait. It is baked into the art, not
@@ -861,7 +1182,7 @@ dimensions:
   moves). Every frame is authored facing LEFT; Player.js mirrors it for
   right via `setFlipX`, so swapping the sheet only needs left-facing (or,
   for this game's straight-on chibi style, direction-neutral) art -- keep
-  the same 32x(64 x 8) total size and frame order.
+  the same 32x(64 x 16) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
   -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`
@@ -876,6 +1197,21 @@ dimensions:
   of the ball's rim facing the player, not on either body's centre, so a
   big ball bursts at the edge the two actually met at. Swapping it is just
   replacing the file, as long as the new art keeps that 32x64 layout.
+- **Landing dust**: `assets/player/dust.webp` -- a `PLAYER_DUST_FRAMES`
+  -frame (2) spritesheet, `PLAYER_DUST_SIZE x PLAYER_DUST_HEIGHT` (32x16)
+  per frame stacked vertically, played once at the feet whenever the
+  player lands from a FALL, together with the `playerland` thud
+  (`Player.followGround` -> `GameScene.playLandingDust`, which does both
+  so neither can happen without the other). A step down is not a fall:
+  a drop of one 16px block or less has its own animation and its own
+  small `playerstepdown` sound, and adding the landing to it doubles both
+  on every single stair tread. Climbing raises none either -- a ladder is
+  not a fall, and both of its ends put the feet exactly on the surface
+  they arrive at so no leftover fraction of a pixel reads as one. Unlike
+  the bursts above it is deliberately not square (dust spreads sideways
+  along the ground rather than billowing up) and it is anchored by its
+  BOTTOM edge, so the cloud sits on the surface instead of straddling it,
+  drawn just under the player so they stand in it.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
@@ -890,14 +1226,16 @@ dimensions:
   plain white).
 - **Level backgrounds**: `assets/backgrounds/<name>.webp` -- one per
   distinct `background` value used across `levels/*.json` (see "Adding
-  levels"), exactly `VIRTUAL_W x GROUND_Y` (800x404 from `js/constants.js`)
-  -- covers the sky area behind obstacles/balls/player; the floor strip and
-  HUD bar below it stay solid color regardless (`GameScene.drawBackground`).
-  `assets/backgrounds/default.webp` is the one every level ships with today
-  (a generated night sky/skyline, see below) and what the level editor
-  starts a new level pointed at -- adding a second background is dropping
-  a same-size file in this folder and setting some level's `background`
-  field (or the editor's dropdown) to its name, no code change.
+  levels"), plus five per region (`<region>_morning.webp` and its four
+  siblings, see "A day per continent"). Authored at 384x200 and drawn
+  stretched over the sky area, `VIRTUAL_W x GROUND_Y` (`js/constants.js`),
+  behind obstacles/balls/player; the floor strip and HUD bar below it stay
+  solid color regardless (`GameScene.drawBackground`).
+  `assets/backgrounds/default.webp` is what the level editor starts a new
+  level pointed at -- adding a background is dropping a same-size file in
+  this folder and setting some level's `background` field (or the editor's
+  dropdown) to its name, no code change. A campaign level ignores its own
+  `background` field: it shows its region's frame at its time of day.
 
 `GameScene.js`, `Ball.js`, `Player.js`, `Obstacle.js`, `Bonus.js`, and
 `LevelManager.js` all read `js/elements.js`'s registries and `js/assets.js`
@@ -961,7 +1299,7 @@ funnels back through the same LEVEL_INTRO -> PLAYING start, so a restarted
 or advanced level always begins silent-then-music, never two tracks
 overlapping.
 
-The 18 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
+The 24 sounds currently shipped (`assets/audio/*.ogg`) are placeholder
 tones/noise bursts generated offline (see the synthesis style used
 elsewhere in this file) rather than original audio -- drop in real files
 with the same names to replace them, one for one, no other changes needed:
@@ -971,7 +1309,15 @@ with the same names to replace them, one for one, no other changes needed:
 `itemshieldloose` (shield absorbs a hit), `hurryup` (a short low-time
 ping, independent of the `music_hurry` track switch above), `gameover`,
 `levelcomplete`, `superpang` (run-start jingle), `weaponhold` (picking up
-a weapon-boosting power-up), and the three looping tracks `music01` /
+a weapon-boosting power-up), `leveltransition` (the swoosh of one level
+being replaced by the next, see "Level transitions"), `planefly` (the
+engine, authored to the exact length of the world-map interlude rather
+than looped), the player's own movement -- `playerland`
+(the thud under the landing dust), `playerclimb` (one rung, played once
+per cycle of the climb animation, so it keeps time with the legs and
+stops when they do), `playerstepup` and `playerstepdown` (a 16px block
+walked up or down; the step up also plays when stepping off the top of a
+ladder) -- and the three looping tracks `music01` /
 `music02` (`GameScene.loadLevel()` splits `LEVELS` into two halves, one
 track per half, so adding levels keeps both tracks in use) and
 `music_hurry` (the last 15s of a timed level).

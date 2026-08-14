@@ -5,6 +5,7 @@ import { REGIONS } from './regions.js';
 
 const ACCENT = hexColor(COLORS.accent);
 const DANGER = hexColor(COLORS.danger);
+const REACHED = hexColor(COLORS.success);
 const PALE = hexColor(COLORS.text);
 
 // Phase lengths, in seconds. The flight is the point of the whole thing,
@@ -16,6 +17,9 @@ const ARRIVE_SEC = 0.7;
 const FADE_SEC = 0.5;
 
 const MARKER_R = 5;
+// How far past the destination the landed plane is parked, so it doesn't
+// sit on the marker it just arrived at.
+const PARKED_PX = 22;
 const DOTS = 26;          // dots making up the drawn route
 const ARC_LIFT = 0.22;    // how far the route bows away from a straight line
 
@@ -83,8 +87,14 @@ export class WorldMapInterlude {
     this.active = true;
     this.onDone = onDone;
     this.elapsed = 0;
+    this.fromIndex = fromIndex;
+    this.toIndex = toIndex;
     this.from = this.toScreen(REGIONS[fromIndex]?.map ?? REGIONS[toIndex].map);
     this.to = this.toScreen(REGIONS[toIndex].map);
+    // The engine, for as long as the map is up. One sound for the whole
+    // interlude rather than a loop started and stopped: the interlude is
+    // a fixed length, so the sound is authored to that length.
+    this.scene.audio.play('planefly');
 
     for (const img of this.nameImages) img.destroy();
     this.nameImages = this.buildName(REGIONS[toIndex].name ?? '');
@@ -138,15 +148,23 @@ export class WorldMapInterlude {
     g.clear();
 
     // Every stop on the itinerary, so the run reads as one journey rather
-    // than a pair of unrelated places.
+    // than a pair of unrelated places -- and each one says whether it has
+    // been played: green for the continents the run has already been to,
+    // red for the ones still ahead. The destination is red for the whole
+    // flight and turns green as the plane lands on it, which is the one
+    // moment the map exists to show.
+    const reached = flown >= 1 ? this.toIndex : this.fromIndex;
     for (let i = 0; i < REGIONS.length; i++) {
       const p = this.toScreen(REGIONS[i].map);
+      // The two ends of this leg carry a fatter core than the rest, so
+      // the flight reads off the markers as well as off the trail.
+      const onThisLeg = i === this.fromIndex || i === this.toIndex;
       g.fillStyle(0x000000, 0.5);
       g.fillCircle(p.x, p.y, MARKER_R + 2);
       g.fillStyle(PALE, 1);
       g.fillCircle(p.x, p.y, MARKER_R);
-      g.fillStyle(hexColor(COLORS.hudBg), 1);
-      g.fillCircle(p.x, p.y, MARKER_R - 2);
+      g.fillStyle(i <= reached ? REACHED : DANGER, 1);
+      g.fillCircle(p.x, p.y, onThisLeg ? MARKER_R - 1 : MARKER_R - 2);
     }
 
     // The leg being flown, drawn as a dotted trail that fills in behind the
@@ -159,20 +177,23 @@ export class WorldMapInterlude {
       g.fillCircle(p.x, p.y, passed ? 2 : 1.5);
     }
 
-    // Departure and destination picked out on top of the plain markers.
-    g.fillStyle(PALE, 1);
-    g.fillCircle(this.from.x, this.from.y, MARKER_R - 1);
-    g.fillStyle(flown >= 1 ? ACCENT : DANGER, 1);
-    g.fillCircle(this.to.x, this.to.y, MARKER_R - 1);
-
     const at = this.arcPoint(this.from, this.to, flown);
     // A step ahead along the same arc gives the heading, so the plane
     // banks through the curve instead of pointing at the destination the
     // whole way. The artwork is authored nose-up, hence the +90 degrees.
     const ahead = this.arcPoint(this.from, this.to, Math.min(1, flown + 0.02));
-    this.plane.setPosition(at.x, at.y);
     if (flown < 1) {
+      this.plane.setPosition(at.x, at.y);
       this.plane.setRotation(Math.atan2(ahead.y - at.y, ahead.x - at.x) + Math.PI / 2);
+    } else {
+      // Landed: parked a little PAST the marker rather than on top of it.
+      // The plane is three times the width of a marker, and the marker
+      // turning green is the one thing the arrival has to show.
+      const back = this.arcPoint(this.from, this.to, 1 - 0.02);
+      const dx = at.x - back.x;
+      const dy = at.y - back.y;
+      const len = Math.hypot(dx, dy) || 1;
+      this.plane.setPosition(at.x + (dx / len) * PARKED_PX, at.y + (dy / len) * PARKED_PX);
     }
     this.plane.setVisible(true);
   }
