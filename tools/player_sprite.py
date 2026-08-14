@@ -343,21 +343,22 @@ def shift(grid, dy):
     return out
 
 
-def render(grid, scale=SCALE):
+def render(grid, scale=SCALE, palette=PALETTE):
     """A grid of palette letters -> its image, scaled with hard edges.
 
-    Takes its size from the grid rather than from CELL_W/CELL_H, so
-    tools/ghost_sprite.py can draw its own smaller cells with this same
-    palette and the same 2x pixel scale.
+    Takes its size from the grid, and its colours from whichever palette
+    it is handed, so tools/ghost_sprite.py can draw the same figure in its
+    own wider cell and its own washed-out colours. Palette entries are RGB
+    or RGBA -- the ghost needs the alpha.
     """
     height, width = len(grid), len(grid[0])
     img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     px = img.load()
     for y, row in enumerate(grid):
         for x, ch in enumerate(row):
-            colour = PALETTE[ch]
+            colour = palette[ch]
             if colour:
-                px[x, y] = colour + (255,)
+                px[x, y] = colour if len(colour) == 4 else colour + (255,)
     return img.resize((width * scale, height * scale), Image.NEAREST)
 
 

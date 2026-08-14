@@ -132,16 +132,23 @@ export const PLAYER_HIT_SIZE = 32;
 export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
 
 // The life that just left: when a hit costs a life, a winged ghost of the
-// player rises from where they were standing and fades out before the
-// level restarts (see GameScene.spawnDeathGhost, and DEATH_GHOST_SEC
-// there for how long it has to do it in). Same frames-stacked-vertically
-// layout as the effect sheets above, but LOOPING rather than one-shot --
-// the two frames are wings up and wings down, and the flap runs for as
-// long as the flight does. Drawn by tools/ghost_sprite.py.
+// player rises out of the body and fades out before the level restarts
+// (see GameScene.spawnDeathGhost, and DEATH_GHOST_SEC there for how long
+// it has to do it in). Same frames-stacked-vertically layout as the
+// effect sheets above, but LOOPING rather than one-shot -- the two frames
+// are wings up and wings down, and the flap beats for the whole flight.
+//
+// It IS the dead frame of the sheet above: tools/ghost_sprite.py imports
+// that art rather than drawing a figure of its own, washes the palette
+// out to something see-through, and adds the angel wings -- so a redrawn
+// player is a redrawn ghost with nothing to keep in step by hand. The
+// cell is wider than the player's only by the wings, and exactly as tall,
+// with the figure centred in it, so a ghost drawn at the player's own
+// position lands on the body pixel for pixel.
 export const PLAYER_GHOST_TEXTURE_KEY = 'player-ghost';
 export const PLAYER_GHOST_TEXTURE_PATH = 'assets/player/ghost.png';
 export const PLAYER_GHOST_FRAMES = 2;
-export const PLAYER_GHOST_SIZE = 32;
+export const PLAYER_GHOST_FRAME = { frameWidth: 64, frameHeight: 72 };
 export const PLAYER_GHOST_ANIM_KEY = 'player-ghost-flap';
 
 // The puff of dust a landing kicks up at the player's feet (see

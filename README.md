@@ -865,9 +865,10 @@ tools/               Scripts run by hand, never by the game:
                       frame into its five times of day (see "A day per
                       continent"), player_sprite.py draws the player's
                       17-frame sheet and ghost_sprite.py the winged ghost
-                      a lost life leaves (it borrows player_sprite.py's
-                      palette and renderer, so the two cannot drift
-                      apart), app_icons.py draws the app icons, and
+                      a lost life leaves (it imports that sheet's own dead
+                      frame, palette and renderer, and adds only the wash
+                      and the wings, so the two cannot drift apart),
+                      app_icons.py draws the app icons, and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
@@ -1413,21 +1414,40 @@ dimensions:
   BOTTOM edge, so the cloud sits on the surface instead of straddling it,
   drawn just under the player so they stand in it.
 - **Death ghost**: `assets/player/ghost.png` -- a `PLAYER_GHOST_FRAMES`
-  -frame (2) spritesheet, `PLAYER_GHOST_SIZE` (32) square per frame
-  stacked vertically, drawn by `tools/ghost_sprite.py`. When a hit costs
-  a life, this rises out of the body still sitting there in its dead
-  frame and fades away over `DEATH_GHOST_SEC` (0.5s) and
-  `DEATH_GHOST_RISE_PX` (110) -- and only then does the level restart or
+  -frame (2) spritesheet, `PLAYER_GHOST_FRAME` (64x72) per frame stacked
+  vertically, drawn by `tools/ghost_sprite.py`. When a hit costs a life,
+  this beats its way up out of the body still lying there in its dead
+  frame and fades away over `DEATH_GHOST_SEC` (1.2s) and
+  `DEATH_GHOST_RISE_PX` (150) -- and only then does the level restart or
   the run end, because `startHitFreeze` holds the freeze for at least as
-  long as the flight (`GameScene.spawnDeathGhost`). It is deliberately
-  the PLAYER -- same cap, same blue, same face, with wings -- so what
-  leaves is recognisably the life that was just lost. Unlike every other
-  effect sheet its animation LOOPS: the two frames are wings up and wings
-  down, and the flap runs for the whole flight while a tween carries it
-  up. A tween and not a physics body, because `startHitFreeze` pauses the
-  physics on the very next line and anything with a velocity would just
-  hang there; tweens are not paused with it, which is what lets the ghost
-  keep moving through an otherwise frozen picture.
+  long as the flight (`GameScene.spawnDeathGhost`).
+
+  **It is the dead frame itself.** `ghost_sprite.py` does not draw a
+  figure at all: it imports `player_sprite.py`'s own `DEAD` art, so a
+  redrawn player is a redrawn ghost with nothing to keep in step by hand.
+  Only two things are added. The palette is derived from the player's,
+  mixed 62% towards white and dropped to alpha 200, which is what makes
+  it read as the spirit of the body under it rather than as a second
+  player. And a pair of angel wings is stamped either side -- the one
+  part of the picture that file draws for itself, authored as the left
+  wing and mirrored.
+
+  The cell is the player's cell widened by the wings and exactly as tall,
+  with the figure centred in it, so drawing the ghost at the player's own
+  position lands it on the body pixel for pixel with no offset to keep
+  right. `tests/assets.test.mjs` checks that relationship, and the sheet's
+  real dimensions against it.
+
+  Unlike every other effect sheet its animation LOOPS: the two frames are
+  wings up and wings down, and both are rooted at the same shoulder --
+  the up wing at its bottom corner, the down wing at its top -- so the
+  flap swings about a fixed point instead of sliding the whole wing up
+  and down the back, which is what a wing merely redrawn a few rows lower
+  looks like. It beats at 7fps for the whole flight while a tween carries
+  it up. A tween and not a physics body, because `startHitFreeze` pauses
+  the physics on the very next line and anything with a velocity would
+  just hang there; tweens are not paused with it, which is what lets the
+  ghost keep moving through an otherwise frozen picture.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/

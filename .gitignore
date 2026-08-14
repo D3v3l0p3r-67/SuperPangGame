@@ -1,0 +1,6 @@
+# Python leaves these behind whenever one tool imports another (see
+# tools/ghost_sprite.py, which imports tools/player_sprite.py). They are
+# build output of the interpreter, not of the game, and nothing here or
+# on the site ever loads them.
+__pycache__/
+*.pyc

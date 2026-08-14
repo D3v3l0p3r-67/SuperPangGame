@@ -14,7 +14,7 @@ import {
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, PLAYER_DUST_FRAMES,
   PLAYER_DUST_SIZE, PLAYER_DUST_HEIGHT, PLAYER_DUST_ANIM_KEY,
   PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAMES,
-  PLAYER_GHOST_SIZE, PLAYER_GHOST_ANIM_KEY,
+  PLAYER_GHOST_FRAME, PLAYER_GHOST_ANIM_KEY,
   BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
@@ -87,7 +87,7 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
     this.load.spritesheet(PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, { frameWidth: PLAYER_HIT_SIZE, frameHeight: PLAYER_HIT_SIZE });
     this.load.spritesheet(PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, { frameWidth: PLAYER_DUST_SIZE, frameHeight: PLAYER_DUST_HEIGHT });
-    this.load.spritesheet(PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, { frameWidth: PLAYER_GHOST_SIZE, frameHeight: PLAYER_GHOST_SIZE });
+    this.load.spritesheet(PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAME);
     this.load.image(BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH);
     this.load.spritesheet(BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, { frameWidth: BULLET_HIT_SIZE, frameHeight: BULLET_HIT_SIZE });
     this.load.image(WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH);
@@ -246,15 +246,16 @@ export class BootScene extends Phaser.Scene {
       frameRate: 9,
       repeat: 0,
     });
-    // The only looping one of these: the ghost flaps for the whole of its
-    // short flight rather than playing a burst and stopping, so it repeats
-    // and the tween that carries it up is what ends it (see
-    // GameScene.spawnDeathGhost). Fast enough that half a second of flight
-    // is still several wingbeats.
+    // The only looping one of these: the ghost beats its wings for the
+    // whole of its flight rather than playing a burst and stopping, so it
+    // repeats and the tween that carries it up is what ends it (see
+    // GameScene.spawnDeathGhost). Slow enough to read as wingbeats -- two
+    // frames at a burst rate would just flicker -- and DEATH_GHOST_SEC is
+    // long enough to fit several of them.
     this.anims.create({
       key: PLAYER_GHOST_ANIM_KEY,
       frames: this.anims.generateFrameNumbers(PLAYER_GHOST_TEXTURE_KEY, { start: 0, end: PLAYER_GHOST_FRAMES - 1 }),
-      frameRate: 12,
+      frameRate: 7,
       repeat: -1,
     });
 

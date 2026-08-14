@@ -55,12 +55,13 @@ const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
 
 // The winged ghost that leaves when a life does (see spawnDeathGhost):
-// how long it takes to rise and fade, and how far it gets. Short on
-// purpose -- it is a beat, not a cutscene. The hit freeze never ends
-// before it does (see startHitFreeze), so the level never restarts out
-// from under it.
-const DEATH_GHOST_SEC = 0.5;
-const DEATH_GHOST_RISE_PX = 110;
+// how long it takes to beat its way up and fade, and how far it gets.
+// Long enough to read as a departure and to fit several wingbeats, short
+// enough to still be a beat rather than a cutscene. The hit freeze never
+// ends before it does (see startHitFreeze), so the level never restarts
+// out from under it.
+const DEATH_GHOST_SEC = 1.2;
+const DEATH_GHOST_RISE_PX = 150;
 
 // One ball bounce, resolved from whichever set of contact flags the
 // caller has -- the world-bounds event's own arguments, or an obstacle
@@ -1402,9 +1403,15 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // The life leaving: a winged ghost of the player rises out of the body
-  // still sitting there in its dead frame, and is gone before the level
-  // restarts or the run ends.
+  // The life leaving: a winged ghost of the player beats its way up out of
+  // the body still lying there in its dead frame, and is gone before the
+  // level restarts or the run ends.
+  //
+  // Drawn at the player's own position, which is all the lining-up it
+  // needs: the ghost's cell is the player's cell widened by the wings and
+  // otherwise identical, and the figure inside it is the very same dead
+  // art (see assets.js and tools/ghost_sprite.py). So it begins as an
+  // exact, washed-out copy of the body lying under it and rises off it.
   //
   // A tween rather than a physics body, deliberately: startHitFreeze
   // pauses the physics on the very next line, so anything with a velocity
@@ -1418,8 +1425,10 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({
       targets: ghost,
       y: ghost.y - DEATH_GHOST_RISE_PX,
-      // Fading only over the back half: it leaves visibly rather than
-      // dissolving from the moment it appears.
+      // Held at full strength at first and fading away over the back of
+      // the flight: it has to be seen to leave, and only then to be gone.
+      // (Full strength is already see-through -- the art itself is, so
+      // this fades a ghost out rather than fading a player to a ghost.)
       alpha: { from: 1, to: 0, ease: 'Quad.easeIn' },
       duration: DEATH_GHOST_SEC * 1000,
       ease: 'Sine.easeOut',
