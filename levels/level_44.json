@@ -65,14 +65,14 @@
       "vx": 80
     },
     {
-      "shape": "round",
+      "shape": "wave",
       "size": 4,
       "x": 400,
       "y": 320,
       "vx": 90
     },
     {
-      "shape": "round",
+      "shape": "hunter",
       "size": 5,
       "x": 720,
       "y": 320,

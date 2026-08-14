@@ -2,12 +2,21 @@
 
 A retro pixel-art arcade game inspired by the classic *Pang* / *Buster Bros.*
 gameplay: walk left and right along the ground, fire a harpoon straight up,
-and pop balls before they pop you. There are two ball shapes -- round balls
-(16x16px up to 96x96px, sizes 1-5) that fall under gravity and bounce, and
-hex balls (16x16px up to 48x48px, sizes 1-3 only) that ignore gravity and
-drift at a constant diagonal speed. Hitting a ball splits it into two balls
+and pop balls before they pop you. Hitting a ball splits it into two balls
 one size smaller, one sent left and one right; size-1 balls are destroyed
 outright.
+
+**A ball's colour is what it does.** You get one glance at it while it is
+already falling at you, so every kind that moves differently looks
+different:
+
+| | kind | what it does |
+|---|---|---|
+| 🔴 | **round** | falls under gravity and bounces to a fixed height. Sizes 1-5, 16x16px up to 96x96px |
+| 🟡 | **hex** | ignores gravity, drifts at a constant diagonal speed, and spins. Sizes 1-3 |
+| 🟢 | **wave** | bounces like a round ball, but weaves hard enough across its own path that it doubles back |
+| 🔵 | **hunter** | bounces like a round ball, and turns to follow you -- slowly enough to be outrun and led away |
+| 🟣 | **heavy** | slow, and barely leaves the floor: a quarter of a round ball's bounce, so it stays down where you are |
 
 Every ball's motion is fully deterministic: each size has fixed speed,
 bounce height, and gravity, so two balls of the same size always move and
@@ -118,30 +127,55 @@ allowed to fail: iOS Safari has no orientation lock at all, and the game
 plays the same without one.
 
 **Offline.** `service-worker.js` takes the whole game into one versioned
-cache (`super-pang-v1`) the first time it is opened -- HTML, CSS, every
-module, the vendored Phaser build, every graphic, every sound including
-the music, all the level and element JSON, the manifest and the icons.
-After that first visit the game starts and plays with no network at all;
-a page load offline is answered with `index.html` and the game routes
-itself from there. A new release is one line: bump `CACHE_VERSION`, and
-the old cache is deleted the moment the new worker activates, so a
-release can never be served half from the previous one.
+cache the first time it is opened -- HTML, CSS, every module, the
+vendored Phaser build, every graphic, every sound including the music,
+all the level and element JSON, the manifest and the icons. After that
+first visit the game starts and plays with no network at all; a page load
+offline is answered with `index.html` and the game routes itself from
+there.
 
-The list of files to cache is generated, not hand-kept:
+**The cache is named after what is in it.** `CACHE_VERSION` is not
+hand-bumped -- `tools/build_precache.mjs` hashes every precached file's
+contents and writes the result into `service-worker.js`. That matters
+more than it sounds: this worker answers from its cache first, so a
+version that only moves when someone remembers to move it means players
+go on being served whatever they downloaded on their first visit. It is
+how three consecutive redraws of the player sprite reached nobody who
+already had the game open. Because the version lives in the worker's own
+bytes, changing any file also changes the worker, which is the only thing
+a browser checks to decide whether to install a new one at all. The old
+cache is deleted the moment the new worker activates, so a release is
+never served half from the previous one.
+
+**Updating costs only what changed.** `sw-precache.json` is
+`{ version, files: { path: hash } }`, and the worker keeps that manifest
+inside its own cache. On install it finds the cache it is replacing,
+reads that cache's manifest, and copies every file whose hash is
+unchanged straight across instead of fetching it. A release that redraws
+one sprite therefore downloads one sprite, not the ~7MB whole game --
+which is the difference between an update a phone applies unnoticed and
+one that stalls on whatever connection it happens to be on.
 
 ```bash
-node tools/build_precache.mjs     # writes sw-precache.json
+node tools/build_precache.mjs     # writes sw-precache.json + CACHE_VERSION
 ```
 
-Rerun it whenever a file is added, renamed or removed --
-`tests/pwa.test.mjs` compares the list against the folder and fails if
-they have drifted apart, which is what stops "works offline" from quietly
-becoming "works offline except the one level you added". Only what the
-browser actually fetches is in it: never `admin/` (PHP, and not part of
-the game), the tests or the tools. Requests to other origins, and
-anything that isn't a GET, are passed straight through and never cached,
-so an online scoreboard would fail offline while the game itself carried
-on keeping scores locally (`js/storage.js`).
+Rerun it whenever any precached file changes, is added, renamed or
+removed -- `tests/pwa.test.mjs` compares the manifest against the folder,
+hash by hash, and fails if they have drifted apart. That is what stops
+"works offline" from quietly becoming "works offline except the one level
+you added", and what stops a release from shipping under the previous
+release's cache name. Only what the browser actually fetches is in it:
+never `admin/` (PHP, and not part of the game), the tests or the tools.
+Requests to other origins, and anything that isn't a GET, are passed
+straight through and never cached, so an online scoreboard would fail
+offline while the game itself carried on keeping scores locally
+(`js/storage.js`).
+
+On load `js/pwa.js` also calls `registration.update()` rather than
+waiting for the browser's own schedule, and if a new worker takes over
+during the first few seconds of a visit the page reloads once so the new
+version is the one being played -- not the one after next.
 
 **Icons.** `tools/app_icons.py` draws them, all from one 16x16 pixel-art
 grid so each size is crisp rather than resampled: `icon-192`/`icon-512`
@@ -158,14 +192,34 @@ node --test tests/*.test.mjs
 
 No install step and no test framework -- Node's own runner against the
 project's own files, since the game has no dependencies and neither does
-its test suite. It checks the things that can be answered without running
-the game: every level file (grid alignment, no two obstacles in one cell,
-everything it names existing), every asset the boot sequence asks for,
-every sound played by name, and the pure rules the rest is built on (the
-playfield geometry, the key bindings, the transition registry). See
-[`tests/README.md`](tests/README.md) for what each file covers and what is
-deliberately left to a real browser instead. `.github/workflows/tests.yml`
-runs the same line on every push.
+this half of its test suite. It checks the things that can be answered
+without running the game: every level file (grid alignment, no two
+obstacles in one cell, everything it names existing), every asset the
+boot sequence asks for, every sound played by name, and the pure rules
+the rest is built on (the playfield geometry, the key bindings, the
+transition registry).
+
+And the other half, which runs the game for real:
+
+```bash
+npm install                          # Playwright, the project's only dependency
+node --test tests/smoke/*.test.mjs
+```
+
+That one opens the game in Chromium and presses on it: it boots, loads
+and runs **every** level it ships, walks and shoots with real key events,
+loses a life, clears a level into the next, pauses and quits -- failing
+on anything the game throws or logs along the way. It takes about 35
+seconds against a fifth of one, which is why it is a separate command and
+a separate CI job.
+
+The split is not tidiness, it is what each half can see. Set
+`PLAYER_CONFIG.speed` to 0 and every test in the first half still passes;
+the smoke suite fails with `player barely moved: 400 -> 400`. Every bug
+that has actually reached a player was of that kind. See
+[`tests/README.md`](tests/README.md) for what each file covers and which
+half a new test belongs in. `.github/workflows/tests.yml` runs both on
+every push.
 
 ## Controls
 
@@ -205,6 +259,20 @@ holding it down does nothing (see `GameScene.updatePlaying`'s
 weapon's `maxActiveShots` (see `tryFire`), which is what `rapid_shot`
 raises -- it changes how many shots may be in the air at once, never how
 the trigger reads.
+
+**Firing plants you.** For `SHOT_LOCK_SEC` (`js/config.js`, 0.15s) after a
+shot the held direction does nothing: the player stands where they fired
+from, on the ground or on a ladder alike, and moves again the moment it
+ends (`Player.update`, which drops the directions out of the input while
+the lock runs). That is exactly as long as the shot pose is on screen --
+`BootScene` derives the animation's frame rate from the same constant, so
+the pose and the pause always end together. Only the directions are
+dropped: gravity still applies, the shot itself still travels, and the
+trigger is read separately, so the lock can never swallow a shot.
+
+The shot leaves from the middle of the player, which is where the weapon
+is drawn -- `tryFire` uses `player.x`, and the sprite has the barrel on
+its own centre line (see "Swapping graphics").
 
 **Up is both the shoot key and the climb key.** A press of it means climb
 whenever there is a ladder to spend it on -- standing at the foot of one,
@@ -406,7 +474,7 @@ file, not of any code:
 
 | feature | levels | what it does there |
 |---|---|---|
-| **ladders** | 3, 5, 7, 10, 13, 16, 20, 24, 26, 27, 28, 30, 37, 38, 40, 50 | a climb from the floor to a shelf worth shooting from -- a level is always solvable from the ground (see "Features"), so a ladder is a route, never the route |
+| **ladders** | 3, 5, 7, 10, 13, 16, 20, 26, 27, 28, 30, 37, 38, 40, 50 | a climb from the floor to a shelf worth shooting from -- a level is always solvable from the ground (see "Features"), so a ladder is a route, never the route |
 | **stepped shapes** | 37, 38 | the shelf a ladder lands on is a staircase you walk up, built from `cells` rather than `w`/`h` |
 | **player starts** | 42 of 50 | where the level puts you, chosen so nothing can reach you for about two seconds -- a few levels used to open with a ball sitting exactly on the middle of the floor, which is where a level with no start of its own puts the player |
 | **machine gun** | 12, 22, 29, 34, 42, 47 | levels with several small/hex balls at once, where a fanned volley is worth more than one beam |
@@ -414,10 +482,15 @@ file, not of any code:
 | **guaranteed drops** | 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 (ball), 13, 28, 44 (crate) | the last level of each region hands out something for the region ahead -- a shield, an extra life, time freeze -- and three levels hide one in a one-block crate to shoot open |
 
 A ladder has to reach the floor in whole elements (they are 96px tall, so
-its top is 304, 208 or 112) and land on a platform wide enough to step off
-onto, with a clear column below it. `tests/levels.test.mjs` checks both
-ends of every ladder, that no start is inside an obstacle or a ball, and
-that a guaranteed drop sits on a single breakable block.
+its top is 304, 208 or 112), land on a platform wide enough to step off
+onto, keep a clear column below it, and -- the one that is easy to miss --
+leave room to STAND at the top. The player only lets go up there if their
+whole body fits above the surface (`Player.canStandOn`), so a landing with
+something overhanging it is a ladder that is climbed and never left: level
+24's pagoda had exactly that, its tiers 32px apart against a 50px player,
+and it lost its ladder for it. `tests/levels.test.mjs` checks all four,
+plus that no start is inside an obstacle or a ball and that a guaranteed
+drop sits on a single breakable block.
 
 ## Level transitions
 
@@ -444,6 +517,22 @@ there is nothing else to keep in step.
 Whichever effect is running, the change of level itself is heard:
 `LevelTransition.start` plays `leveltransition`, so the sound belongs to
 the level changing rather than to any one way of showing it.
+
+**The countdown waits for the effect to finish.** The next level is built
+at the *covered* moment, which is nowhere near the end of the transition:
+halfway through for an overlay effect, and the very first frame for a
+sliding one, which has nothing to hide behind until the next level
+exists. Starting the level intro there would put READY -- and then SET and
+GO!, sounds and all -- over a level still sliding off the screen.
+`GameScene.advanceLevel` instead holds the countdown for
+`transition.remainingSec`, reusing the same lead-in that lets the
+run-start fanfare finish (`startLevelIntro`'s `leadInSec`): only the
+LEVEL/name title card shows until the effect is done. The hold is
+re-read from the transition every frame rather than trusted from the one
+estimate taken at the swap, because the two clocks are ticked at
+different points in the frame and an estimate alone drifts a frame or two
+ahead. `tests/rules.test.mjs` replays that arrangement against every
+registered effect and fails if any of them lets the countdown open early.
 
 There are two kinds of effect, and which one an entry is depends only on
 the method it carries:
@@ -579,7 +668,7 @@ seam between the canvas and the page behind it.
   before its path can ever reach the player) for a gentle but active first
   look at movement, shooting, and ball physics.
 - The campaign uses what the engine has rather than only walls and balls:
-  **16 levels have ladders** up to a shelf worth shooting from (two of
+  **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name
   their own player start** so no level opens with a ball already on top of
   you, **12 are played with the machine gun or the grapple** instead of the
@@ -600,9 +689,17 @@ seam between the canvas and the page behind it.
   once with every hex ball starting upward and once downward. Balls never
   collide with each other, so their paths are independent and those two
   runs cover every ball in both of its possible states.
-- 2 ball shapes: round (sizes 1-5) and hex (sizes 1-3 only), each with
-  fixed, deterministic physics; splitting one size smaller (one left, one
-  right) per hit.
+- 5 ball kinds -- round, hex, wave, hunter, heavy (see the table at the
+  top) -- each with fixed, deterministic physics, splitting one size
+  smaller (one left, one right) per hit. What a kind DOES beyond bouncing
+  is an entry in `js/elements.js`'s `BALL_MOVEMENTS`, named by the ball's
+  own element file; what it LOOKS like is the round ball's art with its
+  hue turned. Both are written by `tools/ball_variants.py` from the round
+  ball, so a kind's colour and its behaviour cannot come apart, and
+  redrawing the round ball redraws every kind. `heavy` needs no code at
+  all -- barely bouncing and moving slowly is entirely a matter of its
+  numbers. The campaign introduces them one at a time: green from level
+  11, purple from 16, blue from 26, and never a level made only of one.
 - Obstacles: indestructible platforms and shootable crates, built from
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
@@ -703,7 +800,11 @@ Useful while tuning levels or ball behavior:
 
 - Toggle with **Shift+D**, or load the page with `?debug=1` in the URL.
 - Shows an FPS counter, the current game state/level, remaining time,
-  score/lives/weapon, and live entity counts.
+  score/lives/weapon, and live entity counts -- all on ONE line. Every
+  line the panel takes is height pushed onto the game below it, so the
+  readout is written short (`L6/50`, `t90`, power-ups by the first word
+  of their type) and is allowed to ellipsize rather than wrap, which
+  keeps an unusually long tail from growing the panel.
 - Draws collision bounds for the player, balls, projectiles, power-ups,
   and obstacles directly over the game -- switched on and off with the
   **Colliders** button under **VIEW**, or the **C** key, alongside the
@@ -711,24 +812,40 @@ Useful while tuning levels or ball behavior:
   always shown: outlines on, grid off. Either button carries the outline
   the editor's selected brush does while its overlay is showing, so what
   is on is visible in the panel itself.
-- A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
-  clear every ball on the field instantly with **Remove all balls**; one
-  quick-spawn button per power-up (bonus fruit, shield, every weapon
-  power-up, and all the others); one button per weapon under **Give
-  weapon**, which hands it to the player directly -- a weapon is a
-  property of the level rather than something that drops, so there is no
-  pickup to spawn -- without cancelling a weapon power-up that happens to
-  be running; jump straight to any level -- all without replaying the
-  whole game or affecting normal play when the panel is off. The power-up
-  and weapon rows are both built from their registries (`POWERUP_TYPES`,
-  `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
-  the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
-  any transition effect on demand.
+- A clearly labeled spawn panel, all of it without replaying the whole
+  game or affecting normal play when the panel is off:
+  - **BALL** -- pick a shape + size and **Spawn** it; **Remove all** takes
+    every ball off the field with nothing happening; **Pop all** instead
+    gives every ball the hit it would take from a shot, score, sound,
+    burst, drop roll and splits included, so one press is one volley and
+    the big ones come apart rather than vanishing.
+  - **POWER-UP** -- one button per type, and a mode above them deciding
+    what a press does: **Drop pickup** spawns the bonus to be collected
+    (the way to check that it falls, lands and can be picked up), **Use
+    now** applies the effect to the player outright (the way to check what
+    it then does, without chasing a bonus that has bounced onto a ledge).
+  - **GIVE WEAPON** -- one button per weapon, handed to the player
+    directly, since a weapon is a property of the level rather than
+    something that drops. It won't cancel a weapon power-up that happens
+    to be running.
+  - **CAMPAIGN** -- **To start** plays the chosen level from the
+    beginning; **To end** clears it on the spot and carries on into the
+    next, so a hand-off between two levels -- celebration, time tally,
+    transition, and across a region boundary the world map -- can be
+    watched without beating the level before it. It does not write a
+    record: it didn't play the level, and the fraction of a second it
+    took would otherwise stand as that level's time forever. (Clearing a
+    level with **Pop all** does count, because that really is clearing
+    it.) The **Level transition** picker plays any effect on demand.
+
+  The power-up and weapon rows are both built from their registries
+  (`POWERUP_TYPES`, `WEAPON_TYPES`), so a new entry appears in the panel
+  on its own, as does the transition picker's list (`LEVEL_TRANSITIONS`).
 - Lives entirely above the playfield's own ceiling, in its own
   `#tool-bar` row (see index.html/style.css) -- never overlapping actual
   gameplay the way an in-canvas overlay would. It spans the canvas's exact
   width and is as tall as its contents need, laid out as labelled columns
-  of rows -- **BALL**, **SPAWN POWER-UP**, **GIVE WEAPON**, **CAMPAIGN**,
+  of rows -- **BALL**, **POWER-UP**, **GIVE WEAPON**, **CAMPAIGN**,
   **VIEW**, and a **STATE** readout -- which wrap onto a second line when
   they don't all fit across.
 - It is styled as the same tool as the level editor's panel: both are
@@ -752,21 +869,25 @@ style.css            All visual styling, responsive/touch layout
 manifest.webmanifest The installed app's name, icons, colours, and its
                       fullscreen/landscape wishes -- see "Install it on a
                       phone" above
-service-worker.js    The offline cache: one versioned store holding the
-                      whole game, filled on the first visit
-sw-precache.json     What that worker caches -- generated by
-                      tools/build_precache.mjs, never hand-edited
+service-worker.js    The offline cache: one store, named after a hash of
+                      everything in it, filled on the first visit and
+                      updated file by file after that
+sw-precache.json     What that worker caches and a hash per file --
+                      generated by tools/build_precache.mjs, never
+                      hand-edited
 favicon.ico          The tab icon (browsers ask for it by that name
                       whether it is linked or not)
 assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
-  player/            player.png, a single spritesheet (idle, shot, 4 walk,
+  player/            player.png, a single spritesheet, drawn by
+                      tools/player_sprite.py (idle, shot, 4 walk,
                       victory, dead, 2 climb, 2 ladder-exit, 2 step-up,
-                      2 step-down) + shield.webp, the looping shield
+                      2 step-down, jump) + shield.webp, the looping shield
                       effect, + hit.webp and dust.webp, the hit burst and
-                      the landing puff -- see "Swapping graphics" below
+                      the landing puff, + ghost.png, the winged ghost a
+                      lost life leaves -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   ladders/           <ladder texture>.webp, the whole element at its
                       authored size (48x96) rather than a repeating tile,
@@ -799,9 +920,17 @@ tests/               Node's own test runner against the data and the pure
 tools/               Scripts run by hand, never by the game:
                       daylight_backgrounds.py relights a region's night
                       frame into its five times of day (see "A day per
-                      continent"), app_icons.py draws the app icons, and
+                      continent"), ball_variants.py turns the round
+                      ball's hue into every other ball kind and writes
+                      their elements with it, player_sprite.py draws the
+                      player's
+                      17-frame sheet and ghost_sprite.py the winged ghost
+                      a lost life leaves (it imports that sheet's own dead
+                      frame, palette and renderer, and adds only the wash
+                      and the wings, so the two cannot drift apart),
+                      app_icons.py draws the app icons, and
                       build_precache.mjs writes the offline file list
-                      (see "Install it on a phone")
+                      and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
                       code -- see "Admin tool" below. Not linked from the
@@ -925,10 +1054,12 @@ js/
   storage.js         Versioned localStorage persistence (high scores,
                       settings including the key bindings, unlock
                       progress, the per-level records, and the levels
-                      saved in the editor -- see "Adding levels")
+                      saved in the editor -- see "Adding levels"), plus
+                      eraseProgress(), which takes the first three and
+                      deliberately none of the rest
   editor.js          In-browser level editor: opens one campaign level
                       (picked from the same list as Start Level),
-                      grid-snapped painting, Save/Revert/Export/Import
+                      grid-snapped painting, New/Save/Revert/Export/Import
                       -- see "Adding levels" below
   debug.js           Debug overlay (Phaser Graphics) and dev tools
   panelUi.js         The five DOM pieces both developer toolbars (the
@@ -1052,6 +1183,19 @@ The **FILE** buttons all act on that same level:
   import it in the admin tool's Levels tab, see "Admin tool").
 - **Import** replaces what is being edited with a level file from disk,
   and **Clear all** empties it -- neither writes anything until Save.
+- **New** starts a BLANK level in the slot this session has open, which is
+  what lets the editor author a level rather than only edit one. Not the
+  same thing as Clear all: that empties the field but leaves everything
+  the level IS -- its name, time limit, background and weapon all still
+  come from whatever was opened, so what you are left with is that level
+  with its contents removed. New resets those too. It writes nothing
+  either; Save puts it in the slot and the game plays it from then on,
+  Export downloads it as the level file, and Revert is still the way back
+  to what shipped. It discards more than any other button in the panel,
+  so it is the one that asks first -- and the question takes the place of
+  the row it was asked from rather than appearing under it, because the
+  panel is a fixed band across the HUD strip and a group that grew a row
+  while asking would push its own answer out of it.
 - **Play** playtests what is on screen without saving it. Trying a change
   is not committing it; Save is the only thing that writes. The unsaved
   buffer travels with the playtest (`GameScene.editorDraft`), so leaving
@@ -1206,6 +1350,24 @@ schema as everything else, in hundredths of a second, and read back
 defensively -- an entry that isn't a sane number is dropped rather than
 shown as a record no run could beat.
 
+**Erasing it.** Options has an **ERASE PROGRESS** button, because a
+player who cannot clear what they have done is stuck with it forever --
+and the debug panel and the level editor can both write into these. It
+takes the high score table, the campaign unlocks and every record time
+(`storage.eraseProgress`). It deliberately leaves everything that is a
+preference rather than an achievement: volume, mute, display size, the
+key bindings (those have their own reset, on the controls screen), and
+the levels saved in the editor -- which are somebody's authoring, not
+their score, and would be a cruel thing to take away under that name.
+The keys are listed one at a time rather than cleared by namespace, so a
+key added later has to be thought about before it can be erased by
+accident.
+
+It is irreversible, so the button only ever reveals a confirmation and
+nothing is written until the second press. `tests/smoke/` presses both
+answers and checks what survived each -- which is as much the point as
+what did not.
+
 The record shows up in three places, all of them where it is useful:
 
 - the **level-intro card** (`LevelIntro.js`), under the level's name, so
@@ -1255,7 +1417,7 @@ dimensions:
   since a ball popped right under the border has less than 64px of room
   above it. All tuned in `js/ScorePopup.js`'s constants.
 - **Player**: `assets/player/player.png`, a single spritesheet (not one
-  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (32x64)
+  file per frame) of `PLAYER_CONFIG.spriteWidth x spriteHeight` (36x72)
   cells stacked vertically. Frame order is fixed (`PLAYER_ANIM_FRAMES` in
   `js/assets.js`): idle (1), shot
   (1, fired once per shot), 4 walk frames (the walk cycle), victory (1,
@@ -1277,10 +1439,44 @@ dimensions:
   move, and the weapon barrel is still drawn to the top of the cell on
   every frame (it is a long pole running past the sprite, so its visible
   top edge belongs at the cell boundary however the hand holding it
-  moves). Every frame is authored facing LEFT; Player.js mirrors it for
-  right via `setFlipX`, so swapping the sheet only needs left-facing (or,
-  for this game's straight-on chibi style, direction-neutral) art -- keep
-  the same 32x(64 x 16) total size and frame order.
+  moves).
+
+  **Which way each frame faces.** The game is played into the screen, so
+  the player is drawn from BEHIND for everything done facing the
+  playfield: idle, shot, both climb frames and both ladder-exit frames.
+  The walk cycle and the step up/down frames are seen from the SIDE, and
+  are the ones authored facing LEFT -- `Player.js` mirrors those for the
+  other direction via `setFlipX`. Victory, the celebration jump and dead
+  turn round to face the player.
+
+  The weapon is drawn on the sprite's own centre line in the frames that
+  face away or towards you, because that is where a shot leaves from
+  (`tryFire` uses `player.x`). The side frames have no barrel over the
+  helmet at all: from there the weapon is in the hands, held across the
+  chest, which is what it looks like from the side. **The climb frames
+  have no barrel either**, for the opposite reason: both hands are on the
+  rungs, and a barrel still standing over the head of a player who is
+  plainly not holding it reads as scenery stuck to the sprite. It comes
+  back on the ladder-exit frames, which is the moment the gun comes back
+  up.
+
+  **The back-view arms stop at the elbows.** From behind, the upper arms
+  angle down and inward from the shoulders and the forearms disappear
+  behind the body, because they are holding something in front of the
+  chest -- the two hands the same frame shows on the weapon. Arms drawn
+  all the way down to hands at the hips would contradict them.
+
+  **Clearing a level** alternates the standing victory pose with frame 16,
+  the same pose airborne -- the player faces out, throws their arms up and
+  hops on the spot. Frame 16 is the one frame in the sheet whose feet are
+  deliberately NOT on the cell's last row: that gap under the boots is the
+  jump.
+
+  The art is drawn by `tools/player_sprite.py`, which authors each frame
+  as ASCII art on an 18x36 grid (one letter per palette colour) and scales
+  it 2x into its 36x72 cell -- so editing the character is editing those
+  strings and rerunning the script. Replacing the .png by hand works just
+  as well: keep the same 36x(72 x 17) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
   -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`
@@ -1310,6 +1506,41 @@ dimensions:
   along the ground rather than billowing up) and it is anchored by its
   BOTTOM edge, so the cloud sits on the surface instead of straddling it,
   drawn just under the player so they stand in it.
+- **Death ghost**: `assets/player/ghost.png` -- a `PLAYER_GHOST_FRAMES`
+  -frame (2) spritesheet, `PLAYER_GHOST_FRAME` (64x72) per frame stacked
+  vertically, drawn by `tools/ghost_sprite.py`. When a hit costs a life,
+  this beats its way up out of the body still lying there in its dead
+  frame and fades away over `DEATH_GHOST_SEC` (1.2s) and
+  `DEATH_GHOST_RISE_PX` (150) -- and only then does the level restart or
+  the run end, because `startHitFreeze` holds the freeze for at least as
+  long as the flight (`GameScene.spawnDeathGhost`).
+
+  **It is the dead frame itself.** `ghost_sprite.py` does not draw a
+  figure at all: it imports `player_sprite.py`'s own `DEAD` art, so a
+  redrawn player is a redrawn ghost with nothing to keep in step by hand.
+  Only two things are added. The palette is derived from the player's,
+  mixed 62% towards white and dropped to alpha 200, which is what makes
+  it read as the spirit of the body under it rather than as a second
+  player. And a pair of angel wings is stamped either side -- the one
+  part of the picture that file draws for itself, authored as the left
+  wing and mirrored.
+
+  The cell is the player's cell widened by the wings and exactly as tall,
+  with the figure centred in it, so drawing the ghost at the player's own
+  position lands it on the body pixel for pixel with no offset to keep
+  right. `tests/assets.test.mjs` checks that relationship, and the sheet's
+  real dimensions against it.
+
+  Unlike every other effect sheet its animation LOOPS: the two frames are
+  wings up and wings down, and both are rooted at the same shoulder --
+  the up wing at its bottom corner, the down wing at its top -- so the
+  flap swings about a fixed point instead of sliding the whole wing up
+  and down the back, which is what a wing merely redrawn a few rows lower
+  looks like. It beats at 7fps for the whole flight while a tween carries
+  it up. A tween and not a physics body, because `startHitFreeze` pauses
+  the physics on the very next line and anything with a velocity would
+  just hang there; tweens are not paused with it, which is what lets the
+  ghost keep moving through an otherwise frozen picture.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/

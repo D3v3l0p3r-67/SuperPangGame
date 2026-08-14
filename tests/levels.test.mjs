@@ -169,6 +169,25 @@ test('every ladder goes somewhere: down to a footing, up to a landing', () => {
         `${where}: ends in mid-air at y=${bottom}`);
       assert.ok(tops.has(`${l.x},${l.y - el.height}`) || surfaceAt(l.x, el.width, l.y),
         `${where}: tops out with nothing to step onto`);
+      // ...and somewhere with room to STAND. The player only lets go at the
+      // top if their whole body fits above the surface (Player.canStandOn),
+      // so a landing with an overhang over it is a ladder that is climbed
+      // and never left -- which is exactly what level 24's pagoda did, its
+      // tiers being 32px apart against a 50px player.
+      if (tops.has(`${l.x},${l.y - el.height}`)) continue; // not the top of the stack
+      const centre = l.x + el.width / 2;
+      const room = {
+        left: centre - PLAYER_CONFIG.hitboxWidth / 2,
+        right: centre + PLAYER_CONFIG.hitboxWidth / 2,
+        top: l.y - PLAYER_CONFIG.hitboxHeight,
+        bottom: l.y,
+      };
+      for (const key of blocks) {
+        const [bx, by] = key.split(',').map(Number);
+        assert.ok(bx >= room.right || bx + OBSTACLE_BLOCK_SIZE <= room.left
+          || by >= room.bottom || by + OBSTACLE_BLOCK_SIZE <= room.top,
+          `${where}: a block at (${bx}, ${by}) is in the standing room above it -- the player would climb up and never be able to step off`);
+      }
     }
   }
 });

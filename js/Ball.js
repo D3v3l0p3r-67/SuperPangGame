@@ -1,5 +1,5 @@
 import { MIN_BALL_SIZE } from './config.js';
-import { getBallElement, maxBallSize } from './elements.js';
+import { getBallElement, maxBallSize, ballMovement } from './elements.js';
 import { ballTextureKey, ballSpinAnimKey } from './assets.js';
 
 // A ball is a (shape, size) pair. Every physical parameter -- radius,
@@ -75,6 +75,14 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     // Tracks which way the ball is currently headed horizontally,
     // independent of body.velocity.x -- see reassertHorizontal().
     this.hDir = Math.sign(this.body.velocity.x) || 1;
+
+    // How this ball moves beyond bouncing (see elements.js's
+    // BALL_MOVEMENTS): weaving, hunting the player, or -- for the plain
+    // bouncers and every ball that shipped before variants existed --
+    // nothing at all. Set after hDir, which is what a movement steers.
+    this.movement = ballMovement(el.movement);
+    this.movementPhase = 0;
+    this.movement.init?.(this);
 
     // Last frame's vertical speed -- see rememberVerticalSpeed().
     this.lastVelocityY = this.body.velocity.y;
@@ -182,6 +190,16 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
   // was already going.
   reassertHorizontal() {
     this.body.setVelocityX(this.hDir * this.hSpeed);
+  }
+
+  // One frame of whatever this ball does beyond bouncing (see
+  // elements.js's BALL_MOVEMENTS). Called from GameScene.updatePlaying
+  // AFTER the physics step, so it can set the horizontal velocity
+  // outright -- anything a bounce did this frame has already happened.
+  // Never called while balls are frozen: a movement is motion, and a
+  // frozen ball is not moving.
+  updateMovement(dt, scene) {
+    this.movement.update(this, dt, scene);
   }
 
   // Pauses/resumes the hex spin animation started in the constructor

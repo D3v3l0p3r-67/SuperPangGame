@@ -34,6 +34,7 @@ import {
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
+  PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_ANIM_KEY,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
@@ -52,6 +53,15 @@ const LEVEL_CLEAR_PAUSE_SEC = 1;
 // the fade always finishes before the next level can load.
 const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
+
+// The winged ghost that leaves when a life does (see spawnDeathGhost):
+// how long it takes to beat its way up and fade, and how far it gets.
+// Long enough to read as a departure and to fit several wingbeats, short
+// enough to still be a beat rather than a cutscene. The hit freeze never
+// ends before it does (see startHitFreeze), so the level never restarts
+// out from under it.
+const DEATH_GHOST_SEC = 1.2;
+const DEATH_GHOST_RISE_PX = 150;
 
 // One ball bounce, resolved from whichever set of contact flags the
 // caller has -- the world-bounds event's own arguments, or an obstacle
@@ -607,10 +617,21 @@ export class GameScene extends Phaser.Scene {
         // waits until the plane has landed and the map has faded.
         if (crossesRegion(from, to)) {
           this.audio.stopMusic();
+          // No lead-in needed here: the interlude runs for seconds after
+          // the transition has ended, so by the time this fires the new
+          // level has long been in place.
           this.worldMap.start(regionIndexForLevel(from), regionIndexForLevel(to),
             () => this.startLevelIntro());
         } else {
-          this.startLevelIntro();
+          // The countdown waits out the rest of the transition. This runs
+          // at the COVERED moment, not at the end of the effect -- and for
+          // a sliding effect (which has nothing to hide behind until the
+          // next level exists) that moment is its very first frame. Started
+          // plainly, READY would sound, and SET and GO! would tick down,
+          // over a level still sliding off the screen. The lead-in holds
+          // the countdown and every one of its cues while showing the
+          // LEVEL/name card, exactly as it does for the run-start fanfare.
+          this.startLevelIntro(this.transition.remainingSec);
         }
       });
     } else {
@@ -618,7 +639,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  levelClear() {
+  // `recordTime` is what clearing a level by playing it does. It is only
+  // ever false for a clear that did not involve playing -- the debug
+  // panel's jump-to-end (js/debug.js), where the fraction of a second
+  // between arriving and clearing would otherwise stand as that level's
+  // record from then on.
+  levelClear({ recordTime = true } = {}) {
     const def = this.currentLevelDef;
     // The time bonus is no longer added in one jump -- it's counted off
     // second by second during LEVEL_CLEAR so the clock visibly drains
@@ -636,7 +662,7 @@ export class GameScene extends Phaser.Scene {
     // with the level (including after a life is lost, see loadLevel), so
     // this is the run the player just made, not the sum of their tries --
     // the same number the HUD's clock was showing.
-    this.clearTimeSec = this.isCustomLevel || this.isPanicMode ? null : this.levelTimer;
+    this.clearTimeSec = !recordTime || this.isCustomLevel || this.isPanicMode ? null : this.levelTimer;
     this.clearIsRecord = this.clearTimeSec !== null
       && storage.saveLevelTime(this.levelIndex, this.clearTimeSec).isRecord;
     this.audio.stopMusic();
@@ -830,6 +856,16 @@ export class GameScene extends Phaser.Scene {
 
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
+        // A transition still playing keeps the countdown held for however
+        // long it has left -- re-read every frame rather than trusted from
+        // the one estimate taken when the level was swapped in
+        // (advanceLevel). The two clocks are ticked at different points in
+        // the frame (this one here, the transition's at the end of
+        // update), so an estimate alone drifts a frame or two ahead and
+        // lets READY open over the last sliver of the effect.
+        if (this.transition.active) {
+          this.introLeadInSec = Math.max(this.introLeadInSec, this.transition.remainingSec);
+        }
         // Lead-in: hold the countdown (and the physics freeze) while the
         // run-start fanfare finishes, then open with READY.
         if (this.introLeadInSec > 0) {
@@ -972,6 +1008,12 @@ export class GameScene extends Phaser.Scene {
       // step -- i.e. its impact speed, which Arcade wipes before the
       // collision callback can read it (see Ball.rememberVerticalSpeed).
       ball.rememberVerticalSpeed();
+      // ...and for the same reason, this is where a ball that moves in
+      // some way beyond bouncing gets its say (see elements.js's
+      // BALL_MOVEMENTS): after the step, so setting the horizontal
+      // velocity here lands on top of whatever a bounce did rather than
+      // under it. Not while frozen -- a movement is motion.
+      if (!this.ballsFrozen) ball.updateMovement(dt, this);
       // Panic Mode ceiling-drop balls (see spawnPanicBall) spawn centered
       // on the ceiling border's own inner edge, depth-sorted behind it and
       // with world-bounds collision off, so they visibly slide out from
@@ -1367,8 +1409,42 @@ export class GameScene extends Phaser.Scene {
       // game over.
       if (!this.isCustomLevel) this.lives -= 1;
       this.player.playDeadAnim();
+      this.spawnDeathGhost();
       this.startHitFreeze(!this.isCustomLevel && this.lives <= 0);
     }
+  }
+
+  // The life leaving: a winged ghost of the player beats its way up out of
+  // the body still lying there in its dead frame, and is gone before the
+  // level restarts or the run ends.
+  //
+  // Drawn at the player's own position, which is all the lining-up it
+  // needs: the ghost's cell is the player's cell widened by the wings and
+  // otherwise identical, and the figure inside it is the very same dead
+  // art (see assets.js and tools/ghost_sprite.py). So it begins as an
+  // exact, washed-out copy of the body lying under it and rises off it.
+  //
+  // A tween rather than a physics body, deliberately: startHitFreeze
+  // pauses the physics on the very next line, so anything with a velocity
+  // would simply hang in the air. Tweens are not paused with it, which is
+  // what lets this one thing keep moving in an otherwise frozen picture --
+  // and is most of why it reads as a spirit rather than as a sprite.
+  spawnDeathGhost() {
+    const ghost = this.add.sprite(this.player.x, this.player.y, PLAYER_GHOST_TEXTURE_KEY);
+    ghost.setDepth(8); // above the player (4) and every impact burst (6-7)
+    ghost.play(PLAYER_GHOST_ANIM_KEY);
+    this.tweens.add({
+      targets: ghost,
+      y: ghost.y - DEATH_GHOST_RISE_PX,
+      // Held at full strength at first and fading away over the back of
+      // the flight: it has to be seen to leave, and only then to be gone.
+      // (Full strength is already see-through -- the art itself is, so
+      // this fades a ghost out rather than fading a player to a ghost.)
+      alpha: { from: 1, to: 0, ease: 'Quad.easeIn' },
+      duration: DEATH_GHOST_SEC * 1000,
+      ease: 'Sine.easeOut',
+      onComplete: () => ghost.destroy(),
+    });
   }
 
   // Freeze-frame everything (player, balls, projectiles) for a beat after
@@ -1378,7 +1454,10 @@ export class GameScene extends Phaser.Scene {
   startHitFreeze(isGameOver) {
     this.pendingGameOver = isGameOver;
     this.state = GAME_STATES.HIT_FREEZE;
-    this.stateTimer = HIT_FREEZE_SEC;
+    // Never shorter than the ghost's flight: the restart (or the game
+    // over screen) waits for the life to finish leaving, so shortening
+    // the freeze can't cut it off mid-air.
+    this.stateTimer = Math.max(HIT_FREEZE_SEC, DEATH_GHOST_SEC);
     this.physics.pause();
   }
 

@@ -74,12 +74,5 @@
   "playerStart": {
     "x": 392,
     "y": 400
-  },
-  "ladders": [
-    {
-      "type": "ladder",
-      "x": 368,
-      "y": 304
-    }
-  ]
+  }
 }

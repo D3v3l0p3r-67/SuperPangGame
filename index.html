@@ -73,6 +73,16 @@
       </div>
       <button id="btn-controls" class="menu-btn"></button>
       <button id="btn-options-fullscreen" class="menu-btn"></button>
+      <!-- Erasing is irreversible, so it asks first: pressing ERASE
+           PROGRESS reveals this row rather than doing anything, and
+           leaving the options screen puts it away again (see ui.js). -->
+      <button id="btn-erase" class="menu-btn"></button>
+      <div id="erase-confirm" class="hidden">
+        <p id="erase-warning" class="hint"></p>
+        <button id="btn-erase-yes" class="menu-btn"></button>
+        <button id="btn-erase-no" class="menu-btn"></button>
+      </div>
+      <p id="erase-done" class="hint hidden"></p>
       <button id="btn-close-options" class="menu-btn"></button>
     </div>
 

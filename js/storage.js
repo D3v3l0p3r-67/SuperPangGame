@@ -211,6 +211,35 @@ export function qualifiesForHighScore(score) {
   return score > scores[scores.length - 1].score;
 }
 
+// Everything the game has recorded about how the player has DONE: the
+// high score table, how far the campaign is unlocked, and every level's
+// record time. Offered on the options screen (see ui.js), because a
+// player who cannot clear what they have done is stuck with it forever --
+// and the debug panel and the level editor can both write into these.
+//
+// What it deliberately leaves alone is everything that is a PREFERENCE
+// rather than an achievement: volume, mute, display size, key bindings
+// (those have their own reset, on the controls screen), and the level
+// editor's saved work -- which is somebody's authoring, not their score,
+// and would be a cruel thing to take away under this name.
+//
+// Listed one key at a time rather than by clearing the whole namespace,
+// so a key added later has to be thought about here before it can be
+// erased by accident.
+const ERASABLE_KEYS = ['highscores', 'progress', 'levelTimes'];
+
+export function eraseProgress() {
+  for (const name of ERASABLE_KEYS) {
+    try {
+      localStorage.removeItem(KEYS[name]);
+    } catch {
+      // Same as every other write here: a browser refusing storage is
+      // not a reason to fall over, it just means nothing was saved to
+      // erase.
+    }
+  }
+}
+
 export function saveHighScore({ name, score, level }) {
   const scores = loadHighScores();
   const entry = {

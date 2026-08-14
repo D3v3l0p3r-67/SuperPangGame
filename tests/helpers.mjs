@@ -24,6 +24,16 @@ export function listFiles(relativeDir) {
   return readdirSync(join(ROOT, relativeDir));
 }
 
+// A PNG says its own size in the IHDR chunk, which is always the first
+// one: 8 bytes of signature, 8 of chunk header, then width and height as
+// big-endian 32-bit integers. Cheaper (and dependency-free) than decoding
+// the image to ask how big it is.
+export function pngSize(relativePath) {
+  const buffer = readFileSync(join(ROOT, relativePath));
+  if (buffer.toString('ascii', 1, 4) !== 'PNG') throw new Error(`${relativePath}: not a PNG`);
+  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+}
+
 // Every levels/level_NN.json, in order, with the number the filename
 // claims -- which several rules below check the contents against.
 export function levelFiles() {

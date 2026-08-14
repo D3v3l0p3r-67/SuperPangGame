@@ -1,6 +1,6 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
-import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
+import { WEAPON_TYPES, PLAYER_CONFIG, SHOT_LOCK_SEC } from './config.js';
 import { LEVELS } from './LevelManager.js';
 import { daylightBackgroundNames } from './regions.js';
 import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
@@ -13,6 +13,8 @@ import {
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, PLAYER_HIT_FRAMES, PLAYER_HIT_SIZE, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, PLAYER_DUST_FRAMES,
   PLAYER_DUST_SIZE, PLAYER_DUST_HEIGHT, PLAYER_DUST_ANIM_KEY,
+  PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAMES,
+  PLAYER_GHOST_FRAME, PLAYER_GHOST_ANIM_KEY,
   BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
   obstacleTextureKey, obstacleTexturePath,
@@ -85,6 +87,7 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet(PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, { frameWidth: PLAYER_CONFIG.shieldSize, frameHeight: PLAYER_CONFIG.shieldSize });
     this.load.spritesheet(PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, { frameWidth: PLAYER_HIT_SIZE, frameHeight: PLAYER_HIT_SIZE });
     this.load.spritesheet(PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, { frameWidth: PLAYER_DUST_SIZE, frameHeight: PLAYER_DUST_HEIGHT });
+    this.load.spritesheet(PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAME);
     this.load.image(BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH);
     this.load.spritesheet(BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, { frameWidth: BULLET_HIT_SIZE, frameHeight: BULLET_HIT_SIZE });
     this.load.image(WORLDMAP_TEXTURE_KEY, WORLDMAP_TEXTURE_PATH);
@@ -243,6 +246,18 @@ export class BootScene extends Phaser.Scene {
       frameRate: 9,
       repeat: 0,
     });
+    // The only looping one of these: the ghost beats its wings for the
+    // whole of its flight rather than playing a burst and stopping, so it
+    // repeats and the tween that carries it up is what ends it (see
+    // GameScene.spawnDeathGhost). Slow enough to read as wingbeats -- two
+    // frames at a burst rate would just flicker -- and DEATH_GHOST_SEC is
+    // long enough to fit several of them.
+    this.anims.create({
+      key: PLAYER_GHOST_ANIM_KEY,
+      frames: this.anims.generateFrameNumbers(PLAYER_GHOST_TEXTURE_KEY, { start: 0, end: PLAYER_GHOST_FRAMES - 1 }),
+      frameRate: 7,
+      repeat: -1,
+    });
 
     // Hold the finished loading screen briefly before handing over. On a
     // fast (or cached) load the whole thing can complete in a few frames,
@@ -290,8 +305,13 @@ export class BootScene extends Phaser.Scene {
     // The step and ladder-exit states are brief on purpose: they cover a
     // single 16px move, and anything slower reads as the player pausing to
     // think about it rather than taking the step.
+    //
+    // shot's rate is the one that has to agree with something outside this
+    // file: its single frame has to be on screen for exactly as long as
+    // the player is held still by having fired (config.js's
+    // SHOT_LOCK_SEC), so the pose and the pause end together.
     const FRAME_RATE = {
-      idle: 1, move: 8, shot: 14, victory: 1, dead: 1, levelclear: 3,
+      idle: 1, move: 8, shot: 1 / SHOT_LOCK_SEC, victory: 1, dead: 1, levelclear: 3,
       climb: 6, ladderoff: 8, stepup: 12, stepdown: 12,
     };
     for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {

@@ -1,4 +1,4 @@
-import { PLAYER_CONFIG, PLAYER_STEP_UP_PX, PLAYER_CLIMB_SPEED } from './config.js';
+import { PLAYER_CONFIG, PLAYER_STEP_UP_PX, PLAYER_CLIMB_SPEED, SHOT_LOCK_SEC } from './config.js';
 import { VIRTUAL_W, GROUND_Y } from './constants.js';
 import { PLAYER_TEXTURE_KEY, PLAYER_ANIM_FRAMES, PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_ANIM_KEY } from './assets.js';
 
@@ -109,6 +109,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // taps, a fall lands in a cloud of dust -- see followGround).
     this.dropping = false;
     this.steppingDown = false;
+    // Seconds left of the stand-still a shot costs (see playShotAnim).
+    this.shotLock = 0;
 
     // A 3-frame looping animation (see assets.js's PLAYER_SHIELD_*)
     // instead of a drawn outline -- see update()/reset() for how it
@@ -149,6 +151,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.facing = 1;
     this.setFlipX(this.facing > 0);
     this.oneShotAnim = null;
+    this.shotLock = 0;
     this.play('player-idle');
     // update() is the only other place this normally moves/shows -- and
     // it doesn't run during LEVEL_INTRO (see GameScene.updatePlaying), so
@@ -163,6 +166,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // finishes (see the 'animationcomplete-player-shot' listener above).
   playShotAnim() {
     this.oneShotAnim = 'shot';
+    // Firing plants the player for as long as the pose lasts: update()
+    // drops every direction while this is running (see the top of it), so
+    // a shot costs a moment of standing still instead of being something
+    // done mid-stride.
+    this.shotLock = SHOT_LOCK_SEC;
     this.play('player-shot', true);
   }
 
@@ -495,6 +503,20 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(dt, inputState) {
+    // Having just fired outranks whatever is being held: for SHOT_LOCK_SEC
+    // the player stands where they shot from, on the ground or on a ladder
+    // alike. Only the DIRECTIONS are dropped -- gravity, the shot itself
+    // and everything else carry on, and GameScene reads the trigger from
+    // its own copy of the input, so this cannot swallow a shot either.
+    if (this.shotLock > 0) {
+      this.shotLock = Math.max(0, this.shotLock - dt);
+      inputState = {
+        ...inputState,
+        left: false, right: false, up: false, down: false,
+        upPressed: false, downPressed: false,
+      };
+    }
+
     if (!this.ladder) {
       const mountDir = inputState.upPressed ? -1 : (inputState.downPressed ? 1 : 0);
       if (mountDir !== 0) this.ladder = this.ladderFor(mountDir);

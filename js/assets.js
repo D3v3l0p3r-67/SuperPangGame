@@ -55,16 +55,22 @@ export function ballPopAnimKey(shape, size) {
 }
 
 // Player: a single spritesheet (one PNG, not one file per frame) of
-// PLAYER_CONFIG.spriteWidth x spriteHeight (32x64) cells stacked
+// PLAYER_CONFIG.spriteWidth x spriteHeight (36x72) cells stacked
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
-// dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down -- see
+// dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down, jump -- see
 // PLAYER_ANIM_FRAMES below for which index is which (see the
-// README's "Swapping graphics" for the full frame reference). Every frame
-// is authored facing LEFT; Player.js mirrors it (setFlipX) for
-// right-facing instead of needing a separate left/right file.
+// README's "Swapping graphics" for the full frame reference).
+//
+// Which way a frame faces depends on what it is: the game is played INTO
+// the screen, so idle, shot, the climb and the ladder-exit are drawn from
+// behind; the walk cycle and the step up/down frames are seen from the
+// side and are the ones authored facing LEFT (Player.js mirrors those
+// with setFlipX rather than needing a second set); victory and dead turn
+// round and are the only frames with a face. Drawn by
+// tools/player_sprite.py.
 export const PLAYER_TEXTURE_KEY = 'player';
 export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
-export const PLAYER_FRAME = { frameWidth: 32, frameHeight: 64 };
+export const PLAYER_FRAME = { frameWidth: 36, frameHeight: 72 };
 
 // state -> its frame index (or indices, in play order) within the
 // spritesheet above.
@@ -90,11 +96,15 @@ export const PLAYER_ANIM_FRAMES = {
   // and a step down do not look alike.
   stepup: [12, 13],
   stepdown: [14, 15],
-  // Clearing a level: alternate idle/victory three times on the spot (see
-  // GameScene.levelClear/Player.playLevelClearAnim). Six frames at the
+  // Clearing a level: the player faces out and hops on the spot, arms up
+  // -- the standing victory pose alternating with frame 16, which is the
+  // same pose airborne (it is the one frame in the sheet drawn off the
+  // ground). It used to alternate idle/victory, which turned the player
+  // back and forth between facing away and facing out. Six frames at the
   // rate BootScene gives this state is exactly the LEVEL_CLEAR_MIN_SEC the
-  // scene holds the celebration for.
-  levelclear: [0, 6, 0, 6, 0, 6],
+  // scene holds the celebration for (see GameScene.levelClear/
+  // Player.playLevelClearAnim).
+  levelclear: [6, 16, 6, 16, 6, 16],
 };
 
 // Shield power-up effect: a PLAYER_SHIELD_FRAMES-frame looping animation
@@ -120,6 +130,26 @@ export const PLAYER_HIT_TEXTURE_PATH = 'assets/player/hit.webp';
 export const PLAYER_HIT_FRAMES = 2;
 export const PLAYER_HIT_SIZE = 32;
 export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
+
+// The life that just left: when a hit costs a life, a winged ghost of the
+// player rises out of the body and fades out before the level restarts
+// (see GameScene.spawnDeathGhost, and DEATH_GHOST_SEC there for how long
+// it has to do it in). Same frames-stacked-vertically layout as the
+// effect sheets above, but LOOPING rather than one-shot -- the two frames
+// are wings up and wings down, and the flap beats for the whole flight.
+//
+// It IS the dead frame of the sheet above: tools/ghost_sprite.py imports
+// that art rather than drawing a figure of its own, washes the palette
+// out to something see-through, and adds the angel wings -- so a redrawn
+// player is a redrawn ghost with nothing to keep in step by hand. The
+// cell is wider than the player's only by the wings, and exactly as tall,
+// with the figure centred in it, so a ghost drawn at the player's own
+// position lands on the body pixel for pixel.
+export const PLAYER_GHOST_TEXTURE_KEY = 'player-ghost';
+export const PLAYER_GHOST_TEXTURE_PATH = 'assets/player/ghost.png';
+export const PLAYER_GHOST_FRAMES = 2;
+export const PLAYER_GHOST_FRAME = { frameWidth: 64, frameHeight: 72 };
+export const PLAYER_GHOST_ANIM_KEY = 'player-ghost-flap';
 
 // The puff of dust a landing kicks up at the player's feet (see
 // Player.followGround / GameScene.playLandingDust). Same one-shot,

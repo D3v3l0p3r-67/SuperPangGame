@@ -6,13 +6,17 @@
 // hole that only shows on the level where it is used.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { elements, exists, readJSON, listFiles, readText } from './helpers.mjs';
+import { elements, exists, readJSON, listFiles, readText, pngSize } from './helpers.mjs';
 import {
   ballTexturePath, ballPopTexturePath, obstacleTexturePath, ladderTexturePath,
   powerupTexturePath, backgroundTexturePath, audioPath, DEFAULT_BACKGROUND,
   MAX_LEVEL_FILES,
 } from '../js/assets.js';
 import { DAYLIGHT_PHASES, daylightBackground } from '../js/regions.js';
+import { PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES } from '../js/assets.js';
+import {
+  PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAME, PLAYER_GHOST_FRAMES,
+} from '../js/assets.js';
 
 const EL = elements();
 const AUDIO = readJSON('assets/audio/audio.json');
@@ -114,6 +118,36 @@ test('regions each have their continent background, and a marker on the map', ()
 // the markers against.
 const MAP_W = 400;
 const MAP_H = 210;
+
+test('the player sheet holds every frame the animations ask for', () => {
+  // One 32x64 cell per frame, stacked (see assets.js). A sheet a frame
+  // short does not fail to load -- Phaser just hands out an empty frame,
+  // and the player vanishes in whichever state used it.
+  const needed = Math.max(...Object.values(PLAYER_ANIM_FRAMES).flat()) + 1;
+  const size = pngSize(PLAYER_TEXTURE_PATH);
+  assert.equal(size.width, PLAYER_FRAME.frameWidth, `${PLAYER_TEXTURE_PATH}: wrong width`);
+  assert.equal(size.height, PLAYER_FRAME.frameHeight * needed,
+    `${PLAYER_TEXTURE_PATH}: ${size.height / PLAYER_FRAME.frameHeight} frames, but the animations use ${needed}`);
+});
+
+test('the ghost sheet is a player cell widened by its wings', () => {
+  // The ghost is the player's own dead frame with a pair of wings either
+  // side of it (tools/ghost_sprite.py), and the game draws it at the
+  // player's own position -- so it has to be exactly as tall as a player
+  // cell and wider only by the wings, symmetrically, or it lands off the
+  // body it is supposed to rise out of.
+  assert.equal(PLAYER_GHOST_FRAME.frameHeight, PLAYER_FRAME.frameHeight,
+    'a ghost cell that is not a player cell tall cannot line up with the body');
+  const wings = PLAYER_GHOST_FRAME.frameWidth - PLAYER_FRAME.frameWidth;
+  assert.ok(wings > 0, 'the wings need room outside the figure');
+  assert.equal(wings % 2, 0, 'the figure must sit dead centre, or the ghost is offset from the body');
+
+  const size = pngSize(PLAYER_GHOST_TEXTURE_PATH);
+  assert.equal(size.width, PLAYER_GHOST_FRAME.frameWidth,
+    `${PLAYER_GHOST_TEXTURE_PATH}: wrong width -- rerun tools/ghost_sprite.py, or fix PLAYER_GHOST_FRAME`);
+  assert.equal(size.height, PLAYER_GHOST_FRAME.frameHeight * PLAYER_GHOST_FRAMES,
+    `${PLAYER_GHOST_TEXTURE_PATH}: ${size.height / PLAYER_GHOST_FRAME.frameHeight} frames, but the flap uses ${PLAYER_GHOST_FRAMES}`);
+});
 
 test('the level files stay within the range BootScene probes', () => {
   const count = listFiles('levels').filter((name) => /^level_\d{2}\.json$/.test(name)).length;

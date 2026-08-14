@@ -7,24 +7,16 @@
 // manifest, a missing icon or a stale precache list.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, readJSON, readText, exists, listFiles } from './helpers.mjs';
+import { ROOT, readJSON, readText, exists, listFiles, pngSize } from './helpers.mjs';
 
 const MANIFEST = readJSON('manifest.webmanifest');
 const HTML = readText('index.html');
 const SW = readText('service-worker.js');
 const PRECACHE = readJSON('sw-precache.json');
-
-// A PNG says its own size in the IHDR chunk, which is always the first
-// one: 8 bytes of signature, 8 of chunk header, then width and height as
-// big-endian 32-bit integers. Cheaper (and dependency-free) than decoding
-// the image to ask how big it is.
-function pngSize(relativePath) {
-  const buffer = readFileSync(join(ROOT, relativePath));
-  assert.equal(buffer.toString('ascii', 1, 4), 'PNG', `${relativePath}: not a PNG`);
-  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
-}
+const PRECACHE_PATHS = Object.keys(PRECACHE.files);
 
 test('the manifest says what an installed game needs to know', () => {
   assert.ok(MANIFEST.name && MANIFEST.short_name, 'needs both a name and a short_name');
@@ -88,8 +80,8 @@ test('the service worker registers relatively and versions its cache', () => {
   assert.match(pwa, /register\(SERVICE_WORKER\)/, 'js/pwa.js has to register the worker');
   assert.match(pwa, /const SERVICE_WORKER = '\.\/service-worker\.js'/,
     'the registration path must be relative, for a subdirectory install');
-  assert.match(SW, /const CACHE_VERSION = 'super-pang-v\d+'/,
-    'the cache needs a version to bump on a release');
+  assert.match(SW, /const CACHE_VERSION = 'super-pang-[0-9a-f]{12}';/,
+    'the cache version is generated from the precached files -- see tools/build_precache.mjs');
   // Nothing in the worker may be rooted at the domain: everything is
   // resolved against its own scope.
   assert.doesNotMatch(SW, /['"]\/[a-z]/i, 'the worker must not use absolute paths');
@@ -114,7 +106,7 @@ function runtimeFiles(dir = '') {
 }
 
 test('the precache list is exactly the files the game loads', () => {
-  const listed = new Set(PRECACHE);
+  const listed = new Set(PRECACHE_PATHS);
   const onDisk = new Set(runtimeFiles());
   for (const path of listed) {
     assert.ok(onDisk.has(path),
@@ -127,8 +119,30 @@ test('the precache list is exactly the files the game loads', () => {
   assert.ok(listed.size > 100, `only ${listed.size} files precached -- that cannot be the whole game`);
 });
 
+test('the cache is named after what is in it, file by file', () => {
+  // The worker answers from its cache first, so a version that does not
+  // move with the files means players keep the release they first
+  // downloaded. The tool writes a hash of every precached file into the
+  // worker; this recomputes it, so forgetting to rerun the tool fails
+  // here rather than quietly shipping a game that still hands out the old
+  // sprites -- which is precisely how three redrawn player sprites
+  // reached nobody.
+  const hash = createHash('sha256');
+  for (const path of PRECACHE_PATHS) {
+    const digest = createHash('sha256').update(readFileSync(join(ROOT, path))).digest('hex').slice(0, 16);
+    assert.equal(PRECACHE.files[path], digest,
+      `sw-precache.json's hash for "${path}" is stale -- rerun tools/build_precache.mjs`);
+    hash.update(path).update(digest);
+  }
+  const expected = `super-pang-${hash.digest('hex').slice(0, 12)}`;
+  assert.equal(PRECACHE.version, expected, 'sw-precache.json\'s own version is stale');
+  const actual = SW.match(/const CACHE_VERSION = '([^']*)'/)[1];
+  assert.equal(actual, expected,
+    'service-worker.js\'s CACHE_VERSION is stale -- rerun tools/build_precache.mjs');
+});
+
 test('the precache list is relative and holds nothing server-side', () => {
-  for (const path of PRECACHE) {
+  for (const path of PRECACHE_PATHS) {
     assert.ok(!path.startsWith('/') && !path.startsWith('.') && !path.includes('://'),
       `"${path}": paths are relative to the worker's scope`);
     assert.ok(!/^(admin|tests|tools|\.github)\//.test(path),
@@ -137,6 +151,6 @@ test('the precache list is relative and holds nothing server-side', () => {
   // The shell the worker insists on caching has to be in the list too --
   // it is the one part whose absence means a blank screen offline.
   for (const path of ['index.html', 'style.css', 'js/main.js', 'js/vendor/phaser.min.js', 'manifest.webmanifest']) {
-    assert.ok(PRECACHE.includes(path), `the shell file "${path}" is not precached`);
+    assert.ok(PRECACHE_PATHS.includes(path), `the shell file "${path}" is not precached`);
   }
 });

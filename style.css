@@ -256,6 +256,26 @@ body {
   justify-content: center;
 }
 
+/* The erase confirmation, which takes the ERASE PROGRESS button's own
+   place while it is up (see ui.js's showEraseConfirm) rather than pushing
+   the rest of the options screen down -- on a phone in landscape this
+   screen is already close to scrolling. Its warning line spans both
+   answers above them, so what is about to be lost is read before either
+   is pressed. */
+#erase-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1cqmin;
+  max-width: 100%;
+}
+
+#erase-confirm #erase-warning {
+  flex-basis: 100%;
+  opacity: 1; /* not the dimmed .hint: this one is the point */
+}
+
 /* Display size -- exactly three discrete choices (see constants.js's
    ZOOM_LEVELS / DisplayZoom.js), not a slider, since there's nothing
    continuous to pick between. */
@@ -582,9 +602,18 @@ body {
 
 /* The editor's readout is pushed to the far end of its single line; this
    panel's groups wrap, and an auto margin there would just tear a hole in
-   whichever line the readout landed on. */
+   whichever line the readout landed on. Here it takes a row of its own
+   instead, and is held to ONE line of text within it: the readout is a
+   dozen figures on one line (see debug.js's updateText), and every line
+   the panel takes is height pushed onto the game below it. min-width: 0
+   against the flex default, so a long tail -- several power-ups running
+   at once -- ellipsizes rather than widening the panel past the canvas. */
 #debug-panel .panel-status {
   margin-left: 0;
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* One labelled unit of related controls. Each stacks its own rows, so a
