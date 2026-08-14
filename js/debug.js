@@ -74,20 +74,51 @@ export class Debug {
         }),
         makeButton('Remove all', () => this.scene.balls.clear(true, true)),
       ),
+      // Pop, not remove: every ball takes the hit it would take from a
+      // shot -- score, sound, burst, drop roll and all -- so the big ones
+      // split rather than vanishing. One press is one volley, which is
+      // what makes it useful for watching a whole field come apart (and
+      // why it is a separate button from Remove all, which is for
+      // clearing the field with none of that happening).
+      row(makeButton('Pop all', () => {
+        // Over a copy: popping mutates the group, both by destroying the
+        // ball and by adding whatever it splits into.
+        for (const ball of [...this.scene.balls.getChildren()]) this.scene.popBall(ball);
+      })),
     ));
 
-    // -- Power-ups: one clearly-labeled quick-spawn button per type
-    // (fruit/bonus points, shield, weapon power-ups, and all the rest),
-    // driven entirely by the POWERUP_TYPES registry so new entries there
-    // show up automatically. Three to a row rather than one long line:
-    // there are more of these than of anything else in here, and in one
-    // row this group alone would be wider than the canvas.
+    // -- Power-ups: one clearly-labeled button per type (fruit/bonus
+    // points, shield, weapon power-ups, and all the rest), driven entirely
+    // by the POWERUP_TYPES registry so new entries there show up
+    // automatically. Three to a row rather than one long line: there are
+    // more of these than of anything else in here, and in one row this
+    // group alone would be wider than the canvas.
+    //
+    // What a press DOES is the mode picked above them, because the two
+    // are worth testing separately: dropping the pickup is the way to
+    // check that it falls, lands and can be collected, while applying it
+    // outright is the way to check what it then does -- and hunting down
+    // a bonus that has bounced onto a ledge is in the way of that.
+    this.powerupMode = 'spawn';
+    this.powerupModeButtons = {
+      spawn: makeButton('Drop pickup', () => this.setPowerupMode('spawn'), 'Spawns the bonus to be collected'),
+      use: makeButton('Use now', () => this.setPowerupMode('use'), 'Applies the effect to the player straight away'),
+    };
     const powerupButtons = POWERUP_TYPE_KEYS.map((type) => makeButton(POWERUP_TYPES[type].label, () => {
-      this.scene.powerups.add(new Bonus(this.scene, type, VIRTUAL_W / 2, 30));
+      if (this.powerupMode === 'use') {
+        // Exactly what walking into one does, minus the pickup itself
+        // (see GameScene.collectPowerup) -- so an instant effect scores
+        // and a timed one starts its clock, same as in a real run.
+        this.scene.effects.apply(type, this.scene, this.scene.elapsedMs);
+        this.scene.audio.play(POWERUP_TYPES[type].pickupSound);
+      } else {
+        this.scene.powerups.add(new Bonus(this.scene, type, VIRTUAL_W / 2, 30));
+      }
     }, type));
-    const powerupRows = [];
+    const powerupRows = [row(this.powerupModeButtons.spawn, this.powerupModeButtons.use)];
     for (let i = 0; i < powerupButtons.length; i += 3) powerupRows.push(row(...powerupButtons.slice(i, i + 3)));
-    this.panelEl.appendChild(group('SPAWN POWER-UP', ...powerupRows));
+    this.panelEl.appendChild(group('POWER-UP', ...powerupRows));
+    this.syncPowerupModeButtons();
 
     // -- Weapons, alongside the power-up spawns above. These can't be
     // spawned as a pickup the way a power-up can -- a weapon is a property
@@ -127,14 +158,32 @@ export class Debug {
       Object.entries(LEVEL_TRANSITIONS).map(([name, def]) => [name, def.label]), null,
     );
     transitionSelect.value = LEVEL_TRANSITION;
+    const jumpTo = (idx) => {
+      this.scene.levelIndex = idx;
+      this.scene.loadLevel(idx);
+      this.scene.state = GAME_STATES.PLAYING;
+    };
+    const chosenLevel = () => Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
     this.panelEl.appendChild(group(
       'CAMPAIGN',
-      row(labelled('Level ', levelInput), makeButton('Jump', () => {
-        const idx = Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
-        this.scene.levelIndex = idx;
-        this.scene.loadLevel(idx);
-        this.scene.state = GAME_STATES.PLAYING;
-      })),
+      row(
+        labelled('Level ', levelInput),
+        makeButton('To start', () => jumpTo(chosenLevel()), 'Play this level from the beginning'),
+        // Everything that follows clearing a level, without playing it:
+        // the celebration, the time tally, the transition, and -- across a
+        // region boundary -- the world map. That last stretch is the whole
+        // point: it is otherwise only reachable by actually beating the
+        // level before it, which is a slow way to look at a hand-off
+        // between two levels.
+        makeButton('To end', () => {
+          jumpTo(chosenLevel());
+          this.scene.balls.clear(true, true);
+          // recordTime: false because this did not play the level -- the
+          // fraction of a second between jumping and clearing would stand
+          // as that level's record from then on.
+          this.scene.levelClear({ recordTime: false });
+        }, 'Clear this level now, and carry on into the next'),
+      ),
       row(transitionSelect, makeButton('Play', () => this.scene.transition.start(transitionSelect.value, null))),
     ));
 
@@ -174,6 +223,20 @@ export class Debug {
     }
   }
 
+  // What the power-up buttons do: drop the pickup, or apply the effect
+  // outright. One place, so the buttons and the mode can't disagree --
+  // same arrangement as the overlay toggles above.
+  setPowerupMode(mode) {
+    this.powerupMode = mode;
+    this.syncPowerupModeButtons();
+  }
+
+  syncPowerupModeButtons() {
+    for (const [mode, btn] of Object.entries(this.powerupModeButtons)) {
+      btn.classList.toggle('panel-btn-on', this.powerupMode === mode);
+    }
+  }
+
   render(graphics) {
     // Nothing to clear unless something was drawn: debug mode is off for
     // the entire game as shipped, and this runs every frame.
@@ -207,14 +270,32 @@ export class Debug {
   updateText() {
     if (!this.textEl) return;
     const g = this.scene;
-    // Three lines, not one per figure: this group wraps onto its own line
-    // of the panel, and every line it takes is height pushed onto the game
-    // below it.
+    // One line. This group takes a full row of the panel to itself, and
+    // every row the panel takes is height pushed onto the game below it,
+    // so three lines here cost three lines of playfield. Names are cut to
+    // the shortest thing still readable for the same reason; the line is
+    // allowed to ellipsize rather than wrap (see style.css's
+    // #debug-panel .panel-status), so an unusually long tail -- several
+    // effects at once -- shortens the readout instead of growing the
+    // panel.
+    // Power-ups by the first word of their type: `rapid_shot` and
+    // `score_multiplier` are already unambiguous at `rapid` and `score`,
+    // and this is the one part of the line with no length limit -- four
+    // running at once would otherwise be more than half of it.
+    const effects = [...g.effects.active.keys()].map((key) => key.split('_')[0]);
     this.textEl.textContent = [
-      `${g.state}  fps ${Math.round(this.scene.game.loop.actualFps)}  level ${g.levelIndex + 1}/${LEVELS.length}  time ${g.remainingLevelTime}`,
-      `score ${g.score}  lives ${g.lives}  ${g.weaponLabel}`,
-      `balls ${g.balls.countActive(true)}  shots ${g.projectiles.countActive(true)}  drops ${g.powerups.countActive(true)}  effects ${[...g.effects.active.keys()].join(' ') || '-'}`,
-    ].join('\n');
+      g.state,
+      `${Math.round(this.scene.game.loop.actualFps)}fps`,
+      `L${g.levelIndex + 1}/${LEVELS.length}`,
+      `t${g.remainingLevelTime}`,
+      `pts ${g.score}`,
+      `lives ${g.lives}`,
+      g.weaponLabel,
+      `balls ${g.balls.countActive(true)}`,
+      `shots ${g.projectiles.countActive(true)}`,
+      `drops ${g.powerups.countActive(true)}`,
+      `fx ${effects.join(',') || '-'}`,
+    ].join(' ');
   }
 
   drawCollisionBounds(graphics) {

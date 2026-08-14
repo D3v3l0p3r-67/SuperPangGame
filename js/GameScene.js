@@ -639,7 +639,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  levelClear() {
+  // `recordTime` is what clearing a level by playing it does. It is only
+  // ever false for a clear that did not involve playing -- the debug
+  // panel's jump-to-end (js/debug.js), where the fraction of a second
+  // between arriving and clearing would otherwise stand as that level's
+  // record from then on.
+  levelClear({ recordTime = true } = {}) {
     const def = this.currentLevelDef;
     // The time bonus is no longer added in one jump -- it's counted off
     // second by second during LEVEL_CLEAR so the clock visibly drains
@@ -657,7 +662,7 @@ export class GameScene extends Phaser.Scene {
     // with the level (including after a life is lost, see loadLevel), so
     // this is the run the player just made, not the sum of their tries --
     // the same number the HUD's clock was showing.
-    this.clearTimeSec = this.isCustomLevel || this.isPanicMode ? null : this.levelTimer;
+    this.clearTimeSec = !recordTime || this.isCustomLevel || this.isPanicMode ? null : this.levelTimer;
     this.clearIsRecord = this.clearTimeSec !== null
       && storage.saveLevelTime(this.levelIndex, this.clearTimeSec).isRecord;
     this.audio.stopMusic();

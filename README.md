@@ -763,7 +763,11 @@ Useful while tuning levels or ball behavior:
 
 - Toggle with **Shift+D**, or load the page with `?debug=1` in the URL.
 - Shows an FPS counter, the current game state/level, remaining time,
-  score/lives/weapon, and live entity counts.
+  score/lives/weapon, and live entity counts -- all on ONE line. Every
+  line the panel takes is height pushed onto the game below it, so the
+  readout is written short (`L6/50`, `t90`, power-ups by the first word
+  of their type) and is allowed to ellipsize rather than wrap, which
+  keeps an unusually long tail from growing the panel.
 - Draws collision bounds for the player, balls, projectiles, power-ups,
   and obstacles directly over the game -- switched on and off with the
   **Colliders** button under **VIEW**, or the **C** key, alongside the
@@ -771,24 +775,40 @@ Useful while tuning levels or ball behavior:
   always shown: outlines on, grid off. Either button carries the outline
   the editor's selected brush does while its overlay is showing, so what
   is on is visible in the panel itself.
-- A clearly labeled spawn panel: pick a ball shape + size and spawn it, or
-  clear every ball on the field instantly with **Remove all balls**; one
-  quick-spawn button per power-up (bonus fruit, shield, every weapon
-  power-up, and all the others); one button per weapon under **Give
-  weapon**, which hands it to the player directly -- a weapon is a
-  property of the level rather than something that drops, so there is no
-  pickup to spawn -- without cancelling a weapon power-up that happens to
-  be running; jump straight to any level -- all without replaying the
-  whole game or affecting normal play when the panel is off. The power-up
-  and weapon rows are both built from their registries (`POWERUP_TYPES`,
-  `WEAPON_TYPES`), so a new entry appears in the panel on its own, as does
-  the **Level transition** picker's list (`LEVEL_TRANSITIONS`), which plays
-  any transition effect on demand.
+- A clearly labeled spawn panel, all of it without replaying the whole
+  game or affecting normal play when the panel is off:
+  - **BALL** -- pick a shape + size and **Spawn** it; **Remove all** takes
+    every ball off the field with nothing happening; **Pop all** instead
+    gives every ball the hit it would take from a shot, score, sound,
+    burst, drop roll and splits included, so one press is one volley and
+    the big ones come apart rather than vanishing.
+  - **POWER-UP** -- one button per type, and a mode above them deciding
+    what a press does: **Drop pickup** spawns the bonus to be collected
+    (the way to check that it falls, lands and can be picked up), **Use
+    now** applies the effect to the player outright (the way to check what
+    it then does, without chasing a bonus that has bounced onto a ledge).
+  - **GIVE WEAPON** -- one button per weapon, handed to the player
+    directly, since a weapon is a property of the level rather than
+    something that drops. It won't cancel a weapon power-up that happens
+    to be running.
+  - **CAMPAIGN** -- **To start** plays the chosen level from the
+    beginning; **To end** clears it on the spot and carries on into the
+    next, so a hand-off between two levels -- celebration, time tally,
+    transition, and across a region boundary the world map -- can be
+    watched without beating the level before it. It does not write a
+    record: it didn't play the level, and the fraction of a second it
+    took would otherwise stand as that level's time forever. (Clearing a
+    level with **Pop all** does count, because that really is clearing
+    it.) The **Level transition** picker plays any effect on demand.
+
+  The power-up and weapon rows are both built from their registries
+  (`POWERUP_TYPES`, `WEAPON_TYPES`), so a new entry appears in the panel
+  on its own, as does the transition picker's list (`LEVEL_TRANSITIONS`).
 - Lives entirely above the playfield's own ceiling, in its own
   `#tool-bar` row (see index.html/style.css) -- never overlapping actual
   gameplay the way an in-canvas overlay would. It spans the canvas's exact
   width and is as tall as its contents need, laid out as labelled columns
-  of rows -- **BALL**, **SPAWN POWER-UP**, **GIVE WEAPON**, **CAMPAIGN**,
+  of rows -- **BALL**, **POWER-UP**, **GIVE WEAPON**, **CAMPAIGN**,
   **VIEW**, and a **STATE** readout -- which wrap onto a second line when
   they don't all fit across.
 - It is styled as the same tool as the level editor's panel: both are

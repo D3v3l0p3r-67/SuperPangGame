@@ -1,8 +1,8 @@
 {
-  "version": "super-pang-8b06656e0799",
+  "version": "super-pang-8c64d468fdca",
   "files": {
     "index.html": "0b589d7b9cb6baa4",
-    "style.css": "e78fa9e03fa5be51",
+    "style.css": "74201c5a3a44ed8f",
     "manifest.webmanifest": "922ab538fd26a2fa",
     "favicon.ico": "394012045ba0bd53",
     "js/Ball.js": "676d6482db114c3f",
@@ -12,7 +12,7 @@
     "js/DisplayZoom.js": "efe22fd0c8319f39",
     "js/ElementsScene.js": "d512c275662f3433",
     "js/GameConfig.js": "b19d14147a93adfe",
-    "js/GameScene.js": "c7ebf1066d00db03",
+    "js/GameScene.js": "976c1ba11e841d31",
     "js/Hud.js": "8480720335ab9499",
     "js/Ladder.js": "8fd2f305da14ce9e",
     "js/LevelClearCard.js": "20f0d1f9c1599dbd",
@@ -30,7 +30,7 @@
     "js/colors.js": "b83ab370160dcca4",
     "js/config.js": "bf5fec2e3e958676",
     "js/constants.js": "da319cddaadc3f04",
-    "js/debug.js": "6cba5d08169b03f2",
+    "js/debug.js": "cf22717185b803fc",
     "js/editor.js": "665842511e9e1b03",
     "js/elements.js": "e0089dc41b6f7d41",
     "js/input.js": "2c25ef1904917b4c",
