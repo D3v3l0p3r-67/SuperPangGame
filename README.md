@@ -762,7 +762,8 @@ assets/              Every graphic and sound in the game, as real files --
                       see "Swapping graphics" / "Swapping sounds" /
                       "Swapping HUD graphics" below
   balls/             ball_<shape>_<size>.webp
-  player/            player.png, a single spritesheet (idle, shot, 4 walk,
+  player/            player.png, a single spritesheet, drawn by
+                      tools/player_sprite.py (idle, shot, 4 walk,
                       victory, dead, 2 climb, 2 ladder-exit, 2 step-up,
                       2 step-down) + shield.webp, the looping shield
                       effect, + hit.webp and dust.webp, the hit burst and
@@ -799,8 +800,9 @@ tests/               Node's own test runner against the data and the pure
 tools/               Scripts run by hand, never by the game:
                       daylight_backgrounds.py relights a region's night
                       frame into its five times of day (see "A day per
-                      continent"), app_icons.py draws the app icons, and
-                      build_precache.mjs writes the offline file list
+                      continent"), player_sprite.py draws the player's
+                      16-frame sheet, app_icons.py draws the app icons,
+                      and build_precache.mjs writes the offline file list
                       (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
@@ -1277,10 +1279,21 @@ dimensions:
   move, and the weapon barrel is still drawn to the top of the cell on
   every frame (it is a long pole running past the sprite, so its visible
   top edge belongs at the cell boundary however the hand holding it
-  moves). Every frame is authored facing LEFT; Player.js mirrors it for
-  right via `setFlipX`, so swapping the sheet only needs left-facing (or,
-  for this game's straight-on chibi style, direction-neutral) art -- keep
-  the same 32x(64 x 16) total size and frame order.
+  moves).
+
+  **Which way each frame faces.** The game is played into the screen, so
+  the player is drawn from BEHIND for everything done facing the
+  playfield: idle, shot, both climb frames and both ladder-exit frames.
+  The walk cycle and the step up/down frames are seen from the SIDE, and
+  are the ones authored facing LEFT -- `Player.js` mirrors those for the
+  other direction via `setFlipX`. Victory and dead turn round to face the
+  player: they are the only two frames with a face in them.
+
+  The art is drawn by `tools/player_sprite.py`, which authors each frame
+  as ASCII art on a 16x32 grid (one letter per palette colour) and scales
+  it 2x into its 32x64 cell -- so editing the character is editing those
+  strings and rerunning the script. Replacing the .png by hand works just
+  as well: keep the same 32x(64 x 16) total size and frame order.
 - **Shield effect**: `assets/player/shield.webp` -- a `PLAYER_SHIELD_FRAMES`
   -frame (3) looping spritesheet, `PLAYER_CONFIG.shieldSize` (64) square
   per frame, drawn centered on the player the whole time the `shield`

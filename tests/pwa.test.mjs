@@ -7,24 +7,14 @@
 // manifest, a missing icon or a stale precache list.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, readJSON, readText, exists, listFiles } from './helpers.mjs';
+import { ROOT, readJSON, readText, exists, listFiles, pngSize } from './helpers.mjs';
 
 const MANIFEST = readJSON('manifest.webmanifest');
 const HTML = readText('index.html');
 const SW = readText('service-worker.js');
 const PRECACHE = readJSON('sw-precache.json');
-
-// A PNG says its own size in the IHDR chunk, which is always the first
-// one: 8 bytes of signature, 8 of chunk header, then width and height as
-// big-endian 32-bit integers. Cheaper (and dependency-free) than decoding
-// the image to ask how big it is.
-function pngSize(relativePath) {
-  const buffer = readFileSync(join(ROOT, relativePath));
-  assert.equal(buffer.toString('ascii', 1, 4), 'PNG', `${relativePath}: not a PNG`);
-  return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
-}
 
 test('the manifest says what an installed game needs to know', () => {
   assert.ok(MANIFEST.name && MANIFEST.short_name, 'needs both a name and a short_name');

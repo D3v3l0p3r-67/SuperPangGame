@@ -59,9 +59,15 @@ export function ballPopAnimKey(shape, size) {
 // vertically, in this fixed order: idle, shot, 4 walk frames, victory,
 // dead, 2 climb, 2 ladder-exit, 2 step-up, 2 step-down -- see
 // PLAYER_ANIM_FRAMES below for which index is which (see the
-// README's "Swapping graphics" for the full frame reference). Every frame
-// is authored facing LEFT; Player.js mirrors it (setFlipX) for
-// right-facing instead of needing a separate left/right file.
+// README's "Swapping graphics" for the full frame reference).
+//
+// Which way a frame faces depends on what it is: the game is played INTO
+// the screen, so idle, shot, the climb and the ladder-exit are drawn from
+// behind; the walk cycle and the step up/down frames are seen from the
+// side and are the ones authored facing LEFT (Player.js mirrors those
+// with setFlipX rather than needing a second set); victory and dead turn
+// round and are the only frames with a face. Drawn by
+// tools/player_sprite.py.
 export const PLAYER_TEXTURE_KEY = 'player';
 export const PLAYER_TEXTURE_PATH = 'assets/player/player.png';
 export const PLAYER_FRAME = { frameWidth: 32, frameHeight: 64 };

@@ -15,7 +15,7 @@ runs exactly the line above on every push):
 | file | what it pins down |
 |---|---|
 | `levels.test.mjs` | every `levels/level_NN.json`: numbering, required fields, obstacles and balls on the 16px grid and inside the playfield, no two obstacles in one cell, every ladder reaching a footing below and a landing above, player starts that are in bounds and not inside an obstacle or a ball, guaranteed drops on a single breakable block, and every type/shape/powerup/background/weapon it names actually existing |
-| `assets.test.mjs` | the files the game asks for at boot are there, `elements/index.json` matches the element files on disk, and every sound played by name -- from code, from element data, from `regions.json` -- is defined in `audio.json` (and every `.ogg` is reachable) |
+| `assets.test.mjs` | the files the game asks for at boot are there, `elements/index.json` matches the element files on disk, the player's spritesheet holds every frame its animations name, and every sound played by name -- from code, from element data, from `regions.json` -- is defined in `audio.json` (and every `.ogg` is reachable) |
 | `rules.test.mjs` | the pure decisions: the playfield geometry that the placement grid and the step-up depend on, the display sizes, the transition registry's shape, a region's day running morning to night, level times reading as a clock, one default key per action with no key doing two jobs, and key labels the menu font can actually draw |
 
 These are not hypothetical rules. Each one is something that has already
