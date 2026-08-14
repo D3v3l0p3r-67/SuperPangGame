@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-46d6c8d25f35",
+  "version": "super-pang-0356ab39c3b6",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "dba3fc1fcb8caef8",
@@ -31,8 +31,8 @@
     "js/config.js": "bf5fec2e3e958676",
     "js/constants.js": "da319cddaadc3f04",
     "js/debug.js": "cf22717185b803fc",
-    "js/editor.js": "708d37fef7238fae",
-    "js/elements.js": "aa3aff0220866593",
+    "js/editor.js": "d65504294dff86fc",
+    "js/elements.js": "a434dbda178bd1c1",
     "js/input.js": "2c25ef1904917b4c",
     "js/introText.js": "70df2293e09f66d3",
     "js/keys.js": "5245c1c004446fb4",
@@ -40,7 +40,7 @@
     "js/panelUi.js": "5bb4c4ff1b364570",
     "js/pwa.js": "c9bcc0fcafec48ce",
     "js/regions.js": "c84b25728db85625",
-    "js/storage.js": "8f4f434e166dd552",
+    "js/storage.js": "d1329b89497e7485",
     "js/ui.js": "ce2ca42912de955b",
     "js/vendor/PHASER_LICENSE.md": "c3123cd25de4eccf",
     "js/vendor/phaser.min.js": "c79a3e8cf9f5d0f8",

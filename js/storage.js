@@ -226,7 +226,7 @@ export function qualifiesForHighScore(score) {
 // Listed one key at a time rather than by clearing the whole namespace,
 // so a key added later has to be thought about here before it can be
 // erased by accident.
-export const ERASABLE_KEYS = ['highscores', 'progress', 'levelTimes'];
+const ERASABLE_KEYS = ['highscores', 'progress', 'levelTimes'];
 
 export function eraseProgress() {
   for (const name of ERASABLE_KEYS) {

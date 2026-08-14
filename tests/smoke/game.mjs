@@ -62,6 +62,12 @@ export async function openGame({ debug = false } = {}) {
     // Reads something out of the live GameScene. Everything below goes
     // through this rather than reaching for globals, so what a test
     // depends on is visible in the test.
+    //
+    // The function is shipped to the browser as SOURCE, so it cannot
+    // close over anything -- no imports, no consts from the test file.
+    // Take what it needs through `arg`, and reach for modules by
+    // importing them onto `window` once, up front (a dynamic import here
+    // would let real frames run mid-read, see tests/README.md).
     scene: (fn, arg) => page.evaluate(
       ([body, a]) => new Function('scene', 'arg', body)(window.game.scene.getScene('Game'), a),
       [`return (${fn.toString()})(scene, arg)`, arg ?? null],

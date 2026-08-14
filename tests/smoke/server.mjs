@@ -8,7 +8,7 @@
 // caching, because the real host does not do any of that either.
 import { createServer } from 'node:http';
 import { createReadStream, statSync } from 'node:fs';
-import { join, normalize, extname } from 'node:path';
+import { join, normalize, extname, sep } from 'node:path';
 import { ROOT } from '../helpers.mjs';
 
 const TYPES = {
@@ -25,7 +25,10 @@ export async function serve() {
     // a "../.." out of the repo's parent.
     const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     const file = normalize(join(ROOT, path === '/' ? 'index.html' : path));
-    if (!file.startsWith(ROOT)) {
+    // ROOT + separator, not ROOT: a "../" that climbs out and back into a
+    // sibling whose name merely STARTS with the repo's would otherwise
+    // pass a bare prefix check.
+    if (!file.startsWith(ROOT + sep)) {
       res.writeHead(403).end();
       return;
     }

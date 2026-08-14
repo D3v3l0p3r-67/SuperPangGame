@@ -52,25 +52,6 @@ function backgroundNames() {
   ])];
 }
 
-// Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that
-// actually CONTAINS it (floor, not round-to-nearest -- rounding to the
-// nearest grid line could snap up to half a cell away from the pointer,
-// so the highlighted cell wouldn't be the one the pointer is inside of),
-// clamped so a placed obstacle/ball always stays fully inside the
-// playfield (never overlapping the border) -- same rule every
-// hand-authored level in levels.js already follows. Every editor object
-// (walls, crates, balls) is placed on this exact grid, no free placement.
-// Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
-// are independent constants -- see constants.js.
-//
-// Rows are counted UP FROM THE GROUND rather than down from the ceiling,
-// so the bottom row always rests exactly on the ground and a wall can be
-// built standing ON it. GROUND_Y is snapped to the grid (see constants.js),
-// which makes the interior a whole number of cells tall, so counting up
-// from the ground reaches the ceiling flush as well -- both ends line up
-// with the drawn border and every row is exactly one step above the row
-// below it, which is what the player's step-up needs to read a stack of
-// blocks as a staircase (see Player.js).
 // A level with nothing in it, in the shape loadDef/buildDef expect (see
 // the README's "Adding levels" for the full field list). Every field the
 // editor has a control for gets that control's own default, so New leaves
@@ -91,6 +72,25 @@ function blankLevelDef(levelNumber) {
   };
 }
 
+// Snap a raw pointer coordinate to the OBSTACLE_BLOCK_SIZE grid cell that
+// actually CONTAINS it (floor, not round-to-nearest -- rounding to the
+// nearest grid line could snap up to half a cell away from the pointer,
+// so the highlighted cell wouldn't be the one the pointer is inside of),
+// clamped so a placed obstacle/ball always stays fully inside the
+// playfield (never overlapping the border) -- same rule every
+// hand-authored level in levels.js already follows. Every editor object
+// (walls, crates, balls) is placed on this exact grid, no free placement.
+// Grid step (OBSTACLE_BLOCK_SIZE) and border clearance (BORDER_THICKNESS)
+// are independent constants -- see constants.js.
+//
+// Rows are counted UP FROM THE GROUND rather than down from the ceiling,
+// so the bottom row always rests exactly on the ground and a wall can be
+// built standing ON it. GROUND_Y is snapped to the grid (see constants.js),
+// which makes the interior a whole number of cells tall, so counting up
+// from the ground reaches the ceiling flush as well -- both ends line up
+// with the drawn border and every row is exactly one step above the row
+// below it, which is what the player's step-up needs to read a stack of
+// blocks as a staircase (see Player.js).
 function gridSnap(bt, grid, rawMax) {
   return bt + Math.floor((rawMax - bt) / grid) * grid;
 }

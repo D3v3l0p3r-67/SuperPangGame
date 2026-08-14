@@ -100,8 +100,6 @@ function clamp(value, low, high) {
   return Math.min(high, Math.max(low, value));
 }
 
-export const BALL_MOVEMENT_KEYS = Object.keys(BALL_MOVEMENTS);
-
 export function ballMovement(name) {
   return BALL_MOVEMENTS[name] ?? BALL_MOVEMENTS.standard;
 }
