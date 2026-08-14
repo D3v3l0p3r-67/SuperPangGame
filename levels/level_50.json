@@ -58,14 +58,14 @@
       "powerup": "extra_life"
     },
     {
-      "shape": "round",
+      "shape": "hunter",
       "size": 5,
       "x": 688,
       "y": 352,
       "vx": -75
     },
     {
-      "shape": "round",
+      "shape": "heavy",
       "size": 5,
       "x": 400,
       "y": 320,

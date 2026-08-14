@@ -13,7 +13,7 @@ import { PLAYER_CONFIG, PLAYER_STEP_UP_PX, LEVEL_TRANSITION, LEVELS_PER_REGION }
 import { DEFAULT_BINDINGS, ACTIONS, keyLabel } from '../js/keys.js';
 import { DAYLIGHT_PHASES, daylightPhaseForLevel } from '../js/regions.js';
 import { formatLevelTime } from '../js/storage.js';
-import { readJSON, levelFiles } from './helpers.mjs';
+import { readJSON, levelFiles, elements } from './helpers.mjs';
 
 // The transition registry is data, but the module it lives in converts a
 // palette colour at import time, and that conversion goes through Phaser
@@ -24,6 +24,7 @@ globalThis.Phaser ??= {
   Display: { Color: { HexStringToColor: (hex) => ({ color: parseInt(hex.slice(1), 16) }) } },
 };
 const { LEVEL_TRANSITIONS, LevelTransition } = await import('../js/LevelTransition.js');
+const { BALL_MOVEMENTS } = await import('../js/elements.js');
 
 // A scene thin enough to run a whole transition with no browser. The
 // effects only ever touch a Graphics they paint into, or two stills they
@@ -128,6 +129,39 @@ test('the level countdown never opens before the transition has finished', () =>
     assert.ok(hold <= DT + EPS,
       `${name}: the countdown is still held ${hold.toFixed(3)}s after the effect finished`);
   }
+});
+
+test('every ball kind names a movement that exists, and looks different for it', () => {
+  // A ball's kind has to be readable at a glance, because that glance is
+  // all you get while it is already falling at you -- so a kind that
+  // moves differently must not look like one that doesn't. Both halves
+  // are generated together by tools/ball_variants.py; this is what says
+  // they still agree.
+  const balls = elements().balls;
+  const byShape = new Map();
+  for (const el of balls) {
+    assert.ok(BALL_MOVEMENTS[el.movement ?? 'standard'],
+      `${el.id}: movement "${el.movement}" is not in BALL_MOVEMENTS`);
+    const seen = byShape.get(el.shape);
+    // Every size of one kind is the same kind: a ball that changed
+    // behaviour as it split would be unreadable.
+    if (seen) {
+      assert.equal(el.movement ?? 'standard', seen.movement ?? 'standard',
+        `${el.id} moves differently from ${seen.id}, which is the same kind of ball`);
+      assert.equal(el.color, seen.color, `${el.id} is not the colour of ${seen.id}`);
+    } else {
+      byShape.set(el.shape, el);
+    }
+  }
+
+  // ...and no two kinds share a colour, whatever they do.
+  const colours = new Map();
+  for (const el of byShape.values()) {
+    const clash = colours.get(el.color);
+    assert.ok(!clash, `${el.shape} and ${clash} are both ${el.color} -- you cannot tell them apart`);
+    colours.set(el.color, el.shape);
+  }
+  assert.ok(byShape.size >= 3, 'the point of this is that there is more than one kind');
 });
 
 test('there is a region for every block of levels the campaign plays', () => {

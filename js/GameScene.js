@@ -1008,6 +1008,12 @@ export class GameScene extends Phaser.Scene {
       // step -- i.e. its impact speed, which Arcade wipes before the
       // collision callback can read it (see Ball.rememberVerticalSpeed).
       ball.rememberVerticalSpeed();
+      // ...and for the same reason, this is where a ball that moves in
+      // some way beyond bouncing gets its say (see elements.js's
+      // BALL_MOVEMENTS): after the step, so setting the horizontal
+      // velocity here lands on top of whatever a bounce did rather than
+      // under it. Not while frozen -- a movement is motion.
+      if (!this.ballsFrozen) ball.updateMovement(dt, this);
       // Panic Mode ceiling-drop balls (see spawnPanicBall) spawn centered
       // on the ceiling border's own inner edge, depth-sorted behind it and
       // with world-bounds collision off, so they visibly slide out from

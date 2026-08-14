@@ -1,0 +1,16 @@
+{
+  "id": "wave-ball-2",
+  "category": "ball",
+  "shape": "wave",
+  "size": 2,
+  "label": "Wave 2",
+  "hasGravity": true,
+  "gravityAccel": 520,
+  "radius": 16,
+  "speed": 88,
+  "bounceVelocity": 457,
+  "points": 400,
+  "color": "#6bff7f",
+  "highlight": "#b3ffbd",
+  "movement": "wave"
+}

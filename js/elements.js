@@ -14,8 +14,97 @@
 // freeze balls but for different durations can share the 'freeze_balls'
 // kind and just differ in `durationMs`.
 
-export const BALL_ELEMENTS = []; // [{id, shape, size, label, hasGravity, radius, speed, bounceVelocity, points, color, highlight}]
+export const BALL_ELEMENTS = []; // [{id, shape, size, label, hasGravity, radius, speed, bounceVelocity, points, color, highlight, movement}]
 export const BALL_SHAPE_KEYS = []; // distinct shapes across BALL_ELEMENTS, in first-seen order
+
+// How a ball moves, beyond bouncing. Same mutable-registry shape as
+// POWERUP_BEHAVIORS below: a ball element names one by its `movement`
+// field, and nothing outside this object knows any of their names.
+//
+// A ball's kind is COLOUR-CODED, because you get one glance at it while
+// it is already falling at you: red bounces plainly, green weaves, blue
+// comes after you, purple is heavy and stays low. The colours are not
+// chosen here -- tools/ball_variants.py turns the round ball's hue and
+// writes each kind's art and element together, so what a ball looks like
+// and what it does cannot come apart.
+//
+// `update` runs once per frame per ball, from GameScene.updatePlaying,
+// AFTER the physics step. So it is free to set body.velocity.x outright:
+// whatever a bounce did this frame has already happened. Two rules:
+//
+//   * Drive horizontal motion from ball.hDir, never from the velocity
+//     that is there. Arcade zeroes the colliding axis before the bounce
+//     callback runs (see Ball.js), so the velocity mid-collision is not
+//     the direction the ball is going -- hDir is.
+//   * Only change hDir if turning around is what the movement IS. A
+//     weave whose velocity crosses zero has not changed direction, and
+//     writing hDir from it would fight every wall bounce.
+//
+// Vertical motion is left alone by all of them: gravity, bounceVelocity
+// and the landings are what make a ball a ball, and a movement that
+// touched them would be a different entity rather than a variant.
+//
+// `init` sets up whatever `update` counts on, once, when the ball is
+// built (and again on a split child, which is a new ball). Each movement
+// keeps its own working number in ball.movementPhase and means something
+// different by it -- there is exactly one, on purpose: a movement that
+// needed its own state bag would be reaching past being a variant.
+export const BALL_MOVEMENTS = {
+  // The ordinary bouncer. Nothing to do -- its horizontal speed is
+  // constant between bounces, which Arcade already maintains.
+  standard: {
+    update() {},
+  },
+
+  // Weaves across its own path. `movementPhase` is the angle of the
+  // weave. The swing is bigger than the ball's own speed, so the velocity
+  // does briefly reverse at each end and the path visibly doubles back --
+  // while the average still carries it across the field.
+  wave: {
+    swing: 1.6,       // times its own horizontal speed
+    periodSec: 0.85,
+    init(ball) { ball.movementPhase = 0; },
+    update(ball, dt) {
+      ball.movementPhase += (dt * Math.PI * 2) / this.periodSec;
+      ball.body.setVelocityX(ball.hDir * ball.hSpeed * (1 + this.swing * Math.sin(ball.movementPhase)));
+    },
+  },
+
+  // Turns towards the player and keeps coming. `movementPhase` is where
+  // it is in that turn, -1 (full left) to +1 (full right), which is both
+  // its direction and how fast it is going: a hunter mid-turn is slow,
+  // and one that has committed is at full speed.
+  //
+  // Deliberately about a second to reverse, and slower than a plain ball
+  // to begin with (see tools/ball_variants.py), so it is something to be
+  // outrun and led away rather than something that cannot be escaped.
+  hunter: {
+    turnPerSec: 2.2,
+    // Starts committed to wherever it was already going, rather than
+    // from a standstill it would have to accelerate out of.
+    init(ball) { ball.movementPhase = ball.hDir; },
+    update(ball, dt, scene) {
+      const toward = Math.sign(scene.player.x - ball.x);
+      if (toward !== 0) {
+        ball.movementPhase = clamp(ball.movementPhase + toward * this.turnPerSec * dt, -1, 1);
+        // hDir is what the wall bounces read, so a hunter that turned
+        // mid-flight still bounces the way it is actually travelling.
+        if (Math.abs(ball.movementPhase) > 0.05) ball.hDir = Math.sign(ball.movementPhase);
+      }
+      ball.body.setVelocityX(ball.hDir * ball.hSpeed * Math.abs(ball.movementPhase));
+    },
+  },
+};
+
+function clamp(value, low, high) {
+  return Math.min(high, Math.max(low, value));
+}
+
+export const BALL_MOVEMENT_KEYS = Object.keys(BALL_MOVEMENTS);
+
+export function ballMovement(name) {
+  return BALL_MOVEMENTS[name] ?? BALL_MOVEMENTS.standard;
+}
 
 export const OBSTACLE_TYPES = {}; // type -> {label, destructible, hitPoints, color, tileTexture}
 export const OBSTACLE_TYPE_KEYS = [];

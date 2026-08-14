@@ -1,0 +1,16 @@
+{
+  "id": "heavy-ball-2",
+  "category": "ball",
+  "shape": "heavy",
+  "size": 2,
+  "label": "Heavy 2",
+  "hasGravity": true,
+  "gravityAccel": 520,
+  "radius": 16,
+  "speed": 72,
+  "bounceVelocity": 228,
+  "points": 400,
+  "color": "#c96bff",
+  "highlight": "#e3b3ff",
+  "movement": "standard"
+}

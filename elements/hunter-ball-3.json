@@ -1,0 +1,16 @@
+{
+  "id": "hunter-ball-3",
+  "category": "ball",
+  "shape": "hunter",
+  "size": 3,
+  "label": "Hunter 3",
+  "hasGravity": true,
+  "gravityAccel": 520,
+  "radius": 24,
+  "speed": 98,
+  "bounceVelocity": 475,
+  "points": 800,
+  "color": "#6babff",
+  "highlight": "#b3d4ff",
+  "movement": "hunter"
+}

@@ -50,7 +50,7 @@
   ],
   "balls": [
     {
-      "shape": "round",
+      "shape": "heavy",
       "size": 5,
       "x": 400,
       "y": 288,

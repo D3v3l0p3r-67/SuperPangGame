@@ -1,0 +1,16 @@
+{
+  "id": "wave-ball-4",
+  "category": "ball",
+  "shape": "wave",
+  "size": 4,
+  "label": "Wave 4",
+  "hasGravity": true,
+  "gravityAccel": 520,
+  "radius": 32,
+  "speed": 136,
+  "bounceVelocity": 493,
+  "points": 1600,
+  "color": "#6bff7f",
+  "highlight": "#b3ffbd",
+  "movement": "wave"
+}

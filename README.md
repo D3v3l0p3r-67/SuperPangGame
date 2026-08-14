@@ -2,12 +2,21 @@
 
 A retro pixel-art arcade game inspired by the classic *Pang* / *Buster Bros.*
 gameplay: walk left and right along the ground, fire a harpoon straight up,
-and pop balls before they pop you. There are two ball shapes -- round balls
-(16x16px up to 96x96px, sizes 1-5) that fall under gravity and bounce, and
-hex balls (16x16px up to 48x48px, sizes 1-3 only) that ignore gravity and
-drift at a constant diagonal speed. Hitting a ball splits it into two balls
+and pop balls before they pop you. Hitting a ball splits it into two balls
 one size smaller, one sent left and one right; size-1 balls are destroyed
 outright.
+
+**A ball's colour is what it does.** You get one glance at it while it is
+already falling at you, so every kind that moves differently looks
+different:
+
+| | kind | what it does |
+|---|---|---|
+| 🔴 | **round** | falls under gravity and bounces to a fixed height. Sizes 1-5, 16x16px up to 96x96px |
+| 🟡 | **hex** | ignores gravity, drifts at a constant diagonal speed, and spins. Sizes 1-3 |
+| 🟢 | **wave** | bounces like a round ball, but weaves hard enough across its own path that it doubles back |
+| 🔵 | **hunter** | bounces like a round ball, and turns to follow you -- slowly enough to be outrun and led away |
+| 🟣 | **heavy** | slow, and barely leaves the floor: a quarter of a round ball's bounce, so it stays down where you are |
 
 Every ball's motion is fully deterministic: each size has fixed speed,
 bounce height, and gravity, so two balls of the same size always move and
@@ -680,9 +689,17 @@ seam between the canvas and the page behind it.
   once with every hex ball starting upward and once downward. Balls never
   collide with each other, so their paths are independent and those two
   runs cover every ball in both of its possible states.
-- 2 ball shapes: round (sizes 1-5) and hex (sizes 1-3 only), each with
-  fixed, deterministic physics; splitting one size smaller (one left, one
-  right) per hit.
+- 5 ball kinds -- round, hex, wave, hunter, heavy (see the table at the
+  top) -- each with fixed, deterministic physics, splitting one size
+  smaller (one left, one right) per hit. What a kind DOES beyond bouncing
+  is an entry in `js/elements.js`'s `BALL_MOVEMENTS`, named by the ball's
+  own element file; what it LOOKS like is the round ball's art with its
+  hue turned. Both are written by `tools/ball_variants.py` from the round
+  ball, so a kind's colour and its behaviour cannot come apart, and
+  redrawing the round ball redraws every kind. `heavy` needs no code at
+  all -- barely bouncing and moving slowly is entirely a matter of its
+  numbers. The campaign introduces them one at a time: green from level
+  11, purple from 16, blue from 26, and never a level made only of one.
 - Obstacles: indestructible platforms and shootable crates, built from
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
   every side with proper anti-tunneling collision; a multi-block crate
@@ -903,7 +920,10 @@ tests/               Node's own test runner against the data and the pure
 tools/               Scripts run by hand, never by the game:
                       daylight_backgrounds.py relights a region's night
                       frame into its five times of day (see "A day per
-                      continent"), player_sprite.py draws the player's
+                      continent"), ball_variants.py turns the round
+                      ball's hue into every other ball kind and writes
+                      their elements with it, player_sprite.py draws the
+                      player's
                       17-frame sheet and ghost_sprite.py the winged ghost
                       a lost life leaves (it imports that sheet's own dead
                       frame, palette and renderer, and adds only the wash
