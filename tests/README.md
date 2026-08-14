@@ -39,7 +39,7 @@ game has none, and `node --test tests/*.test.mjs` still has none either.
 
 | file | what it does |
 |---|---|
-| `smoke.test.mjs` | boots the game; loads and runs **every** level it ships; walks, shoots and pops with real key events; loses a life and watches the ghost leave and the level restart; clears a level and lands on the next; pauses, resumes and quits |
+| `smoke.test.mjs` | boots the game; loads and runs **every** level it ships; walks, shoots and pops with real key events; loses a life and watches the ghost leave and the level restart; clears a level and lands on the next; erases progress and checks what survived; pauses, resumes and quits |
 | `game.mjs` | opens the game past its loading screen and hands back the page, a reader into the live scene, a frame stepper, and everything it threw or logged as an error |
 | `server.mjs` | thirty lines of `node:http` serving the repo, so running the tests is one command instead of two |
 

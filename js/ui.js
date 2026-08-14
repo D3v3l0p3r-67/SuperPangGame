@@ -39,6 +39,7 @@ const ELEMENT_IDS = [
   'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
+  'btn-erase', 'erase-confirm', 'erase-warning', 'btn-erase-yes', 'btn-erase-no', 'erase-done',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -86,6 +87,15 @@ const STATIC_LABELS = [
   ['btn-highscores', 'HIGH SCORES', 'button', COLORS.text],
   ['btn-options', 'OPTIONS', 'button', COLORS.text],
   ['btn-options-fullscreen', 'FULLSCREEN', 'button', COLORS.text],
+  ['btn-erase', 'ERASE PROGRESS', 'button', COLORS.text],
+  // Every glyph here has to be one the bitmap font can draw -- uppercase,
+  // digits, and only "!", ":" and "." for punctuation (see assets.js's
+  // INTRO_FONT_CHARS). Which is why this says what it takes as three full
+  // stops rather than as a comma-separated list.
+  ['erase-warning', 'THIS ERASES SCORES. UNLOCKS. RECORD TIMES.', 'body', COLORS.danger],
+  ['btn-erase-yes', 'YES ERASE IT', 'button', COLORS.danger],
+  ['btn-erase-no', 'CANCEL', 'button', COLORS.text],
+  ['erase-done', 'PROGRESS ERASED.', 'body', COLORS.accent],
   ['btn-close-options', 'BACK', 'button', COLORS.text],
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
   ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
@@ -185,6 +195,19 @@ export class UI {
 
     this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
+
+    // Erasing what the player has DONE -- scores, unlocks, record times;
+    // never their settings, their keys or their edited levels (see
+    // storage.eraseProgress). Irreversible, so the button only ever
+    // reveals the confirmation; nothing is written until the second press
+    // and either answer puts the row away again.
+    this.el['btn-erase'].addEventListener('click', () => this.showEraseConfirm(true));
+    this.el['btn-erase-no'].addEventListener('click', () => this.showEraseConfirm(false));
+    this.el['btn-erase-yes'].addEventListener('click', () => {
+      this.storage.eraseProgress();
+      this.showEraseConfirm(false);
+      this.el['erase-done'].classList.remove('hidden');
+    });
     // Installing is the browser's own dialogue -- all this does is ask
     // for it, and take the button away once there is nothing left to ask
     // (see js/pwa.js: the prompt can only be shown once).
@@ -419,11 +442,26 @@ export class UI {
     }
   }
 
+  // Shows or hides the erase confirmation. `alsoClearDone` additionally
+  // takes down the "PROGRESS ERASED." line -- wanted when the screen is
+  // reopened, but not when the confirmation is simply answered, because
+  // that line is the answer.
+  showEraseConfirm(show, alsoClearDone = false) {
+    this.el['erase-confirm'].classList.toggle('hidden', !show);
+    this.el['btn-erase'].classList.toggle('hidden', show);
+    if (show || alsoClearDone) this.el['erase-done'].classList.add('hidden');
+  }
+
   setScreen(state) {
     for (const id of Object.values(SCREEN_IDS)) this.el[id].classList.add('hidden');
     const id = SCREEN_IDS[state];
     if (!id) return;
     this.el[id].classList.remove('hidden');
+
+    // The options screen always opens in its resting state: never
+    // mid-confirmation, and never still announcing an erase from a
+    // previous visit.
+    if (state === GAME_STATES.OPTIONS) this.showEraseConfirm(false, true);
 
     if (state === GAME_STATES.PAUSED) {
       // The extra Restart button only shows for a level opened via the

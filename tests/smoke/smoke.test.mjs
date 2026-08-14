@@ -174,11 +174,56 @@ test('clearing a level carries the run into the next one', async () => {
   assert.equal(drainErrors(), '');
 });
 
-test('pausing and leaving stops the run without breaking it', async () => {
-  await game.page.waitForFunction(
-    () => ['PLAYING', 'LEVEL_INTRO'].includes(window.game.scene.getScene('Game').state), null, { timeout: 20000 },
+test('erasing progress takes the scores and leaves the settings', async () => {
+  // Worth a browser test more than most things here: it is the one
+  // button in the game that destroys something, and what it must NOT
+  // take is as much of the point as what it must.
+  await game.page.evaluate(() => {
+    localStorage.setItem('balloonBuster.highscores', JSON.stringify({ schemaVersion: 1, entries: [{ id: 'x', name: 'ABC', score: 9999, level: 5, date: '2026-01-01' }] }));
+    localStorage.setItem('balloonBuster.progress', JSON.stringify({ schemaVersion: 1, unlockedLevels: 12 }));
+    localStorage.setItem('balloonBuster.levelTimes', JSON.stringify({ schemaVersion: 1, times: { 0: 12.5 } }));
+    localStorage.setItem('balloonBuster.settings', JSON.stringify({ schemaVersion: 1, muted: true }));
+    localStorage.setItem('balloonBuster.levelEdits', JSON.stringify({ levels: { 7: { id: 7, name: 'MINE' } } }));
+  });
+  const keys = () => game.page.evaluate(
+    () => Object.keys(localStorage).filter((k) => k.startsWith('balloonBuster.')).sort(),
   );
-  await game.page.waitForFunction(() => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 20000 });
+
+  await game.scene((s) => s.showOptions());
+  await game.frames(3);
+
+  // Nothing happens on the first press but being asked, and answering no
+  // has to leave every last thing alone.
+  await game.page.click('#btn-erase');
+  await game.frames(2);
+  assert.equal(await game.page.evaluate(() => document.getElementById('erase-confirm').classList.contains('hidden')), false,
+    'ERASE PROGRESS should ask before doing anything');
+  await game.page.click('#btn-erase-no');
+  await game.frames(2);
+  assert.equal((await keys()).length, 5, 'cancelling erased something');
+
+  await game.page.click('#btn-erase');
+  await game.page.click('#btn-erase-yes');
+  await game.frames(2);
+  assert.deepEqual(await keys(), ['balloonBuster.levelEdits', 'balloonBuster.settings'],
+    'erasing progress must take the scores, the unlocks and the times -- and nothing else');
+
+  await game.scene((s) => s.goToMenu());
+  await game.frames(2);
+  await game.scene((s) => s.showOptions());
+  await game.frames(2);
+  assert.equal(await game.page.evaluate(() => document.getElementById('erase-done').classList.contains('hidden')), true,
+    'reopening options should not still be announcing a previous erase');
+  await game.scene((s) => s.goToMenu());
+  assert.equal(drainErrors(), '');
+});
+
+test('pausing and leaving stops the run without breaking it', async () => {
+  // Its own run, like every test above: leaning on whatever the previous
+  // one happened to leave behind is how a suite starts failing for
+  // reasons that have nothing to do with what it is testing.
+  await game.scene((s) => { s.beginRun(0, null); });
+  await game.page.waitForFunction(() => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 });
   await game.page.keyboard.press('Escape');
   await game.frames(3);
   assert.equal(await game.scene((s) => s.state), 'PAUSED');

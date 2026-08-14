@@ -1054,7 +1054,9 @@ js/
   storage.js         Versioned localStorage persistence (high scores,
                       settings including the key bindings, unlock
                       progress, the per-level records, and the levels
-                      saved in the editor -- see "Adding levels")
+                      saved in the editor -- see "Adding levels"), plus
+                      eraseProgress(), which takes the first three and
+                      deliberately none of the rest
   editor.js          In-browser level editor: opens one campaign level
                       (picked from the same list as Start Level),
                       grid-snapped painting, Save/Revert/Export/Import
@@ -1334,6 +1336,24 @@ levelTimes`, `{ "<level index>": seconds }`) with the same versioned
 schema as everything else, in hundredths of a second, and read back
 defensively -- an entry that isn't a sane number is dropped rather than
 shown as a record no run could beat.
+
+**Erasing it.** Options has an **ERASE PROGRESS** button, because a
+player who cannot clear what they have done is stuck with it forever --
+and the debug panel and the level editor can both write into these. It
+takes the high score table, the campaign unlocks and every record time
+(`storage.eraseProgress`). It deliberately leaves everything that is a
+preference rather than an achievement: volume, mute, display size, the
+key bindings (those have their own reset, on the controls screen), and
+the levels saved in the editor -- which are somebody's authoring, not
+their score, and would be a cruel thing to take away under that name.
+The keys are listed one at a time rather than cleared by namespace, so a
+key added later has to be thought about before it can be erased by
+accident.
+
+It is irreversible, so the button only ever reveals a confirmation and
+nothing is written until the second press. `tests/smoke/` presses both
+answers and checks what survived each -- which is as much the point as
+what did not.
 
 The record shows up in three places, all of them where it is useful:
 
