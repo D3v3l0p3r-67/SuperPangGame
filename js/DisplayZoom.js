@@ -33,6 +33,22 @@ export function getZoom() {
 // than modelled, because the panel sizes its own controls from the
 // canvas: its height depends on the answer this is computing (see
 // applyZoom, which settles that).
+// The screen's own unusable edges -- notch, rounded corners, home
+// indicator -- as CSS pixels. The page is laid out UNDER them
+// (viewport-fit=cover, see index.html), so the window is bigger than the
+// part of it that can actually be seen, and fitting to the window alone
+// would put the corners of the playfield behind the hardware. style.css
+// publishes them as custom properties; env() cannot be read from script
+// any other way.
+function safeAreaInsets() {
+  const style = getComputedStyle(document.documentElement);
+  const read = (name) => parseFloat(style.getPropertyValue(name)) || 0;
+  return {
+    x: read('--safe-left') + read('--safe-right'),
+    y: read('--safe-top') + read('--safe-bottom'),
+  };
+}
+
 export function fitScale() {
   const canvas = document.querySelector('#game-container > canvas');
   const shell = document.getElementById('game-shell');
@@ -43,8 +59,9 @@ export function fitScale() {
   // scrollbar, so fitting can't itself produce the scrollbar that would
   // then make the fit wrong.
   const viewport = document.documentElement;
-  const scaleX = viewport.clientWidth / VIRTUAL_W;
-  const scaleY = (viewport.clientHeight - overhead) / VIRTUAL_H;
+  const safe = safeAreaInsets();
+  const scaleX = (viewport.clientWidth - safe.x) / VIRTUAL_W;
+  const scaleY = (viewport.clientHeight - safe.y - overhead) / VIRTUAL_H;
   return Math.max(MIN_FIT_SCALE, Math.min(scaleX, scaleY));
 }
 

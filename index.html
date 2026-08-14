@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Balloon Buster</title>
 <meta name="description" content="A retro pixel-art balloon-popping arcade game, inspired by classic Pang-style gameplay.">
+
+<!-- Installable as an app (see manifest.webmanifest, js/pwa.js and
+     service-worker.js). Every path here is relative on purpose: a GitHub
+     Pages project site serves the game from /<repo>/, not from the
+     domain root. theme-color is the same near-black the HUD strip and the
+     page background use, so the system bars match the game rather than
+     framing it in white. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#05040a">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!-- iOS has no manifest support worth the name: these are how an iPhone
+     is told the same things (run without Safari's chrome, name it, and
+     keep the status bar dark). -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Balloons">
+<meta name="mobile-web-app-capable" content="yes">
+
 <link rel="stylesheet" href="style.css">
 <script src="js/vendor/phaser.min.js"></script>
 </head>
@@ -27,7 +46,15 @@
       <button id="btn-editor" class="menu-btn"></button>
       <button id="btn-highscores" class="menu-btn"></button>
       <button id="btn-options" class="menu-btn"></button>
-      <p class="hint">Arrows move &amp; climb &middot; Space shoot &middot; Esc pause &middot; Shift+D debug</p>
+      <!-- Both start hidden and are revealed by js/pwa.js's rules: the
+           button only once the browser has offered an install prompt, the
+           iOS line only on an iPhone/iPad that is not already running the
+           game from its home screen. -->
+      <button id="btn-install" class="menu-btn hidden"></button>
+      <p id="ios-install-hint" class="hint hidden"></p>
+      <!-- Keys, so hidden on a phone (see style.css's body.is-touch): none
+           of them exist there, and the room they take does. -->
+      <p class="hint keyboard-hint">Arrows move &amp; climb &middot; Space shoot &middot; Esc pause &middot; Shift+D debug</p>
     </div>
 
     <div id="screen-options" class="screen hidden">
@@ -113,6 +140,15 @@
        not part of the menu flow and is shown/hidden by the editor alone. -->
   <div id="editor-panel" class="hidden"></div>
 </div>
+</div>
+<!-- Covers the whole screen, not just the canvas, and only ever on a
+     phone held upright (see style.css: body.is-touch + a portrait media
+     query). The playfield is wider than it is tall and there is no
+     portrait layout of it worth having, so this asks for the phone to be
+     turned rather than shrinking the game into a strip. -->
+<div id="rotate-prompt" aria-live="polite">
+  <div id="rotate-prompt-icon" aria-hidden="true"></div>
+  <div id="rotate-prompt-text"></div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

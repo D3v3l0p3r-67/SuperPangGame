@@ -240,6 +240,7 @@ export class GameScene extends Phaser.Scene {
     this.ui = new UI(this, this.audio, storage);
     this.ui.showTouchControlsIfNeeded();
     this.ui.setupMobileFullscreen();
+    this.ui.setupInstallOffers();
     this.hud = new Hud(this);
     this.levelIntro = new LevelIntro(this);
     this.levelClearCard = new LevelClearCard(this);
