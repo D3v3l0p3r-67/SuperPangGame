@@ -420,7 +420,7 @@ file, not of any code:
 
 | feature | levels | what it does there |
 |---|---|---|
-| **ladders** | 3, 5, 7, 10, 13, 16, 20, 24, 26, 27, 28, 30, 37, 38, 40, 50 | a climb from the floor to a shelf worth shooting from -- a level is always solvable from the ground (see "Features"), so a ladder is a route, never the route |
+| **ladders** | 3, 5, 7, 10, 13, 16, 20, 26, 27, 28, 30, 37, 38, 40, 50 | a climb from the floor to a shelf worth shooting from -- a level is always solvable from the ground (see "Features"), so a ladder is a route, never the route |
 | **stepped shapes** | 37, 38 | the shelf a ladder lands on is a staircase you walk up, built from `cells` rather than `w`/`h` |
 | **player starts** | 42 of 50 | where the level puts you, chosen so nothing can reach you for about two seconds -- a few levels used to open with a ball sitting exactly on the middle of the floor, which is where a level with no start of its own puts the player |
 | **machine gun** | 12, 22, 29, 34, 42, 47 | levels with several small/hex balls at once, where a fanned volley is worth more than one beam |
@@ -428,10 +428,15 @@ file, not of any code:
 | **guaranteed drops** | 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 (ball), 13, 28, 44 (crate) | the last level of each region hands out something for the region ahead -- a shield, an extra life, time freeze -- and three levels hide one in a one-block crate to shoot open |
 
 A ladder has to reach the floor in whole elements (they are 96px tall, so
-its top is 304, 208 or 112) and land on a platform wide enough to step off
-onto, with a clear column below it. `tests/levels.test.mjs` checks both
-ends of every ladder, that no start is inside an obstacle or a ball, and
-that a guaranteed drop sits on a single breakable block.
+its top is 304, 208 or 112), land on a platform wide enough to step off
+onto, keep a clear column below it, and -- the one that is easy to miss --
+leave room to STAND at the top. The player only lets go up there if their
+whole body fits above the surface (`Player.canStandOn`), so a landing with
+something overhanging it is a ladder that is climbed and never left: level
+24's pagoda had exactly that, its tiers 32px apart against a 50px player,
+and it lost its ladder for it. `tests/levels.test.mjs` checks all four,
+plus that no start is inside an obstacle or a ball and that a guaranteed
+drop sits on a single breakable block.
 
 ## Level transitions
 
@@ -593,7 +598,7 @@ seam between the canvas and the page behind it.
   before its path can ever reach the player) for a gentle but active first
   look at movement, shooting, and ball physics.
 - The campaign uses what the engine has rather than only walls and balls:
-  **16 levels have ladders** up to a shelf worth shooting from (two of
+  **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name
   their own player start** so no level opens with a ball already on top of
   you, **12 are played with the machine gun or the grapple** instead of the
