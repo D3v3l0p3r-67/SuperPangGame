@@ -23,7 +23,30 @@ import { readJSON, levelFiles } from './helpers.mjs';
 globalThis.Phaser ??= {
   Display: { Color: { HexStringToColor: (hex) => ({ color: parseInt(hex.slice(1), 16) }) } },
 };
-const { LEVEL_TRANSITIONS } = await import('../js/LevelTransition.js');
+const { LEVEL_TRANSITIONS, LevelTransition } = await import('../js/LevelTransition.js');
+
+// A scene thin enough to run a whole transition with no browser. The
+// effects only ever touch a Graphics they paint into, or two stills they
+// move; nothing below looks at what was drawn, because the test is about
+// the CLOCK rather than the picture.
+function stubScene() {
+  const object = (extra = {}) => {
+    const self = {
+      x: 0, y: 0,
+      setDepth: () => self, setVisible: () => self, setOrigin: () => self, setMask: () => self,
+      clear: () => self, fillStyle: () => self, fillRect: () => self, draw: () => self,
+      createGeometryMask: () => ({}), destroy: () => {},
+      ...extra,
+    };
+    return self;
+  };
+  return {
+    add: { graphics: () => object(), renderTexture: () => object() },
+    make: { graphics: () => object() },
+    children: { list: [] },
+    audio: { play: () => {} },
+  };
+}
 
 test('the playfield is a whole number of grid cells, ceiling to ground', () => {
   const interior = GROUND_Y - BORDER_THICKNESS;
@@ -60,6 +83,50 @@ test('the configured level transition exists, and every effect is one kind or th
     const kinds = [typeof effect.draw === 'function', typeof effect.place === 'function'];
     assert.equal(kinds.filter(Boolean).length, 1,
       `${name}: an effect either paints over the playfield (draw) or moves the levels (place), not both or neither`);
+  }
+});
+
+test('the level countdown never opens before the transition has finished', () => {
+  // The level is swapped in at the COVERED moment, which is nowhere near
+  // the end of the effect -- halfway through for the ones that paint over
+  // the playfield, and the very first frame for a sliding one, which has
+  // nothing to hide behind until the next level exists. So the "3, 2, 1,
+  // GO!" countdown cannot simply start there: READY would sound, and SET
+  // and GO! tick down, over a level still sliding off the screen.
+  //
+  // GameScene.advanceLevel holds the countdown for transition.remainingSec
+  // and its LEVEL_INTRO case re-reads that every frame; this replays that
+  // arrangement against every registered effect, in the order the real
+  // update() runs the two clocks in -- the intro's first, the transition's
+  // at the end of the frame.
+  const DT = 1 / 60;
+  const EPS = 1e-9;
+  for (const name of Object.keys(LEVEL_TRANSITIONS)) {
+    const transition = new LevelTransition(stubScene());
+    let hold = null;
+    transition.start(name, () => { hold = transition.remainingSec; });
+
+    let frames = 0;
+    while (transition.active) {
+      assert.ok(++frames < 600, `${name}: the effect never ends`);
+      if (hold !== null) {
+        const left = transition.remainingSec;
+        hold = Math.max(hold, left) - DT;
+        // The frame the hold runs out is the frame READY sounds on, and
+        // the transition's own clock is only ticked below -- so the
+        // earliest it may honestly do that is the frame the effect ends.
+        if (hold <= 0) {
+          assert.ok(left <= DT + EPS,
+            `${name}: READY opens with ${left.toFixed(3)}s of the effect still to play`);
+        }
+      }
+      transition.update(DT);
+    }
+    assert.ok(hold !== null, `${name}: the next level is never swapped in`);
+    // And not held past it either: a hold still worth more than the frame
+    // the effect ended on would be dead air between the two.
+    assert.ok(hold <= DT + EPS,
+      `${name}: the countdown is still held ${hold.toFixed(3)}s after the effect finished`);
   }
 });
 

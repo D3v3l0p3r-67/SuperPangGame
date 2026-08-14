@@ -139,6 +139,18 @@ export class LevelTransition {
     return this.leaving !== null;
   }
 
+  // How much of the effect is still to play. Read from inside `onCovered`,
+  // which is where the next level is built: that moment is nowhere near
+  // the end of the transition (halfway through for the overlay effects,
+  // the very first frame for a sliding one), so anything that must not
+  // start until the new level is actually in place has to wait this long.
+  // GameScene.advanceLevel holds the "3, 2, 1, GO!" countdown for exactly
+  // it -- otherwise READY sounds over a level still sliding off screen.
+  get remainingSec() {
+    if (!this.active) return 0;
+    return Math.max(0, this.effect.durationSec - this.elapsed);
+  }
+
   // `onCovered` runs once, at the frame the screen is fully hidden -- or,
   // for a sliding effect, immediately, since it has nothing to hide
   // behind until the next level exists. A transition already running is

@@ -489,6 +489,22 @@ Whichever effect is running, the change of level itself is heard:
 `LevelTransition.start` plays `leveltransition`, so the sound belongs to
 the level changing rather than to any one way of showing it.
 
+**The countdown waits for the effect to finish.** The next level is built
+at the *covered* moment, which is nowhere near the end of the transition:
+halfway through for an overlay effect, and the very first frame for a
+sliding one, which has nothing to hide behind until the next level
+exists. Starting the level intro there would put READY -- and then SET and
+GO!, sounds and all -- over a level still sliding off the screen.
+`GameScene.advanceLevel` instead holds the countdown for
+`transition.remainingSec`, reusing the same lead-in that lets the
+run-start fanfare finish (`startLevelIntro`'s `leadInSec`): only the
+LEVEL/name title card shows until the effect is done. The hold is
+re-read from the transition every frame rather than trusted from the one
+estimate taken at the swap, because the two clocks are ticked at
+different points in the frame and an estimate alone drifts a frame or two
+ahead. `tests/rules.test.mjs` replays that arrangement against every
+registered effect and fails if any of them lets the countdown open early.
+
 There are two kinds of effect, and which one an entry is depends only on
 the method it carries:
 

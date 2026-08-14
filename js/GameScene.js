@@ -616,10 +616,21 @@ export class GameScene extends Phaser.Scene {
         // waits until the plane has landed and the map has faded.
         if (crossesRegion(from, to)) {
           this.audio.stopMusic();
+          // No lead-in needed here: the interlude runs for seconds after
+          // the transition has ended, so by the time this fires the new
+          // level has long been in place.
           this.worldMap.start(regionIndexForLevel(from), regionIndexForLevel(to),
             () => this.startLevelIntro());
         } else {
-          this.startLevelIntro();
+          // The countdown waits out the rest of the transition. This runs
+          // at the COVERED moment, not at the end of the effect -- and for
+          // a sliding effect (which has nothing to hide behind until the
+          // next level exists) that moment is its very first frame. Started
+          // plainly, READY would sound, and SET and GO! would tick down,
+          // over a level still sliding off the screen. The lead-in holds
+          // the countdown and every one of its cues while showing the
+          // LEVEL/name card, exactly as it does for the run-start fanfare.
+          this.startLevelIntro(this.transition.remainingSec);
         }
       });
     } else {
@@ -839,6 +850,16 @@ export class GameScene extends Phaser.Scene {
 
     switch (this.state) {
       case GAME_STATES.LEVEL_INTRO:
+        // A transition still playing keeps the countdown held for however
+        // long it has left -- re-read every frame rather than trusted from
+        // the one estimate taken when the level was swapped in
+        // (advanceLevel). The two clocks are ticked at different points in
+        // the frame (this one here, the transition's at the end of
+        // update), so an estimate alone drifts a frame or two ahead and
+        // lets READY open over the last sliver of the effect.
+        if (this.transition.active) {
+          this.introLeadInSec = Math.max(this.introLeadInSec, this.transition.remainingSec);
+        }
         // Lead-in: hold the countdown (and the physics freeze) while the
         // run-start fanfare finishes, then open with READY.
         if (this.introLeadInSec > 0) {
