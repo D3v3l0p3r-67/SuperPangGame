@@ -34,6 +34,7 @@ import {
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
+  PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_ANIM_KEY,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
@@ -52,6 +53,14 @@ const LEVEL_CLEAR_PAUSE_SEC = 1;
 // the fade always finishes before the next level can load.
 const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
+
+// The winged ghost that leaves when a life does (see spawnDeathGhost):
+// how long it takes to rise and fade, and how far it gets. Short on
+// purpose -- it is a beat, not a cutscene. The hit freeze never ends
+// before it does (see startHitFreeze), so the level never restarts out
+// from under it.
+const DEATH_GHOST_SEC = 0.5;
+const DEATH_GHOST_RISE_PX = 110;
 
 // One ball bounce, resolved from whichever set of contact flags the
 // caller has -- the world-bounds event's own arguments, or an obstacle
@@ -1367,8 +1376,34 @@ export class GameScene extends Phaser.Scene {
       // game over.
       if (!this.isCustomLevel) this.lives -= 1;
       this.player.playDeadAnim();
+      this.spawnDeathGhost();
       this.startHitFreeze(!this.isCustomLevel && this.lives <= 0);
     }
+  }
+
+  // The life leaving: a winged ghost of the player rises out of the body
+  // still sitting there in its dead frame, and is gone before the level
+  // restarts or the run ends.
+  //
+  // A tween rather than a physics body, deliberately: startHitFreeze
+  // pauses the physics on the very next line, so anything with a velocity
+  // would simply hang in the air. Tweens are not paused with it, which is
+  // what lets this one thing keep moving in an otherwise frozen picture --
+  // and is most of why it reads as a spirit rather than as a sprite.
+  spawnDeathGhost() {
+    const ghost = this.add.sprite(this.player.x, this.player.y, PLAYER_GHOST_TEXTURE_KEY);
+    ghost.setDepth(8); // above the player (4) and every impact burst (6-7)
+    ghost.play(PLAYER_GHOST_ANIM_KEY);
+    this.tweens.add({
+      targets: ghost,
+      y: ghost.y - DEATH_GHOST_RISE_PX,
+      // Fading only over the back half: it leaves visibly rather than
+      // dissolving from the moment it appears.
+      alpha: { from: 1, to: 0, ease: 'Quad.easeIn' },
+      duration: DEATH_GHOST_SEC * 1000,
+      ease: 'Sine.easeOut',
+      onComplete: () => ghost.destroy(),
+    });
   }
 
   // Freeze-frame everything (player, balls, projectiles) for a beat after
@@ -1378,7 +1413,10 @@ export class GameScene extends Phaser.Scene {
   startHitFreeze(isGameOver) {
     this.pendingGameOver = isGameOver;
     this.state = GAME_STATES.HIT_FREEZE;
-    this.stateTimer = HIT_FREEZE_SEC;
+    // Never shorter than the ghost's flight: the restart (or the game
+    // over screen) waits for the life to finish leaving, so shortening
+    // the freeze can't cut it off mid-air.
+    this.stateTimer = Math.max(HIT_FREEZE_SEC, DEATH_GHOST_SEC);
     this.physics.pause();
   }
 

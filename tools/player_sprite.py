@@ -73,8 +73,15 @@ PALETTE = {
 # frames; the per-frame variations (an arm up, a leg forward, the whole
 # body a pixel lower) are applied as stamps afterwards -- see FRAMES_SPEC.
 
-# Standing, seen from behind: the cap, the back of the pack, both arms
-# down, the gun held up in the left hand.
+# Standing, seen from behind: the cap, the back of the pack, and the gun
+# held up in both hands on the centre line (which is where its shots come
+# from, see Player.js).
+#
+# THE ARMS STOP AT THE ELBOWS. They are holding something in front of the
+# chest, so from behind the upper arms angle down and inward from the
+# shoulders and the forearms are hidden by the body -- an arm drawn all
+# the way down to a hand at the hip would be an arm that is not holding
+# the gun the same frame shows two hands on.
 BACK = """
 ......ogggo.......
 ......ogggo.......
@@ -100,11 +107,11 @@ BACK = """
 .oaaaosoGGGGosaaao
 .oAAAoooooooooAAAo
 ..oaaoOOOOOOOOoao.
-..oaaopppppppooao.
-..oAAoPppppppOoAo.
-..oaaopppppppooao.
-..ossoPPPPPPPooso.
-...ooOOOOOOOOOoo..
+...oaopppppppooao.
+...oAoPppppppOoAo.
+....oopppppppooo..
+.....oPPPPPPPo....
+....oOOOOOOOOOo...
 ....ooooooooooo...
 ....oTttttttTo....
 ....oTtt..ttTo....
@@ -336,15 +343,22 @@ def shift(grid, dy):
     return out
 
 
-def render(grid):
-    img = Image.new('RGBA', (CELL_W, CELL_H), (0, 0, 0, 0))
+def render(grid, scale=SCALE):
+    """A grid of palette letters -> its image, scaled with hard edges.
+
+    Takes its size from the grid rather than from CELL_W/CELL_H, so
+    tools/ghost_sprite.py can draw its own smaller cells with this same
+    palette and the same 2x pixel scale.
+    """
+    height, width = len(grid), len(grid[0])
+    img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     px = img.load()
     for y, row in enumerate(grid):
         for x, ch in enumerate(row):
             colour = PALETTE[ch]
             if colour:
                 px[x, y] = colour + (255,)
-    return img.resize((CELL_W * SCALE, CELL_H * SCALE), Image.NEAREST)
+    return img.resize((width * scale, height * scale), Image.NEAREST)
 
 
 # ------------------------------------------------------------- the frames
@@ -479,8 +493,17 @@ def frames():
         # One arm reaches for the next rung while the other holds: the
         # plate on the reaching side is drawn four rows higher.
         climb = pose(back, LEGS_BACK_STAND)
-        high, low = (1, 15) if i == 0 else (15, 15)
+        # No barrel over the helmet while climbing. In every other
+        # back-facing frame the gun is being aimed up the screen; here both
+        # hands are on the rungs, and a barrel still standing over the head
+        # of a player who is plainly not holding it reads as scenery stuck
+        # to the sprite.
+        erase(climb, 6, 0, 10, 4)
+        # Out with the standing arms, including the elbows the BACK view
+        # now tucks in against the body at x=4 and x=14..16 -- the climbing
+        # arms below are drawn from scratch.
         erase(climb, 1, 15, 3, 27)
+        erase(climb, 4, 18, 4, 27)
         erase(climb, 14, 15, 16, 27)
         left = ['oss', 'oaa', 'oaa', 'oAA', 'oaa', 'oaa', 'oAA', '.oo']
         right = ['sso', 'aao', 'aao', 'AAo', 'aao', 'aao', 'AAo', 'oo.']

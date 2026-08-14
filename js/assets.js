@@ -131,6 +131,19 @@ export const PLAYER_HIT_FRAMES = 2;
 export const PLAYER_HIT_SIZE = 32;
 export const PLAYER_HIT_ANIM_KEY = 'player-hit-burst';
 
+// The life that just left: when a hit costs a life, a winged ghost of the
+// player rises from where they were standing and fades out before the
+// level restarts (see GameScene.spawnDeathGhost, and DEATH_GHOST_SEC
+// there for how long it has to do it in). Same frames-stacked-vertically
+// layout as the effect sheets above, but LOOPING rather than one-shot --
+// the two frames are wings up and wings down, and the flap runs for as
+// long as the flight does. Drawn by tools/ghost_sprite.py.
+export const PLAYER_GHOST_TEXTURE_KEY = 'player-ghost';
+export const PLAYER_GHOST_TEXTURE_PATH = 'assets/player/ghost.png';
+export const PLAYER_GHOST_FRAMES = 2;
+export const PLAYER_GHOST_SIZE = 32;
+export const PLAYER_GHOST_ANIM_KEY = 'player-ghost-flap';
+
 // The puff of dust a landing kicks up at the player's feet (see
 // Player.followGround / GameScene.playLandingDust). Same one-shot,
 // frames-stacked-vertically layout as the burst sheets above, but

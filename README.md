@@ -811,9 +811,10 @@ assets/              Every graphic and sound in the game, as real files --
   player/            player.png, a single spritesheet, drawn by
                       tools/player_sprite.py (idle, shot, 4 walk,
                       victory, dead, 2 climb, 2 ladder-exit, 2 step-up,
-                      2 step-down) + shield.webp, the looping shield
+                      2 step-down, jump) + shield.webp, the looping shield
                       effect, + hit.webp and dust.webp, the hit burst and
-                      the landing puff -- see "Swapping graphics" below
+                      the landing puff, + ghost.png, the winged ghost a
+                      lost life leaves -- see "Swapping graphics" below
   obstacles/         wall.webp, crate.webp
   ladders/           <ladder texture>.webp, the whole element at its
                       authored size (48x96) rather than a repeating tile,
@@ -847,8 +848,11 @@ tools/               Scripts run by hand, never by the game:
                       daylight_backgrounds.py relights a region's night
                       frame into its five times of day (see "A day per
                       continent"), player_sprite.py draws the player's
-                      16-frame sheet, app_icons.py draws the app icons,
-                      and build_precache.mjs writes the offline file list
+                      17-frame sheet and ghost_sprite.py the winged ghost
+                      a lost life leaves (it borrows player_sprite.py's
+                      palette and renderer, so the two cannot drift
+                      apart), app_icons.py draws the app icons, and
+                      build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
                       graphics/sounds/elements/levels without touching
@@ -1339,7 +1343,18 @@ dimensions:
   face away or towards you, because that is where a shot leaves from
   (`tryFire` uses `player.x`). The side frames have no barrel over the
   helmet at all: from there the weapon is in the hands, held across the
-  chest, which is what it looks like from the side.
+  chest, which is what it looks like from the side. **The climb frames
+  have no barrel either**, for the opposite reason: both hands are on the
+  rungs, and a barrel still standing over the head of a player who is
+  plainly not holding it reads as scenery stuck to the sprite. It comes
+  back on the ladder-exit frames, which is the moment the gun comes back
+  up.
+
+  **The back-view arms stop at the elbows.** From behind, the upper arms
+  angle down and inward from the shoulders and the forearms disappear
+  behind the body, because they are holding something in front of the
+  chest -- the two hands the same frame shows on the weapon. Arms drawn
+  all the way down to hands at the hips would contradict them.
 
   **Clearing a level** alternates the standing victory pose with frame 16,
   the same pose airborne -- the player faces out, throws their arms up and
@@ -1381,6 +1396,22 @@ dimensions:
   along the ground rather than billowing up) and it is anchored by its
   BOTTOM edge, so the cloud sits on the surface instead of straddling it,
   drawn just under the player so they stand in it.
+- **Death ghost**: `assets/player/ghost.png` -- a `PLAYER_GHOST_FRAMES`
+  -frame (2) spritesheet, `PLAYER_GHOST_SIZE` (32) square per frame
+  stacked vertically, drawn by `tools/ghost_sprite.py`. When a hit costs
+  a life, this rises out of the body still sitting there in its dead
+  frame and fades away over `DEATH_GHOST_SEC` (0.5s) and
+  `DEATH_GHOST_RISE_PX` (110) -- and only then does the level restart or
+  the run end, because `startHitFreeze` holds the freeze for at least as
+  long as the flight (`GameScene.spawnDeathGhost`). It is deliberately
+  the PLAYER -- same cap, same blue, same face, with wings -- so what
+  leaves is recognisably the life that was just lost. Unlike every other
+  effect sheet its animation LOOPS: the two frames are wings up and wings
+  down, and the flap runs for the whole flight while a tween carries it
+  up. A tween and not a physics body, because `startHitFreeze` pauses the
+  physics on the very next line and anything with a velocity would just
+  hang there; tweens are not paused with it, which is what lets the ghost
+  keep moving through an otherwise frozen picture.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
