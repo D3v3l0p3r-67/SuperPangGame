@@ -30,6 +30,11 @@ const START_BRUSH = { id: 'start', label: 'Start' };
 const BALL_BRUSH = { id: 'ball', label: 'Ball' };
 const ERASE_BRUSH = { id: 'erase', label: 'Erase' };
 
+// How big the drop badge is drawn on a block that carries a guaranteed
+// power-up (see setDropIcon) -- deliberately half the 16px block, in its
+// corner, so the block it is marking is still the thing you see.
+const DROP_BADGE_SIZE = 8;
+
 // The ball kinds, with their names spelled out -- for the picker that
 // replaced twenty-three abbreviated buttons (see buildPanel). Derived
 // from BALL_ELEMENTS, so a new elements/<shape>-ball-<size>.json appears
@@ -590,12 +595,21 @@ export class Editor {
     refreshObstacleSeams(this.scene.obstacles);
   }
 
-  // The power-up a block will drop, drawn on the block itself while
-  // editing. Its own pickup icon rather than a mark of the editor's own:
-  // a crate holding a shield and a crate holding an extra life are two
-  // different things to place, and the level cannot be read back any
-  // other way -- a block carrying a drop looks exactly like one that does
-  // not. Editor-only; nothing draws these while the level is played.
+  // The power-up a block will drop, marked on the block while editing.
+  // Its own pickup icon rather than a mark of the editor's own: a crate
+  // holding a shield and a crate holding an extra life are two different
+  // things to place, and a loaded level cannot be read back any other way
+  // -- a block carrying a drop is otherwise the same picture as one that
+  // does not.
+  //
+  // A CORNER BADGE, not the icon at its own size: a pickup is 18px square
+  // and a block is 16, so the icon drawn centred covered the crate
+  // completely and the editor showed a power-up sitting where a crate was
+  // supposed to be. Nothing is there at the start of the level -- the
+  // crate is, and the drop only exists once it is shot open (see
+  // GameScene.onProjectileHitObstacle) -- so the marker has to leave the
+  // block it is marking visible. Editor-only either way: nothing draws
+  // these while the level is played.
   setDropIcon(key, x, y, powerup) {
     this.dropIcons.get(key)?.destroy();
     this.dropIcons.delete(key);
@@ -605,11 +619,20 @@ export class Editor {
     // built from the registry, loadDef drops what it doesn't know), so
     // this is the belt to those braces.
     if (!powerup || !this.scene.textures.exists(powerupTextureKey(powerup))) return;
-    const icon = this.scene.add.image(
-      x + OBSTACLE_BLOCK_SIZE / 2, y + OBSTACLE_BLOCK_SIZE / 2, powerupTextureKey(powerup),
+
+    const icon = this.scene.add.image(0, 0, powerupTextureKey(powerup));
+    icon.setDisplaySize(DROP_BADGE_SIZE, DROP_BADGE_SIZE);
+    // A dark disc under it, because the badge sits on whatever the tile
+    // happens to be: a pale glyph on a pale crate is a badge you cannot
+    // read on exactly the levels you would need to.
+    const backing = this.scene.add.circle(0, 0, DROP_BADGE_SIZE / 2 + 1, 0x000000, 0.65);
+    const badge = this.scene.add.container(
+      x + OBSTACLE_BLOCK_SIZE - DROP_BADGE_SIZE / 2 - 1,
+      y + DROP_BADGE_SIZE / 2 + 1,
+      [backing, icon],
     );
-    icon.setDepth(6); // over the block (2) and anything else the editor places
-    this.dropIcons.set(key, icon);
+    badge.setDepth(6); // over the block (2) and anything else the editor places
+    this.dropIcons.set(key, badge);
   }
 
   // A guaranteed drop only ever goes on an obstacle that can be BROKEN
