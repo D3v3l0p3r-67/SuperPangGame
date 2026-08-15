@@ -1264,6 +1264,19 @@ height, container query units for everything inside), so it scales with
 the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
 
+**NEXT PLACED**'s power-up picker applies to the next ball *and* the next
+obstacle, and an obstacle only takes it if the level rules allow one: the
+brush reads `destructible` off `OBSTACLE_TYPES`, so a crate is tagged and
+a wall is not. That is not a detail of the editor's taste -- a drop
+inside something that can never be opened is a level `tests/levels
+.test.mjs` refuses, so silently attaching one would author a level that
+fails on export. A block that carries a drop shows the power-up's own
+pickup icon on it (the same `assets/powerups/<type>.webp` the bonus is
+drawn from), which is the only way to tell a loaded level's crates apart
+-- they are the same texture whether they hold something or not. The
+markers are the editor's own overlay, tracked per cell and removed with
+the block, and nothing about them reaches `buildDef()`.
+
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json
 {

@@ -379,6 +379,55 @@ test('balls are picked by name, in a panel that fits', async () => {
   assert.equal(drainErrors(), '');
 });
 
+test('a guaranteed drop goes on what can be broken open, and shows there', async () => {
+  await game.scene((s) => s.editLevel(0));
+  await game.frames(6);
+
+  const placed = await game.scene((s) => {
+    const editor = s.editor;
+    editor.clearAll();
+    editor.selectedPowerup = 'shield';
+    editor.placeBlock(160, 336, 'crate');
+    editor.selectedPowerup = null;
+    editor.placeBlock(192, 336, 'crate');
+    editor.selectedPowerup = 'extra_life';
+    editor.placeBlock(224, 336, 'crate');
+    // A wall, with a drop still chosen. Nothing ever destroys one, so it
+    // must not take the drop -- and a level that saved it would fail the
+    // rule in tests/levels.test.mjs that says exactly this.
+    editor.selectedPowerup = 'shield';
+    editor.placeBlock(256, 336, 'platform');
+    return {
+      obstacles: editor.buildDef().obstacles.map((o) => `${o.type}${o.powerup ? `:${o.powerup}` : ''}`),
+      markers: editor.dropIcons.size,
+    };
+  });
+  assert.deepEqual(placed.obstacles, ['crate:shield', 'crate', 'crate:extra_life', 'platform']);
+  assert.equal(placed.markers, 2, 'a block holding a drop has to be visible as one');
+
+  // Round trip: a level read back shows its drops too, or the editor
+  // cannot be used to check what a level already holds.
+  const reloaded = await game.scene((s) => {
+    const def = s.editor.buildDef();
+    s.editor.clearAll();
+    s.editor.loadDef(def);
+    return { markers: s.editor.dropIcons.size, obstacles: s.editor.buildDef().obstacles.length };
+  });
+  assert.equal(reloaded.markers, 2, 'a loaded level does not show which blocks hold drops');
+  assert.equal(reloaded.obstacles, 4);
+
+  // ...and erasing a block takes its marker with it.
+  const erased = await game.scene((s) => {
+    s.editor.eraseAt(160, 336);
+    return s.editor.dropIcons.size;
+  });
+  assert.equal(erased, 1, 'erasing a block left its drop marker behind');
+
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
 test('pausing and leaving stops the run without breaking it', async () => {
   // Its own run, like every test above: leaning on whatever the previous
   // one happened to leave behind is how a suite starts failing for

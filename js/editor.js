@@ -1,7 +1,7 @@
 import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
-import { OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
+import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
-import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey } from './assets.js';
+import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey, powerupTextureKey } from './assets.js';
 import {
   LEVELS, SHIPPED_LEVELS, setLevel, isLevelDef,
   DEFAULT_PLAYER_SPAWN, clampPlayerSpawn, playerSpawn,
@@ -159,6 +159,7 @@ export class Editor {
     this.scene = scene;
     this.brush = 'platform';
     this.blocks = new Map(); // "gx,gy" -> Obstacle instance
+    this.dropIcons = new Map(); // "gx,gy" -> the icon drawn on a block that holds a drop
     this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
     this.ladders = new Map(); // "gx,gy" (top-left cell) -> { type, x, y, sprite }
     // Where the level puts the player, or null for "wherever the default
@@ -255,6 +256,8 @@ export class Editor {
       [['', 'No powerup'], ...POWERUP_TYPE_KEYS.map((key) => [key, POWERUP_TYPES[key].label])],
       () => { this.selectedPowerup = this.powerupSelect.value || null; },
     );
+    this.powerupSelect.title = 'Guaranteed drop from the next ball or breakable crate placed'
+      + ' -- a wall cannot be broken open, so it never carries one';
     this.panelEl.appendChild(group(
       'NEXT PLACED',
       row(this.dirXBtn, this.dirYBtn),
@@ -530,6 +533,8 @@ export class Editor {
   clearAll() {
     for (const block of this.blocks.values()) block.destroy();
     this.blocks.clear();
+    for (const icon of this.dropIcons.values()) icon.destroy();
+    this.dropIcons.clear();
     for (const ball of this.balls.values()) ball.sprite.destroy();
     this.balls.clear();
     for (const ladder of this.ladders.values()) ladder.sprite.destroy();
@@ -581,11 +586,42 @@ export class Editor {
     const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
     this.scene.obstacles.add(block);
     this.blocks.set(key, block);
+    this.setDropIcon(key, x, y, powerup);
     refreshObstacleSeams(this.scene.obstacles);
   }
 
+  // The power-up a block will drop, drawn on the block itself while
+  // editing. Its own pickup icon rather than a mark of the editor's own:
+  // a crate holding a shield and a crate holding an extra life are two
+  // different things to place, and the level cannot be read back any
+  // other way -- a block carrying a drop looks exactly like one that does
+  // not. Editor-only; nothing draws these while the level is played.
+  setDropIcon(key, x, y, powerup) {
+    this.dropIcons.get(key)?.destroy();
+    this.dropIcons.delete(key);
+    // A name with no texture behind it would draw as Phaser's missing
+    // -texture box, which reads as a strange new obstacle rather than as
+    // a mistake. Both ways in filter unknown names already (the picker is
+    // built from the registry, loadDef drops what it doesn't know), so
+    // this is the belt to those braces.
+    if (!powerup || !this.scene.textures.exists(powerupTextureKey(powerup))) return;
+    const icon = this.scene.add.image(
+      x + OBSTACLE_BLOCK_SIZE / 2, y + OBSTACLE_BLOCK_SIZE / 2, powerupTextureKey(powerup),
+    );
+    icon.setDepth(6); // over the block (2) and anything else the editor places
+    this.dropIcons.set(key, icon);
+  }
+
+  // A guaranteed drop only ever goes on an obstacle that can be BROKEN
+  // OPEN. On a wall it would be a setting that does nothing -- nothing
+  // ever destroys one, so the drop could never come out -- and the level
+  // it saved would fail the rule that says so (see tests/levels.test.mjs,
+  // "holds a power-up but cannot be broken open"). Read from the
+  // obstacle's own element rather than by testing for 'crate', so a
+  // second breakable type carries drops without a change here.
   placeBlock(x, y, type) {
-    this.setBlock(x, y, type, this.selectedPowerup);
+    const drop = OBSTACLE_TYPES[type]?.destructible ? this.selectedPowerup : null;
+    this.setBlock(x, y, type, drop);
   }
 
   // A ladder is placed whole, keyed by its top-left cell, and clamped so
@@ -621,6 +657,7 @@ export class Editor {
     if (block) {
       block.destroy();
       this.blocks.delete(key);
+      this.setDropIcon(key, x, y, null);
       refreshObstacleSeams(this.scene.obstacles);
     }
     const ball = this.balls.get(key);
