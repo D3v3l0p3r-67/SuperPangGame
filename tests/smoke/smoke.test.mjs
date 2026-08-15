@@ -226,7 +226,7 @@ test('erasing progress takes the scores and leaves the settings', async () => {
 
 test('the editor can start a level from nothing', async () => {
   // New has to leave nothing of what was open -- not just the placed
-  // things (Clear all already does that) but the level's name, time,
+  // things (Clear already does that) but the level's name, time,
   // background and weapon, which is the whole difference between the two.
   // And it must ask first, because it discards more than any other button
   // in that panel.
@@ -307,28 +307,72 @@ test('a save with no admin tool says it is local, and does it', async () => {
   assert.equal(drainErrors(), '');
 });
 
-test('every ball brush says which kind it is', async () => {
-  // Five kinds of ball, three of whose names begin with the same letter.
-  // A panel of buttons where thirteen of twenty-three read "H" is a panel
-  // you cannot author with.
+test('balls are picked by name, in a panel that fits', async () => {
   await game.scene((s) => s.editLevel(0));
   await game.frames(6);
-  const labels = await game.page.evaluate(() => [...document.querySelectorAll('#editor-panel button')]
-    .filter((b) => /^[A-Z]+[0-9]$/.test(b.textContent))
-    .map((b) => b.textContent));
-  assert.ok(labels.length >= 20, `expected a brush per ball element, found ${labels.length}`);
-  assert.equal(new Set(labels).size, labels.length,
-    `two ball brushes share a label: ${labels.join(' ')}`);
 
-  // And the panel has to FIT: it is a fixed band across the HUD strip,
-  // and anything past its right edge can only be reached by dragging it
-  // sideways -- which is where Save, Play and the counts had ended up.
+  // Every kind by its full name, not an abbreviation. Five kinds, three
+  // of whose names begin with the same letter -- as buttons they read
+  // R1, HX1, HU1, HA1, and thirteen of the twenty-three were "H" before
+  // even that.
+  const kinds = await game.page.evaluate(() => {
+    const select = [...document.querySelectorAll('#editor-panel select')]
+      .find((s) => [...s.options].some((o) => o.text === 'Round'));
+    return select ? [...select.options].map((o) => o.text) : null;
+  });
+  assert.ok(kinds, 'no ball kind picker in the editor');
+  assert.deepEqual(kinds, ['Round', 'Hex', 'Wave', 'Hunter', 'Heavy']);
+  for (const name of kinds) assert.ok(name.length > 2, `${name} is an abbreviation, not a name`);
+
+  // Choosing one selects the ball brush, so picking a ball and then
+  // having to click Ball as well is not a step anyone has to take.
+  await game.page.evaluate(() => {
+    const select = [...document.querySelectorAll('#editor-panel select')]
+      .find((s) => [...s.options].some((o) => o.text === 'Round'));
+    select.value = 'hunter';
+    select.dispatchEvent(new Event('change'));
+  });
+  await game.frames(2);
+  assert.equal(await game.scene((s) => s.editor.brush), 'ball-hunter-5');
+
+  // Hex has three sizes where the others have five, so the size list has
+  // to follow the kind rather than offer one that has no element.
+  await game.page.evaluate(() => {
+    const select = [...document.querySelectorAll('#editor-panel select')]
+      .find((s) => [...s.options].some((o) => o.text === 'Round'));
+    select.value = 'hex';
+    select.dispatchEvent(new Event('change'));
+  });
+  await game.frames(2);
+  assert.equal(await game.scene((s) => s.editor.brush), 'ball-hex-3');
+
+  // With the counts showing, not a status message left over from the
+  // test above: a message is a whole sentence and is SUPPOSED to lose
+  // its tail (see style.css) -- the counts are what must fit.
+  await game.scene((s) => s.editor.showStatusMessage('', 0));
+  await game.frames(2);
+
+  // And the whole panel has to be usable without dragging it sideways:
+  // it is a fixed band exactly as wide as the canvas, and anything past
+  // its edge -- Save, Play, a brush -- can only be reached by scrolling.
   const panel = await game.page.evaluate(() => {
     const el = document.getElementById('editor-panel');
-    return { content: el.scrollWidth, visible: el.clientWidth };
+    const status = el.querySelector('.panel-status');
+    return {
+      content: el.scrollWidth, visible: el.clientWidth,
+      tall: el.scrollHeight, band: el.clientHeight,
+      countsClipped: status.scrollWidth > status.clientWidth,
+      clippedSelects: [...el.querySelectorAll('select')]
+        .filter((s) => s.scrollWidth > s.clientWidth)
+        .map((s) => s.options[s.selectedIndex].text),
+    };
   });
   assert.ok(panel.content <= panel.visible,
     `the editor panel needs ${panel.content}px of the ${panel.visible}px it has`);
+  assert.ok(panel.tall <= panel.band,
+    `the editor panel needs ${panel.tall}px of the ${panel.band}px band it sits in`);
+  assert.equal(panel.countsClipped, false, 'the counts readout is cut off');
+  assert.deepEqual(panel.clippedSelects, [], 'a picker is too narrow to read its own value');
 
   await game.scene((s) => s.exitEditor());
   await game.frames(2);

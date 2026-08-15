@@ -711,6 +711,18 @@ seam between the canvas and the page behind it.
   It also places where the player starts the level (the **Start** brush,
   saved as the level's `playerStart` -- see "Adding levels"); a level that
   places none starts them in the middle of the floor as before.
+- The **BRUSH** row has one button per kind of thing that can be painted
+  -- wall, crate, ball, ladder, the player's start, erase -- and **which**
+  ball the Ball brush places is chosen by name (Round, Hex, Wave, Hunter,
+  Heavy) and size, next to the other options for the next thing placed.
+  There used to be one button per ball: eight of them when there were two
+  kinds and twenty-three once there were five, spilling over three rows
+  of abbreviations in which `HU1` and `HA1` were a hunter and a heavy and
+  nobody could tell. The panel is a fixed band exactly as wide as the
+  canvas, so it also has to FIT -- `tests/smoke/` measures it, and the
+  one group allowed to give up room for the rest is the counts readout,
+  which is only text.
+
 - **Ladders** (48x96, three by six blocks) are climbable scenery rather
   than obstacles: nothing collides with one, so balls and shots pass
   straight through, and so does the player -- which is what lets a ladder
@@ -1207,7 +1219,7 @@ The **FILE** buttons all act on that same level:
   into the project (drop it into `levels/` over the old one, or paste/
   import it in the admin tool's Levels tab, see "Admin tool").
 - **Import** replaces what is being edited with a level file from disk,
-  and **Clear all** empties it -- neither writes anything until Save.
+  and **Clear** empties it -- neither writes anything until Save.
 - **New** starts a BLANK level in the slot this session has open, which is
   what lets the editor author a level rather than only edit one.
 
@@ -1218,7 +1230,7 @@ The **FILE** buttons all act on that same level:
   fifty and wipe it", which is what New already does with the slot you
   have open. A button whose name says one thing and whose effect is
   another is worse than no button. Not the
-  same thing as Clear all: that empties the field but leaves everything
+  same thing as Clear: that empties the field but leaves everything
   the level IS -- its name, time limit, background and weapon all still
   come from whatever was opened, so what you are left with is that level
   with its contents removed. New resets those too. It writes nothing

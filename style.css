@@ -618,6 +618,11 @@ body {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
+  /* ...and it keeps the divider without the indent the other groups get.
+     It is last, so nothing follows it to be separated from, and at the
+     default display size those few pixels are the difference between
+     reading the counts and reading most of them. */
+  padding-left: calc(var(--panel-unit) * 0.35);
 }
 
 /* The editor's readout is pushed to the far end of its single line; this
@@ -671,11 +676,21 @@ body {
   opacity: 0.8;
 }
 
-/* Capped so one long option (a continent background name, a weapon) can't
-   push the groups after it off the end of the row. */
-#debug-panel select,
-#editor-panel select {
+/* Capped so one long option can't push the groups after it off the end
+   of the row. A <select> is as wide as its widest OPTION, and the
+   background list holds names like "south_america_afternoon" -- without
+   this, one entry nobody has selected would set the width of the control
+   for good. The editor's cap is tighter because its panel is a fixed
+   band exactly as wide as the canvas and everything in it has to fit at
+   once; the value shown is short in practice, and the full text is there
+   when the list is opened. */
+#debug-panel select {
   max-width: calc(var(--panel-unit) * 19);
+  text-overflow: ellipsis;
+}
+
+#editor-panel select {
+  max-width: calc(var(--panel-unit) * 17);
   text-overflow: ellipsis;
 }
 

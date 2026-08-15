@@ -23,58 +23,27 @@ const TILE_BRUSHES = [
   { id: 'crate', label: 'Crate' },
 ];
 const START_BRUSH = { id: 'start', label: 'Start' };
-// How many ball brushes go on one row of the panel: half of the current
-// twenty-three, so they sit in two rows. One row of them was wider than
-// the whole panel by itself. Chunked by a count rather than split in
-// half, so a sixth kind of ball wraps onto a third row instead of making
-// the two rows longer again (see buildPanel, and the smoke test that
-// measures the panel against the width it actually has).
-const BALL_BRUSHES_PER_ROW = 12;
+// One brush for every ball, whatever kind and size -- which the two
+// pickers beside it choose (see buildPanel). The brush itself still
+// carries them, as `ball-<shape>-<size>`, because that is what the
+// placement and the cursor read.
+const BALL_BRUSH = { id: 'ball', label: 'Ball' };
 const ERASE_BRUSH = { id: 'erase', label: 'Erase' };
 
-// Two letters per ball kind, unique across all of them: the first, plus
-// the first letter that tells it apart from the other kinds starting the
-// same way. round/wave need only the first; hex, heavy and hunter all
-// start with H and become HX, HA, HN.
-//
-// One letter was enough when there were two kinds. With five, thirteen
-// of the twenty-three ball brushes were all labelled "H" and there was
-// no way to tell a hunter from a heavy in the editor at all. Two is also
-// as many as the panel can afford -- these buttons sit in rows of twelve
-// across a strip exactly as wide as the canvas.
-//
-// Derived rather than a table of names, so a kind added later is
-// distinguished without anyone remembering to come here.
-function shapeAbbreviations() {
-  const shapes = [...new Set(BALL_ELEMENTS.map((el) => el.shape))];
-  const out = {};
-  for (const shape of shapes) {
-    const sharing = shapes.filter((other) => other !== shape && other[0] === shape[0]);
-    let mark = '';
-    if (sharing.length) {
-      // The first position where this name differs from every other name
-      // that starts the same. A name that is another's prefix has none,
-      // and keeps its whole self rather than a letter it doesn't have.
-      const at = [...shape].findIndex((letter, i) => i > 0 && sharing.every((other) => other[i] !== letter));
-      mark = at > 0 ? shape[at] : shape.slice(1);
-    }
-    out[shape] = (shape[0] + mark).toUpperCase();
-  }
-  return out;
+// The ball kinds, with their names spelled out -- for the picker that
+// replaced twenty-three abbreviated buttons (see buildPanel). Derived
+// from BALL_ELEMENTS, so a new elements/<shape>-ball-<size>.json appears
+// in the list on its own, same as every other registry-driven control.
+function ballKinds() {
+  return [...new Set(BALL_ELEMENTS.map((el) => el.shape))]
+    .map((shape) => [shape, shape[0].toUpperCase() + shape.slice(1)]);
 }
 
-// Builds the brush list for balls straight from BALL_ELEMENTS, so a new
-// elements/<shape>-ball-<size>.json shows up as a brush automatically --
-// same registry the debug spawn panel uses. The button is small, so the
-// label is the abbreviation above and the element's own name is the
-// tooltip.
-function ballBrushes() {
-  const abbreviation = shapeAbbreviations();
-  return BALL_ELEMENTS.map((el) => ({
-    id: `ball-${el.shape}-${el.size}`,
-    label: `${abbreviation[el.shape]}${el.size}`,
-    title: el.label,
-  }));
+// The sizes that exist for one kind: hex stops at 3 where the others go
+// to 5, and a size with no element behind it is not a ball anyone can
+// place.
+function ballSizes(shape) {
+  return BALL_ELEMENTS.filter((el) => el.shape === shape).map((el) => el.size);
 }
 
 // Same idea for ladders: a new elements/<ladder>.json is a new brush, no
@@ -102,7 +71,7 @@ function backgroundNames() {
 // the README's "Adding levels" for the full field list). Every field the
 // editor has a control for gets that control's own default, so New leaves
 // no trace of whatever was open before -- which is the whole difference
-// between it and Clear all. The name is the placeholder buildDef would
+// between it and Clear. The name is the placeholder buildDef would
 // have used anyway for a level that never had one; there is no control
 // for it here, so a level authored this way is renamed by editing the
 // exported file.
@@ -226,7 +195,10 @@ export class Editor {
 
     this.brushButtons = {};
     const brushButton = (brush) => {
-      const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.title ?? brush.id);
+      const select = brush.id === BALL_BRUSH.id
+        ? () => this.selectBallBrush()
+        : () => this.setBrush(brush.id);
+      const btn = makeButton(brush.label, select, brush.title ?? brush.id);
       this.brushButtons[brush.id] = btn;
       return btn;
     };
@@ -234,23 +206,17 @@ export class Editor {
     // What the pointer paints. Split by what the brushes actually put
     // down -- the structure of the level on one row, the balls that have
     // to be popped in it on the next -- rather than one long run of them.
-    // ...and the balls wrapped over as many rows as they need rather than
-    // one long line. There are five kinds of them now; in a single row
-    // that one group was wider than the whole panel, which is a fixed
-    // band across the HUD strip -- so it scrolled sideways, and
-    // everything after it (FILE, GO, the counts) could only be reached by
-    // dragging the panel. Chunked by a count rather than split in half,
-    // so a sixth kind wraps onto another row instead of making the rows
-    // longer again.
-    const balls = ballBrushes().map(brushButton);
-    const ballRows = [];
-    for (let i = 0; i < balls.length; i += BALL_BRUSHES_PER_ROW) {
-      ballRows.push(row(...balls.slice(i, i + BALL_BRUSHES_PER_ROW)));
-    }
+    // One row, one button per KIND of thing that can be painted -- balls
+    // included, as a single Ball brush. There used to be one button per
+    // ball, which was eight of them when there were two kinds of ball and
+    // twenty-three once there were five: three rows of abbreviations
+    // (R1, HX1, HU1, HA1...) that were wider than the whole panel, and in
+    // which a hunter could not be told from a heavy. Which ball the brush
+    // places is chosen by name, next to the other options for the next
+    // thing placed.
     this.panelEl.appendChild(group(
       'BRUSH',
-      row(...[...TILE_BRUSHES, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
-      ...ballRows,
+      row(...[...TILE_BRUSHES, BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
     ));
 
     // Options that apply to the NEXT placed ball/crate: initial direction
@@ -260,6 +226,23 @@ export class Editor {
     //
     // Both direction buttons get their label from updateOptionLabels()
     // below (it renders the current arrow), not here.
+    // Which ball the Ball brush places, by its full name rather than an
+    // abbreviation. Changing either picker also SELECTS that brush: going
+    // to the trouble of choosing a ball and then having to click Ball as
+    // well would be a step that exists only because the controls are in
+    // two places.
+    this.ballShape = ballKinds()[0][0];
+    this.ballKindSelect = makeSelect(ballKinds(), () => {
+      this.ballShape = this.ballKindSelect.value;
+      this.populateBallSizes();
+      this.selectBallBrush();
+    });
+    this.ballSizeSelect = makeSelect([], () => {
+      this.ballSize = parseInt(this.ballSizeSelect.value, 10);
+      this.selectBallBrush();
+    });
+    this.populateBallSizes();
+
     this.dirXBtn = makeButton('', () => {
       this.dirX *= -1;
       this.updateOptionLabels();
@@ -276,6 +259,7 @@ export class Editor {
       'NEXT PLACED',
       row(this.dirXBtn, this.dirYBtn),
       row(labelled('Drops ', this.powerupSelect)),
+      row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect),
     ));
     this.updateOptionLabels();
 
@@ -348,7 +332,7 @@ export class Editor {
       'FILE',
       row(makeButton('Save', () => this.save()), makeButton('Export', () => this.exportJSON())),
       row(makeButton('Import', () => this.importFileInput.click()),
-        makeButton('Clear all', () => this.clearAll()), this.importFileInput),
+        makeButton('Clear', () => this.clearAll()), this.importFileInput),
       this.newRow,
       this.newConfirmRow,
     ));
@@ -387,11 +371,38 @@ export class Editor {
     this.scene.backgroundImage.setTexture(backgroundTextureKey(name));
   }
 
+  // The sizes this kind actually has, with the biggest selected -- the
+  // one a level usually opens with, and the only size every kind is
+  // guaranteed to reach differs, so it is picked from the list rather
+  // than assumed.
+  populateBallSizes() {
+    const sizes = ballSizes(this.ballShape);
+    this.ballSizeSelect.innerHTML = '';
+    for (const size of sizes) {
+      const option = document.createElement('option');
+      option.value = String(size);
+      option.textContent = String(size);
+      this.ballSizeSelect.appendChild(option);
+    }
+    // Keeps the chosen size across a change of kind where that kind has
+    // it, so stepping through the kinds at one size does not reset.
+    this.ballSize = sizes.includes(this.ballSize) ? this.ballSize : sizes[sizes.length - 1];
+    this.ballSizeSelect.value = String(this.ballSize);
+  }
+
+  selectBallBrush() {
+    this.setBrush(`ball-${this.ballShape}-${this.ballSize}`);
+  }
+
   setBrush(id) {
     this.brush = id;
     if (!this.brushButtons) return;
     for (const [brushId, btn] of Object.entries(this.brushButtons)) {
-      btn.classList.toggle('panel-btn-on', brushId === id);
+      // The ball brush carries which ball it places in its own id (see
+      // BALL_BRUSH), so it is the one button whose highlight cannot be an
+      // exact match.
+      const on = brushId === BALL_BRUSH.id ? id.startsWith('ball-') : brushId === id;
+      btn.classList.toggle('panel-btn-on', on);
     }
   }
 
@@ -766,8 +777,12 @@ export class Editor {
     // The start counts like everything else here: 1 when this level places
     // one, 0 when it has none and the player starts where the default puts
     // them (see LevelManager's playerSpawn).
-    this.statusEl.textContent = `Blocks ${this.blocks.size}  Balls ${this.balls.size}\n`
-      + `Ladders ${this.ladders.size}  Start ${this.playerStart ? 1 : 0}`;
+    // Single-spaced, and that is not fussiness: this readout gets
+    // whatever width the controls leave it (see style.css), and at the
+    // default display size the double spaces were the last eight pixels
+    // between "Ladders 0 Start 0" and "Ladders 0 Start..".
+    this.statusEl.textContent = `Blocks ${this.blocks.size} Balls ${this.balls.size}\n`
+      + `Ladders ${this.ladders.size} Start ${this.playerStart ? 1 : 0}`;
   }
 
   showStatusMessage(text, durationMs = 3000) {

@@ -92,9 +92,10 @@ Editing the generated `.webp`/`.png` directly gets overwritten.
 - **The debug and editor panels are exactly the canvas's width**, and the
   editor's is also a fixed-height band. It is full: adding a control
   costs another one its place, and adding a row overflows the band. The
-  ball brushes wrap at `BALL_BRUSHES_PER_ROW`, only the readout group is
-  allowed to shrink, and a revealed row must *replace* one rather than
-  add one. `tests/smoke/` measures the panel against the width it has.
+  balls are one brush plus a name/size picker rather than a button each,
+  only the readout group is allowed to shrink, and a revealed row must
+  *replace* one rather than add one. `tests/smoke/` measures the panel
+  against the width and the band height it actually has.
 
 ## Conventions
 
