@@ -100,6 +100,12 @@ test('the player walks, shoots, and pops what it hits', async () => {
   const movedX = await game.scene((s) => s.player.x);
   assert.ok(movedX > startX + 10, `player barely moved: ${startX} -> ${movedX}`);
 
+  // A ball may well have caught the player during that walk, which
+  // freezes the level and restarts it -- and a frozen player cannot
+  // shoot. Wait for play to be handed back before asking it to.
+  await game.page.waitForFunction(
+    () => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 },
+  );
   await game.page.keyboard.press('Space');
   await game.frames(3);
   assert.ok(await game.scene((s) => s.projectiles.countActive(true)) > 0, 'pressing shoot fired nothing');
@@ -270,6 +276,66 @@ test('the editor can start a level from nothing', async () => {
 
   await game.scene((s) => s.exitEditor());
   await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
+test('NEW LEVEL arms the picker, and a save with no admin tool says so', async () => {
+  const picker = () => game.page.evaluate(() => ({
+    newVisible: !document.getElementById('btn-new-level').classList.contains('hidden'),
+    armed: document.getElementById('btn-new-level').classList.contains('menu-btn-on'),
+  }));
+
+  // Through the menu each time, which is the only way to reach this
+  // screen: the list is rebuilt when the screen is ENTERED, so switching
+  // mode without leaving it -- something no player can do -- would leave
+  // the previous mode's list on screen.
+  await game.scene((s) => s.goToMenu());
+  await game.scene((s) => s.showLevelSelect('play'));
+  await game.frames(3);
+  assert.equal((await picker()).newVisible, false, 'NEW LEVEL has no business on the play picker');
+
+  await game.scene((s) => s.goToMenu());
+  await game.scene((s) => s.showLevelSelect('edit'));
+  await game.frames(3);
+  assert.deepEqual(await picker(), { newVisible: true, armed: false });
+
+  await game.page.click('#btn-new-level');
+  await game.frames(2);
+  assert.equal((await picker()).armed, true, 'pressing NEW LEVEL should arm the list, not open anything');
+
+  // Slot 12 has a level in it; armed, it must open empty anyway.
+  await game.page.evaluate(() => document.querySelectorAll('#level-select-list button')[11].click());
+  await game.frames(6);
+  assert.deepEqual(await game.scene((s) => ({
+    level: s.editor.levelNumber, blocks: s.editor.blocks.size, balls: s.editor.balls.size,
+  })), { level: 12, blocks: 0, balls: 0 });
+
+  // These tests are served by tests/smoke/server.mjs, which is Node and
+  // has no PHP -- so the file save cannot work, and the editor has to say
+  // that plainly rather than reporting a save that only this browser can
+  // see as though it had reached the project.
+  await game.scene((s) => { s.editor.setBlock(160, 336, 'crate', null); s.editor.save(); });
+  await game.page.waitForFunction(
+    () => !/SAVING/.test(window.game.scene.getScene('Game').editor.statusMessage || ''), null, { timeout: 15000 },
+  );
+  const status = await game.scene((s) => s.editor.statusMessage);
+  assert.match(status, /THIS BROWSER ONLY/, `save should own up to being local, said: ${status}`);
+  // Contains, not equals: the erase-progress test above deliberately
+  // leaves an edit of its own behind, and this one has no business
+  // caring about that.
+  const savedLevels = await game.page.evaluate(
+    () => Object.keys(JSON.parse(localStorage.getItem('balloonBuster.levelEdits') || '{"levels":{}}').levels || {}),
+  );
+  assert.ok(savedLevels.includes('12'),
+    `the local save is the fallback -- it has to actually be there, found ${JSON.stringify(savedLevels)}`);
+
+  // And the arming must not survive the screen closing: a picker that
+  // reopened armed would blank a level someone only meant to edit.
+  await game.scene((s) => s.goToMenu());
+  await game.scene((s) => s.showLevelSelect('edit'));
+  await game.frames(3);
+  assert.equal((await picker()).armed, false);
+  await game.scene((s) => s.goToMenu());
   assert.equal(drainErrors(), '');
 });
 

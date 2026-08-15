@@ -242,6 +242,17 @@ body {
   transform: translateY(1px);
 }
 
+/* A menu button that is currently ON rather than merely clickable -- the
+   level picker's NEW LEVEL, which arms the list rather than doing
+   something once (see ui.js's renderLevelSelect). Bordered in the accent
+   colour, like the panels' own .panel-btn-on, so "this is armed" reads
+   the same everywhere. Its label changes as well: colour alone would be
+   the only sign, and the whole point is that the next click does
+   something different from usual. */
+.menu-btn.menu-btn-on {
+  border-color: var(--accent);
+}
+
 #settings-row {
   display: flex;
   flex-direction: column;

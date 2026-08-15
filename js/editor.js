@@ -12,6 +12,7 @@ import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
 import { makeButton, makeSelect, labelled, row, group, setGroupTitle } from './panelUi.js';
 import * as storage from './storage.js';
+import { saveLevelFile } from './levelFile.js';
 
 // Split into the two brushes that TILE (painted cell by cell while the
 // pointer is dragged) and the two that don't, because the panel row below
@@ -60,7 +61,7 @@ function backgroundNames() {
 // have used anyway for a level that never had one; there is no control
 // for it here, so a level authored this way is renamed by editing the
 // exported file.
-function blankLevelDef(levelNumber) {
+export function blankLevelDef(levelNumber) {
   return {
     id: levelNumber,
     name: `Level ${levelNumber}`,
@@ -762,17 +763,43 @@ export class Editor {
   // storage's levelEdits) and laid over the shipped file on every boot;
   // Export writes the same definition out as the file itself, for putting
   // the change into the project.
-  save() {
+  // Two destinations, and the better one is tried first.
+  //
+  // If this game is being served by something that can write files and
+  // the browser is logged into the admin tool, the level goes into
+  // levels/level_NN.json ITSELF (see js/levelFile.js) -- the work lands
+  // in the project, visible to git and to everyone, with no Export and
+  // no moving a download by hand.
+  //
+  // Otherwise -- a static host, no PHP, not logged in -- it goes where it
+  // always went: this browser's localStorage, laid over the shipped level
+  // at every boot. Which is a real save, just a private one, and the
+  // status line says which of the two happened rather than leaving it to
+  // be guessed.
+  async save() {
     const def = this.buildDef();
-    if (!storage.saveLevelEdit(this.levelNumber, def)) {
-      this.showStatusMessage('SAVE FAILED - STORAGE FULL?');
-      return;
-    }
+    const stored = storage.saveLevelEdit(this.levelNumber, def);
     // Live as well as stored, so playing the level right now -- from here,
     // from Start Level or in the campaign -- uses what was just saved
     // rather than what happened to boot.
     setLevel(this.levelIndex, def);
-    this.showStatusMessage(`SAVED ${levelFileKey(this.levelNumber)}`);
+    this.showStatusMessage(`SAVING ${levelFileKey(this.levelNumber)}...`, 10000);
+
+    try {
+      const path = await saveLevelFile(this.levelNumber, def);
+      // The file IS the level now, so this browser's private copy has to
+      // go: left behind, it would be laid back over the very file just
+      // written at the next boot, and the editor would look like it had
+      // silently undone the save.
+      storage.clearLevelEdit(this.levelNumber);
+      this.showStatusMessage(`SAVED TO ${path}`);
+    } catch (error) {
+      if (!stored) {
+        this.showStatusMessage(`SAVE FAILED - ${error.message}`, 6000);
+        return;
+      }
+      this.showStatusMessage(`SAVED IN THIS BROWSER ONLY (${error.message})`, 6000);
+    }
   }
 
   // The way back out of an edit: drop this browser's saved version of the

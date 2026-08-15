@@ -17,7 +17,7 @@
 // reaching anyone who had already opened the game). The old cache is
 // deleted the moment the new worker activates (see activate), so a
 // release is never served half from the previous one.
-const CACHE_VERSION = 'super-pang-0356ab39c3b6';
+const CACHE_VERSION = 'super-pang-edcb9c65e51b';
 const PRECACHE_LIST = 'sw-precache.json';
 
 // The files the game cannot start without. These have to cache for the
@@ -134,6 +134,14 @@ async function handleAsset(request) {
   return response;
 }
 
+// The admin tool is not the game. It is PHP, it is behind a login, and
+// its answers are per-session -- exactly the things that must never come
+// out of a cache built to outlive the page. Everything under admin/ goes
+// straight to the network, unhandled, so a stale session probe or a
+// cached login page can never be served as the live one (see
+// js/levelFile.js, which the editor's Save asks through).
+const isAdmin = (request) => request.url.startsWith(url('admin/'));
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   // GET only, and only what belongs to the game. A score posted to an
@@ -142,6 +150,7 @@ self.addEventListener('fetch', (event) => {
   // copes with by keeping scores locally (see js/storage.js).
   if (request.method !== 'GET') return;
   if (!request.url.startsWith(self.registration.scope)) return;
+  if (isAdmin(request)) return;
 
   event.respondWith(request.mode === 'navigate' ? handleNavigation(request) : handleAsset(request));
 });

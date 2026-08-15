@@ -1167,13 +1167,38 @@ the cursor instead, regardless of the selected brush, alongside the
 dedicated **Erase** brush.
 
 The **FILE** buttons all act on that same level:
-- **Save** stores the level under its own number. Nothing in a browser can
-  write `levels/level_NN.json`, so the save goes to `localStorage` (see
-  `storage.js`'s `levelEdits`) and `ElementsScene` lays it over the
-  shipped file on every boot -- which makes the saved version the one the
-  game actually plays, in the campaign and in Start Level alike. It also
-  replaces the live `LEVELS` entry immediately (`LevelManager.setLevel`),
-  so playing the level right after saving doesn't need a reload.
+- **Save** has two destinations and tries the better one first.
+
+  **The project, if it can reach it.** Where the game is served by
+  something that can write files and this browser is logged into the
+  admin tool, the level goes into `levels/level_NN.json` ITSELF.
+  `js/levelFile.js` asks `admin/session.php` whether there is a session
+  (and for its CSRF token), then posts the level to the same
+  `admin/save.php` the admin tool's own tabs write through -- so the work
+  lands in the project, visible to git and to everyone, with no Export
+  and no moving a download by hand. This browser's private copy is then
+  CLEARED: left behind, it would be laid straight back over the file just
+  written at the next boot, and the editor would look like it had
+  silently undone the save.
+
+  **This browser otherwise.** On a static host there is no PHP at all, so
+  the save goes to `localStorage` (see `storage.js`'s `levelEdits`) and
+  `ElementsScene` lays it over the shipped file on every boot -- which
+  makes the saved version the one the game actually plays, in the
+  campaign and in Start Level alike. That is a real save, just a private
+  one, and the status line says which of the two happened rather than
+  leaving it to be guessed.
+
+  Either way it replaces the live `LEVELS` entry immediately
+  (`LevelManager.setLevel`), so playing the level right after saving
+  doesn't need a reload.
+
+  `js/levelFile.js` is the only thing in the game that knows the admin
+  tool exists, and the game does not depend on it in any way: where there
+  is no PHP it answers "no" once, silently, and everything carries on.
+  The game's service worker is told to leave `admin/` alone entirely
+  (see `service-worker.js`) -- a login page or a session probe served
+  from a cache built to outlive the page would be a bug of its own.
 - **Revert** drops this browser's saved version and puts the shipped file
   back -- in storage, in `LEVELS` and on screen. `SHIPPED_LEVELS` keeps
   every level as its file had it for exactly this.
@@ -1184,7 +1209,14 @@ The **FILE** buttons all act on that same level:
 - **Import** replaces what is being edited with a level file from disk,
   and **Clear all** empties it -- neither writes anything until Save.
 - **New** starts a BLANK level in the slot this session has open, which is
-  what lets the editor author a level rather than only edit one. Not the
+  what lets the editor author a level rather than only edit one. The same
+  thing is reachable one step earlier, which is where you would look for
+  it: the **EDIT LEVEL** picker has a **NEW LEVEL** button. A new level
+  still has to go in one of the fifty slots, so that button does not
+  choose one -- it ARMS the list, and the next slot picked opens empty
+  instead of with what is in it. The title says so while it is armed, and
+  it is never armed when the screen opens, because a picker that reopened
+  armed would blank a level someone only meant to edit. Not the
   same thing as Clear all: that empties the field but leaves everything
   the level IS -- its name, time limit, background and weapon all still
   come from whatever was opened, so what you are left with is that level
