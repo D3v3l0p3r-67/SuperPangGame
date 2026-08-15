@@ -1,7 +1,7 @@
 import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
-import { OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
+import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
-import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey } from './assets.js';
+import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey, powerupTextureKey } from './assets.js';
 import {
   LEVELS, SHIPPED_LEVELS, setLevel, isLevelDef,
   DEFAULT_PLAYER_SPAWN, clampPlayerSpawn, playerSpawn,
@@ -12,6 +12,7 @@ import { Ball } from './Ball.js';
 import { Ladder } from './Ladder.js';
 import { makeButton, makeSelect, labelled, row, group, setGroupTitle } from './panelUi.js';
 import * as storage from './storage.js';
+import { saveLevelFile } from './levelFile.js';
 
 // Split into the two brushes that TILE (painted cell by cell while the
 // pointer is dragged) and the two that don't, because the panel row below
@@ -22,13 +23,27 @@ const TILE_BRUSHES = [
   { id: 'crate', label: 'Crate' },
 ];
 const START_BRUSH = { id: 'start', label: 'Start' };
+// One brush for every ball, whatever kind and size -- which the two
+// pickers beside it choose (see buildPanel). The brush itself still
+// carries them, as `ball-<shape>-<size>`, because that is what the
+// placement and the cursor read.
+const BALL_BRUSH = { id: 'ball', label: 'Ball' };
 const ERASE_BRUSH = { id: 'erase', label: 'Erase' };
 
-// Builds the brush list for balls straight from BALL_ELEMENTS, so a new
-// elements/<shape>-ball-<size>.json shows up as a brush automatically --
-// same registry the debug spawn panel uses.
-function ballBrushes() {
-  return BALL_ELEMENTS.map((el) => ({ id: `ball-${el.shape}-${el.size}`, label: `${el.shape[0].toUpperCase()}${el.size}` }));
+// The ball kinds, with their names spelled out -- for the picker that
+// replaced twenty-three abbreviated buttons (see buildPanel). Derived
+// from BALL_ELEMENTS, so a new elements/<shape>-ball-<size>.json appears
+// in the list on its own, same as every other registry-driven control.
+function ballKinds() {
+  return [...new Set(BALL_ELEMENTS.map((el) => el.shape))]
+    .map((shape) => [shape, shape[0].toUpperCase() + shape.slice(1)]);
+}
+
+// The sizes that exist for one kind: hex stops at 3 where the others go
+// to 5, and a size with no element behind it is not a ball anyone can
+// place.
+function ballSizes(shape) {
+  return BALL_ELEMENTS.filter((el) => el.shape === shape).map((el) => el.size);
 }
 
 // Same idea for ladders: a new elements/<ladder>.json is a new brush, no
@@ -56,7 +71,7 @@ function backgroundNames() {
 // the README's "Adding levels" for the full field list). Every field the
 // editor has a control for gets that control's own default, so New leaves
 // no trace of whatever was open before -- which is the whole difference
-// between it and Clear all. The name is the placeholder buildDef would
+// between it and Clear. The name is the placeholder buildDef would
 // have used anyway for a level that never had one; there is no control
 // for it here, so a level authored this way is renamed by editing the
 // exported file.
@@ -144,6 +159,7 @@ export class Editor {
     this.scene = scene;
     this.brush = 'platform';
     this.blocks = new Map(); // "gx,gy" -> Obstacle instance
+    this.dropIcons = new Map(); // "gx,gy" -> the icon drawn on a block that holds a drop
     this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
     this.ladders = new Map(); // "gx,gy" (top-left cell) -> { type, x, y, sprite }
     // Where the level puts the player, or null for "wherever the default
@@ -180,7 +196,10 @@ export class Editor {
 
     this.brushButtons = {};
     const brushButton = (brush) => {
-      const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.id);
+      const select = brush.id === BALL_BRUSH.id
+        ? () => this.selectBallBrush()
+        : () => this.setBrush(brush.id);
+      const btn = makeButton(brush.label, select, brush.title ?? brush.id);
       this.brushButtons[brush.id] = btn;
       return btn;
     };
@@ -188,10 +207,17 @@ export class Editor {
     // What the pointer paints. Split by what the brushes actually put
     // down -- the structure of the level on one row, the balls that have
     // to be popped in it on the next -- rather than one long run of them.
+    // One row, one button per KIND of thing that can be painted -- balls
+    // included, as a single Ball brush. There used to be one button per
+    // ball, which was eight of them when there were two kinds of ball and
+    // twenty-three once there were five: three rows of abbreviations
+    // (R1, HX1, HU1, HA1...) that were wider than the whole panel, and in
+    // which a hunter could not be told from a heavy. Which ball the brush
+    // places is chosen by name, next to the other options for the next
+    // thing placed.
     this.panelEl.appendChild(group(
       'BRUSH',
-      row(...[...TILE_BRUSHES, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
-      row(...ballBrushes().map(brushButton)),
+      row(...[...TILE_BRUSHES, BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
     ));
 
     // Options that apply to the NEXT placed ball/crate: initial direction
@@ -201,6 +227,23 @@ export class Editor {
     //
     // Both direction buttons get their label from updateOptionLabels()
     // below (it renders the current arrow), not here.
+    // Which ball the Ball brush places, by its full name rather than an
+    // abbreviation. Changing either picker also SELECTS that brush: going
+    // to the trouble of choosing a ball and then having to click Ball as
+    // well would be a step that exists only because the controls are in
+    // two places.
+    this.ballShape = ballKinds()[0][0];
+    this.ballKindSelect = makeSelect(ballKinds(), () => {
+      this.ballShape = this.ballKindSelect.value;
+      this.populateBallSizes();
+      this.selectBallBrush();
+    });
+    this.ballSizeSelect = makeSelect([], () => {
+      this.ballSize = parseInt(this.ballSizeSelect.value, 10);
+      this.selectBallBrush();
+    });
+    this.populateBallSizes();
+
     this.dirXBtn = makeButton('', () => {
       this.dirX *= -1;
       this.updateOptionLabels();
@@ -213,10 +256,13 @@ export class Editor {
       [['', 'No powerup'], ...POWERUP_TYPE_KEYS.map((key) => [key, POWERUP_TYPES[key].label])],
       () => { this.selectedPowerup = this.powerupSelect.value || null; },
     );
+    this.powerupSelect.title = 'Guaranteed drop from the next ball or breakable crate placed'
+      + ' -- a wall cannot be broken open, so it never carries one';
     this.panelEl.appendChild(group(
       'NEXT PLACED',
       row(this.dirXBtn, this.dirYBtn),
       row(labelled('Drops ', this.powerupSelect)),
+      row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect),
     ));
     this.updateOptionLabels();
 
@@ -289,7 +335,7 @@ export class Editor {
       'FILE',
       row(makeButton('Save', () => this.save()), makeButton('Export', () => this.exportJSON())),
       row(makeButton('Import', () => this.importFileInput.click()),
-        makeButton('Clear all', () => this.clearAll()), this.importFileInput),
+        makeButton('Clear', () => this.clearAll()), this.importFileInput),
       this.newRow,
       this.newConfirmRow,
     ));
@@ -328,11 +374,38 @@ export class Editor {
     this.scene.backgroundImage.setTexture(backgroundTextureKey(name));
   }
 
+  // The sizes this kind actually has, with the biggest selected -- the
+  // one a level usually opens with, and the only size every kind is
+  // guaranteed to reach differs, so it is picked from the list rather
+  // than assumed.
+  populateBallSizes() {
+    const sizes = ballSizes(this.ballShape);
+    this.ballSizeSelect.innerHTML = '';
+    for (const size of sizes) {
+      const option = document.createElement('option');
+      option.value = String(size);
+      option.textContent = String(size);
+      this.ballSizeSelect.appendChild(option);
+    }
+    // Keeps the chosen size across a change of kind where that kind has
+    // it, so stepping through the kinds at one size does not reset.
+    this.ballSize = sizes.includes(this.ballSize) ? this.ballSize : sizes[sizes.length - 1];
+    this.ballSizeSelect.value = String(this.ballSize);
+  }
+
+  selectBallBrush() {
+    this.setBrush(`ball-${this.ballShape}-${this.ballSize}`);
+  }
+
   setBrush(id) {
     this.brush = id;
     if (!this.brushButtons) return;
     for (const [brushId, btn] of Object.entries(this.brushButtons)) {
-      btn.classList.toggle('panel-btn-on', brushId === id);
+      // The ball brush carries which ball it places in its own id (see
+      // BALL_BRUSH), so it is the one button whose highlight cannot be an
+      // exact match.
+      const on = brushId === BALL_BRUSH.id ? id.startsWith('ball-') : brushId === id;
+      btn.classList.toggle('panel-btn-on', on);
     }
   }
 
@@ -460,6 +533,8 @@ export class Editor {
   clearAll() {
     for (const block of this.blocks.values()) block.destroy();
     this.blocks.clear();
+    for (const icon of this.dropIcons.values()) icon.destroy();
+    this.dropIcons.clear();
     for (const ball of this.balls.values()) ball.sprite.destroy();
     this.balls.clear();
     for (const ladder of this.ladders.values()) ladder.sprite.destroy();
@@ -511,11 +586,42 @@ export class Editor {
     const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
     this.scene.obstacles.add(block);
     this.blocks.set(key, block);
+    this.setDropIcon(key, x, y, powerup);
     refreshObstacleSeams(this.scene.obstacles);
   }
 
+  // The power-up a block will drop, drawn on the block itself while
+  // editing. Its own pickup icon rather than a mark of the editor's own:
+  // a crate holding a shield and a crate holding an extra life are two
+  // different things to place, and the level cannot be read back any
+  // other way -- a block carrying a drop looks exactly like one that does
+  // not. Editor-only; nothing draws these while the level is played.
+  setDropIcon(key, x, y, powerup) {
+    this.dropIcons.get(key)?.destroy();
+    this.dropIcons.delete(key);
+    // A name with no texture behind it would draw as Phaser's missing
+    // -texture box, which reads as a strange new obstacle rather than as
+    // a mistake. Both ways in filter unknown names already (the picker is
+    // built from the registry, loadDef drops what it doesn't know), so
+    // this is the belt to those braces.
+    if (!powerup || !this.scene.textures.exists(powerupTextureKey(powerup))) return;
+    const icon = this.scene.add.image(
+      x + OBSTACLE_BLOCK_SIZE / 2, y + OBSTACLE_BLOCK_SIZE / 2, powerupTextureKey(powerup),
+    );
+    icon.setDepth(6); // over the block (2) and anything else the editor places
+    this.dropIcons.set(key, icon);
+  }
+
+  // A guaranteed drop only ever goes on an obstacle that can be BROKEN
+  // OPEN. On a wall it would be a setting that does nothing -- nothing
+  // ever destroys one, so the drop could never come out -- and the level
+  // it saved would fail the rule that says so (see tests/levels.test.mjs,
+  // "holds a power-up but cannot be broken open"). Read from the
+  // obstacle's own element rather than by testing for 'crate', so a
+  // second breakable type carries drops without a change here.
   placeBlock(x, y, type) {
-    this.setBlock(x, y, type, this.selectedPowerup);
+    const drop = OBSTACLE_TYPES[type]?.destructible ? this.selectedPowerup : null;
+    this.setBlock(x, y, type, drop);
   }
 
   // A ladder is placed whole, keyed by its top-left cell, and clamped so
@@ -551,6 +657,7 @@ export class Editor {
     if (block) {
       block.destroy();
       this.blocks.delete(key);
+      this.setDropIcon(key, x, y, null);
       refreshObstacleSeams(this.scene.obstacles);
     }
     const ball = this.balls.get(key);
@@ -707,8 +814,12 @@ export class Editor {
     // The start counts like everything else here: 1 when this level places
     // one, 0 when it has none and the player starts where the default puts
     // them (see LevelManager's playerSpawn).
-    this.statusEl.textContent = `Blocks ${this.blocks.size}  Balls ${this.balls.size}\n`
-      + `Ladders ${this.ladders.size}  Start ${this.playerStart ? 1 : 0}`;
+    // Single-spaced, and that is not fussiness: this readout gets
+    // whatever width the controls leave it (see style.css), and at the
+    // default display size the double spaces were the last eight pixels
+    // between "Ladders 0 Start 0" and "Ladders 0 Start..".
+    this.statusEl.textContent = `Blocks ${this.blocks.size} Balls ${this.balls.size}\n`
+      + `Ladders ${this.ladders.size} Start ${this.playerStart ? 1 : 0}`;
   }
 
   showStatusMessage(text, durationMs = 3000) {
@@ -762,17 +873,43 @@ export class Editor {
   // storage's levelEdits) and laid over the shipped file on every boot;
   // Export writes the same definition out as the file itself, for putting
   // the change into the project.
-  save() {
+  // Two destinations, and the better one is tried first.
+  //
+  // If this game is being served by something that can write files and
+  // the browser is logged into the admin tool, the level goes into
+  // levels/level_NN.json ITSELF (see js/levelFile.js) -- the work lands
+  // in the project, visible to git and to everyone, with no Export and
+  // no moving a download by hand.
+  //
+  // Otherwise -- a static host, no PHP, not logged in -- it goes where it
+  // always went: this browser's localStorage, laid over the shipped level
+  // at every boot. Which is a real save, just a private one, and the
+  // status line says which of the two happened rather than leaving it to
+  // be guessed.
+  async save() {
     const def = this.buildDef();
-    if (!storage.saveLevelEdit(this.levelNumber, def)) {
-      this.showStatusMessage('SAVE FAILED - STORAGE FULL?');
-      return;
-    }
+    const stored = storage.saveLevelEdit(this.levelNumber, def);
     // Live as well as stored, so playing the level right now -- from here,
     // from Start Level or in the campaign -- uses what was just saved
     // rather than what happened to boot.
     setLevel(this.levelIndex, def);
-    this.showStatusMessage(`SAVED ${levelFileKey(this.levelNumber)}`);
+    this.showStatusMessage(`SAVING ${levelFileKey(this.levelNumber)}...`, 10000);
+
+    try {
+      const path = await saveLevelFile(this.levelNumber, def);
+      // The file IS the level now, so this browser's private copy has to
+      // go: left behind, it would be laid back over the very file just
+      // written at the next boot, and the editor would look like it had
+      // silently undone the save.
+      storage.clearLevelEdit(this.levelNumber);
+      this.showStatusMessage(`SAVED TO ${path}`);
+    } catch (error) {
+      if (!stored) {
+        this.showStatusMessage(`SAVE FAILED - ${error.message}`, 6000);
+        return;
+      }
+      this.showStatusMessage(`SAVED IN THIS BROWSER ONLY (${error.message})`, 6000);
+    }
   }
 
   // The way back out of an edit: drop this browser's saved version of the

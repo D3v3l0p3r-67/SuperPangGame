@@ -242,6 +242,7 @@ body {
   transform: translateY(1px);
 }
 
+
 #settings-row {
   display: flex;
   flex-direction: column;
@@ -600,6 +601,30 @@ body {
   row-gap: calc(var(--panel-unit) * 1.4);
 }
 
+/* The editor's readout takes whatever room the controls leave, and no
+   more. It is the one thing in this panel whose width is not fixed --
+   the counts grow with the level and a status message can be a whole
+   sentence ("SAVED IN THIS BROWSER ONLY...") -- and the panel is a fixed
+   band exactly as wide as the canvas. Without this, a long message
+   pushes Save, Play and the brushes off the end, where they can only be
+   reached by dragging the panel sideways. Controls first, readout with
+   what is left: min-width: 0 against the flex default is what allows
+   that, and the clip is a readout losing its tail rather than a button
+   becoming unreachable. */
+#editor-panel .panel-status {
+  /* Against .panel-group's own `flex: none`, which is right for a group
+     of controls -- a button that shrank would be a button you cannot
+     read -- and wrong for the one group that is only text. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  /* ...and it keeps the divider without the indent the other groups get.
+     It is last, so nothing follows it to be separated from, and at the
+     default display size those few pixels are the difference between
+     reading the counts and reading most of them. */
+  padding-left: calc(var(--panel-unit) * 0.35);
+}
+
 /* The editor's readout is pushed to the far end of its single line; this
    panel's groups wrap, and an auto margin there would just tear a hole in
    whichever line the readout landed on. Here it takes a row of its own
@@ -651,11 +676,21 @@ body {
   opacity: 0.8;
 }
 
-/* Capped so one long option (a continent background name, a weapon) can't
-   push the groups after it off the end of the row. */
-#debug-panel select,
-#editor-panel select {
+/* Capped so one long option can't push the groups after it off the end
+   of the row. A <select> is as wide as its widest OPTION, and the
+   background list holds names like "south_america_afternoon" -- without
+   this, one entry nobody has selected would set the width of the control
+   for good. The editor's cap is tighter because its panel is a fixed
+   band exactly as wide as the canvas and everything in it has to fit at
+   once; the value shown is short in practice, and the full text is there
+   when the list is opened. */
+#debug-panel select {
   max-width: calc(var(--panel-unit) * 19);
+  text-overflow: ellipsis;
+}
+
+#editor-panel select {
+  max-width: calc(var(--panel-unit) * 17);
   text-overflow: ellipsis;
 }
 

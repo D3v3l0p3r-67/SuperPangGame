@@ -711,6 +711,18 @@ seam between the canvas and the page behind it.
   It also places where the player starts the level (the **Start** brush,
   saved as the level's `playerStart` -- see "Adding levels"); a level that
   places none starts them in the middle of the floor as before.
+- The **BRUSH** row has one button per kind of thing that can be painted
+  -- wall, crate, ball, ladder, the player's start, erase -- and **which**
+  ball the Ball brush places is chosen by name (Round, Hex, Wave, Hunter,
+  Heavy) and size, next to the other options for the next thing placed.
+  There used to be one button per ball: eight of them when there were two
+  kinds and twenty-three once there were five, spilling over three rows
+  of abbreviations in which `HU1` and `HA1` were a hunter and a heavy and
+  nobody could tell. The panel is a fixed band exactly as wide as the
+  canvas, so it also has to FIT -- `tests/smoke/` measures it, and the
+  one group allowed to give up room for the rest is the counts readout,
+  which is only text.
+
 - **Ladders** (48x96, three by six blocks) are climbable scenery rather
   than obstacles: nothing collides with one, so balls and shots pass
   straight through, and so does the player -- which is what lets a ladder
@@ -952,6 +964,13 @@ js/
                       level file to its texture/cache key and file path --
                       the one place every loader/consumer reads from, so
                       they can't disagree
+  animations.js      Every animation as data -- which texture, which of
+                      its frames in which order, how fast, and whether it
+                      loops. assets.js names files, this names motion.
+                      BootScene builds Phaser's animations by iterating it,
+                      and the admin tool's sprite studio plays a sheet back
+                      from the same entries, so a preview cannot run at a
+                      rate the game does not
   Ladder.js          Climbable scenery: a rectangle and a picture, with no
                       physics body at all -- see Player.js for the climb
   elements.js        BALL_ELEMENTS/OBSTACLE_TYPES/LADDER_TYPES/
@@ -967,9 +986,10 @@ js/
                       then starts Boot
   BootScene.js       Boots second (registries are populated by now, so it
                       knows exactly which files to ask for): loads every
-                      graphic (see assets.js) and builds the player's
-                      Phaser animations -- nothing is drawn procedurally,
-                      everything is a loaded file
+                      graphic (see assets.js) and creates one Phaser
+                      animation per entry in animations.js -- nothing is
+                      drawn procedurally and no rate is decided here,
+                      everything is a loaded file read from a registry
   GameScene.js       The whole game: state machine, Arcade colliders/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
@@ -1167,13 +1187,38 @@ the cursor instead, regardless of the selected brush, alongside the
 dedicated **Erase** brush.
 
 The **FILE** buttons all act on that same level:
-- **Save** stores the level under its own number. Nothing in a browser can
-  write `levels/level_NN.json`, so the save goes to `localStorage` (see
-  `storage.js`'s `levelEdits`) and `ElementsScene` lays it over the
-  shipped file on every boot -- which makes the saved version the one the
-  game actually plays, in the campaign and in Start Level alike. It also
-  replaces the live `LEVELS` entry immediately (`LevelManager.setLevel`),
-  so playing the level right after saving doesn't need a reload.
+- **Save** has two destinations and tries the better one first.
+
+  **The project, if it can reach it.** Where the game is served by
+  something that can write files and this browser is logged into the
+  admin tool, the level goes into `levels/level_NN.json` ITSELF.
+  `js/levelFile.js` asks `admin/session.php` whether there is a session
+  (and for its CSRF token), then posts the level to the same
+  `admin/save.php` the admin tool's own tabs write through -- so the work
+  lands in the project, visible to git and to everyone, with no Export
+  and no moving a download by hand. This browser's private copy is then
+  CLEARED: left behind, it would be laid straight back over the file just
+  written at the next boot, and the editor would look like it had
+  silently undone the save.
+
+  **This browser otherwise.** On a static host there is no PHP at all, so
+  the save goes to `localStorage` (see `storage.js`'s `levelEdits`) and
+  `ElementsScene` lays it over the shipped file on every boot -- which
+  makes the saved version the one the game actually plays, in the
+  campaign and in Start Level alike. That is a real save, just a private
+  one, and the status line says which of the two happened rather than
+  leaving it to be guessed.
+
+  Either way it replaces the live `LEVELS` entry immediately
+  (`LevelManager.setLevel`), so playing the level right after saving
+  doesn't need a reload.
+
+  `js/levelFile.js` is the only thing in the game that knows the admin
+  tool exists, and the game does not depend on it in any way: where there
+  is no PHP it answers "no" once, silently, and everything carries on.
+  The game's service worker is told to leave `admin/` alone entirely
+  (see `service-worker.js`) -- a login page or a session probe served
+  from a cache built to outlive the page would be a bug of its own.
 - **Revert** drops this browser's saved version and puts the shipped file
   back -- in storage, in `LEVELS` and on screen. `SHIPPED_LEVELS` keeps
   every level as its file had it for exactly this.
@@ -1182,10 +1227,18 @@ The **FILE** buttons all act on that same level:
   into the project (drop it into `levels/` over the old one, or paste/
   import it in the admin tool's Levels tab, see "Admin tool").
 - **Import** replaces what is being edited with a level file from disk,
-  and **Clear all** empties it -- neither writes anything until Save.
+  and **Clear** empties it -- neither writes anything until Save.
 - **New** starts a BLANK level in the slot this session has open, which is
-  what lets the editor author a level rather than only edit one. Not the
-  same thing as Clear all: that empties the field but leaves everything
+  what lets the editor author a level rather than only edit one.
+
+  It lives in the editor and nowhere else, deliberately. There was
+  briefly a **NEW LEVEL** button on the **EDIT LEVEL** picker, and it was
+  a promise the game cannot keep: there are fifty level slots and no
+  fifty-first, so "new level" there could only mean "open one of these
+  fifty and wipe it", which is what New already does with the slot you
+  have open. A button whose name says one thing and whose effect is
+  another is worse than no button. Not the
+  same thing as Clear: that empties the field but leaves everything
   the level IS -- its name, time limit, background and weapon all still
   come from whatever was opened, so what you are left with is that level
   with its contents removed. New resets those too. It writes nothing
@@ -1218,6 +1271,19 @@ glance. The panel is sized from the canvas (`HUD_H`/`VIRTUAL_H` for the
 height, container query units for everything inside), so it scales with
 the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
+
+**NEXT PLACED**'s power-up picker applies to the next ball *and* the next
+obstacle, and an obstacle only takes it if the level rules allow one: the
+brush reads `destructible` off `OBSTACLE_TYPES`, so a crate is tagged and
+a wall is not. That is not a detail of the editor's taste -- a drop
+inside something that can never be opened is a level `tests/levels
+.test.mjs` refuses, so silently attaching one would author a level that
+fails on export. A block that carries a drop shows the power-up's own
+pickup icon on it (the same `assets/powerups/<type>.webp` the bonus is
+drawn from), which is the only way to tell a loaded level's crates apart
+-- they are the same texture whether they hold something or not. The
+markers are the editor's own overlay, tracked per cell and removed with
+the block, and nothing about them reaches `buildDef()`.
 
 The file format is exactly `editor.js`'s `buildDef()` output:
 ```json
@@ -1397,7 +1463,7 @@ dimensions:
   each frame that same square, one rotation phase spaced across the
   shape's own rotational symmetry so the last frame loops back into the
   first seamlessly (see `js/assets.js`'s `ballSpinAnimKey` and
-  `BootScene.js`'s `hexSpinFrameRate` for the fixed per-size playback
+  `js/animations.js`'s `hexSpinFrameRate` for the fixed per-size playback
   speed) -- a `hasGravity: true` shape (round today) never spins, so it
   stays one plain static image.
 - **Ball pop effect**: `assets/balls/pop_<shape>_<size>.webp` -- one
@@ -1807,10 +1873,21 @@ admin/
                        throws with the server's own reason
     util.js            Small shared helpers (fetch-relative-to-project-
                        root JSON loading, DOM element builders)
-    graphicsTab.js      Lists every image the game loads (built from
-                       elements/*.json + js/assets.js, so it can't go
-                       stale) with a live preview and a file-replace +
-                       Save button per image
+    graphicsTab.js      Lists every image the game loads, grouped and
+                       filterable, each card opening the sprite studio
+                       (see "Sprite studio" below)
+    spriteMeta.js       What that list IS: every graphic, its cell size if
+                       it is a spritesheet, the game's own animations that
+                       run on it, and whether a tool draws it -- built from
+                       elements/*.json + js/assets.js + js/animations.js,
+                       so it cannot go stale
+    spriteStudio.js     The popup over that list: Animate (play the game's
+                       own animations on the file), Paint, Replace file
+    spriteEditor.js     The Paint pane -- a pixel editor over the file's
+                       own pixels, with the frame grid drawn over it
+    imageFile.js        Reading a graphic into pixels and writing pixels
+                       back out as the same format, never without checking
+                       first what the re-encode costs
     soundsTab.js        Lists every sound from assets/audio/audio.json --
                        edit category/mode/volume/overlap/max-duration per
                        sound (kept in memory, written back as one
@@ -1829,6 +1906,60 @@ admin/
     main.js             Tab switching + lazy per-tab loading (each tab
                        only fetches its data the first time it's opened)
 ```
+
+### Sprite studio
+
+The Graphics tab lists every image the game loads -- grouped by what it
+is, with a filter, because there are a couple of hundred of them.
+Opening one opens the **sprite studio** over the list: a popup about that
+one file, with three panes.
+
+- **Animate** plays the file. The animations it offers are the game's
+  own, out of `js/animations.js` -- the same registry `BootScene` builds
+  Phaser's animations from -- so "Walk" here is the walk cycle at the
+  frames and the rate the game will actually run it at, not a guess. Play/
+  pause, step a frame at a time, click any frame in the strip, and zoom.
+  The FPS box overrides the rate for looking at something closely; it
+  changes the preview, never the game. **Mirror** flips the frame, which
+  is how half the game shows the walk and step frames (they are authored
+  facing left and mirrored with `setFlipX`, see "Swapping graphics").
+  A sheet also offers "all N frames in the file" -- the way to page
+  through the digits or the font, which nothing animates.
+- **Paint** is a pixel editor over the file's own pixels: pencil, eraser,
+  flood fill, and an eyedropper, a brush of 1-8px, zoom up to 24x with a
+  pixel grid, undo/redo (Ctrl+Z / Ctrl+Shift+Z), and a palette of the
+  colours already in the file -- which is how the art is drawn, out of a
+  handful of them, so picking one out of the picture beats matching it by
+  eye. For a spritesheet the cell boundaries are drawn over the picture
+  and the readout says which frame the cursor is in; the sheet is still
+  edited as ONE image, which is what keeps the cells aligned with the
+  layout the game slices them by.
+- **Replace file** is the old upload: hand over art drawn somewhere else.
+  It is also the only way to change a graphic's SIZE -- Paint edits the
+  pixels a file already has.
+
+Two things the studio is careful about, both of them about not quietly
+costing quality:
+
+- **A save is checked before it is written.** Save encodes the picture,
+  decodes what it just encoded, and compares. What it compares is what
+  gets DRAWN -- the colour difference weighted by the alpha it is drawn at
+  -- because the raw bytes are misleading here. Measured on this game's
+  own files in Chromium: PNG comes back identical every time; WebP comes
+  back identical for anything opaque (backgrounds, tiles, HUD digits: not
+  one pixel moves); and on a sprite with a soft edge WebP keeps the alpha
+  exactly while the colour under a 3%-opaque pixel moves by up to 30 of
+  255 -- which is 1.2 steps of what actually reaches the screen, and
+  re-encoding the result again does not grow it. So a save that stays
+  under two steps goes through and reports how many pixels were
+  re-encoded; anything above that writes nothing until Save is pressed a
+  second time. Every pixel nobody painted keeps the bytes the file was
+  read with.
+- **A file that a tool draws says so**, in a banner across the studio
+  (`tools/player_sprite.py` and the four others, see "Graphics are
+  generated" in CLAUDE.md). Painting it works exactly as well as painting
+  anything else -- right up until that tool is run again and overwrites
+  it. For a change that lasts, change the tool.
 
 ### Running it locally
 

@@ -100,6 +100,12 @@ test('the player walks, shoots, and pops what it hits', async () => {
   const movedX = await game.scene((s) => s.player.x);
   assert.ok(movedX > startX + 10, `player barely moved: ${startX} -> ${movedX}`);
 
+  // A ball may well have caught the player during that walk, which
+  // freezes the level and restarts it -- and a frozen player cannot
+  // shoot. Wait for play to be handed back before asking it to.
+  await game.page.waitForFunction(
+    () => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 },
+  );
   await game.page.keyboard.press('Space');
   await game.frames(3);
   assert.ok(await game.scene((s) => s.projectiles.countActive(true)) > 0, 'pressing shoot fired nothing');
@@ -220,7 +226,7 @@ test('erasing progress takes the scores and leaves the settings', async () => {
 
 test('the editor can start a level from nothing', async () => {
   // New has to leave nothing of what was open -- not just the placed
-  // things (Clear all already does that) but the level's name, time,
+  // things (Clear already does that) but the level's name, time,
   // background and weapon, which is the whole difference between the two.
   // And it must ask first, because it discards more than any other button
   // in that panel.
@@ -267,6 +273,155 @@ test('the editor can start a level from nothing', async () => {
   assert.deepEqual(def.balls, []);
   assert.equal(def.id, 12, 'a blank level still belongs to the slot it was started in');
   assert.equal(def.playerStart, undefined, 'a blank level has no start placed yet');
+
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
+test('a save with no admin tool says it is local, and does it', async () => {
+  // These tests are served by tests/smoke/server.mjs, which is Node and
+  // has no PHP -- so the file save cannot work. The editor has to say
+  // that plainly rather than reporting a save only this browser can see
+  // as though it had reached the project.
+  await game.scene((s) => s.editLevel(11));
+  await game.frames(6);
+  await game.scene((s) => { s.editor.setBlock(160, 336, 'crate', null); s.editor.save(); });
+  await game.page.waitForFunction(
+    () => !/SAVING/.test(window.game.scene.getScene('Game').editor.statusMessage || ''), null, { timeout: 15000 },
+  );
+  const status = await game.scene((s) => s.editor.statusMessage);
+  assert.match(status, /THIS BROWSER ONLY/, `save should own up to being local, said: ${status}`);
+
+  // Contains, not equals: the erase-progress test above deliberately
+  // leaves an edit of its own behind, and this one has no business
+  // caring about that.
+  const savedLevels = await game.page.evaluate(
+    () => Object.keys(JSON.parse(localStorage.getItem('balloonBuster.levelEdits') || '{"levels":{}}').levels || {}),
+  );
+  assert.ok(savedLevels.includes('12'),
+    `the local save is the fallback -- it has to actually be there, found ${JSON.stringify(savedLevels)}`);
+
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
+test('balls are picked by name, in a panel that fits', async () => {
+  await game.scene((s) => s.editLevel(0));
+  await game.frames(6);
+
+  // Every kind by its full name, not an abbreviation. Five kinds, three
+  // of whose names begin with the same letter -- as buttons they read
+  // R1, HX1, HU1, HA1, and thirteen of the twenty-three were "H" before
+  // even that.
+  const kinds = await game.page.evaluate(() => {
+    const select = [...document.querySelectorAll('#editor-panel select')]
+      .find((s) => [...s.options].some((o) => o.text === 'Round'));
+    return select ? [...select.options].map((o) => o.text) : null;
+  });
+  assert.ok(kinds, 'no ball kind picker in the editor');
+  assert.deepEqual(kinds, ['Round', 'Hex', 'Wave', 'Hunter', 'Heavy']);
+  for (const name of kinds) assert.ok(name.length > 2, `${name} is an abbreviation, not a name`);
+
+  // Choosing one selects the ball brush, so picking a ball and then
+  // having to click Ball as well is not a step anyone has to take.
+  await game.page.evaluate(() => {
+    const select = [...document.querySelectorAll('#editor-panel select')]
+      .find((s) => [...s.options].some((o) => o.text === 'Round'));
+    select.value = 'hunter';
+    select.dispatchEvent(new Event('change'));
+  });
+  await game.frames(2);
+  assert.equal(await game.scene((s) => s.editor.brush), 'ball-hunter-5');
+
+  // Hex has three sizes where the others have five, so the size list has
+  // to follow the kind rather than offer one that has no element.
+  await game.page.evaluate(() => {
+    const select = [...document.querySelectorAll('#editor-panel select')]
+      .find((s) => [...s.options].some((o) => o.text === 'Round'));
+    select.value = 'hex';
+    select.dispatchEvent(new Event('change'));
+  });
+  await game.frames(2);
+  assert.equal(await game.scene((s) => s.editor.brush), 'ball-hex-3');
+
+  // With the counts showing, not a status message left over from the
+  // test above: a message is a whole sentence and is SUPPOSED to lose
+  // its tail (see style.css) -- the counts are what must fit.
+  await game.scene((s) => s.editor.showStatusMessage('', 0));
+  await game.frames(2);
+
+  // And the whole panel has to be usable without dragging it sideways:
+  // it is a fixed band exactly as wide as the canvas, and anything past
+  // its edge -- Save, Play, a brush -- can only be reached by scrolling.
+  const panel = await game.page.evaluate(() => {
+    const el = document.getElementById('editor-panel');
+    const status = el.querySelector('.panel-status');
+    return {
+      content: el.scrollWidth, visible: el.clientWidth,
+      tall: el.scrollHeight, band: el.clientHeight,
+      countsClipped: status.scrollWidth > status.clientWidth,
+      clippedSelects: [...el.querySelectorAll('select')]
+        .filter((s) => s.scrollWidth > s.clientWidth)
+        .map((s) => s.options[s.selectedIndex].text),
+    };
+  });
+  assert.ok(panel.content <= panel.visible,
+    `the editor panel needs ${panel.content}px of the ${panel.visible}px it has`);
+  assert.ok(panel.tall <= panel.band,
+    `the editor panel needs ${panel.tall}px of the ${panel.band}px band it sits in`);
+  assert.equal(panel.countsClipped, false, 'the counts readout is cut off');
+  assert.deepEqual(panel.clippedSelects, [], 'a picker is too narrow to read its own value');
+
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
+test('a guaranteed drop goes on what can be broken open, and shows there', async () => {
+  await game.scene((s) => s.editLevel(0));
+  await game.frames(6);
+
+  const placed = await game.scene((s) => {
+    const editor = s.editor;
+    editor.clearAll();
+    editor.selectedPowerup = 'shield';
+    editor.placeBlock(160, 336, 'crate');
+    editor.selectedPowerup = null;
+    editor.placeBlock(192, 336, 'crate');
+    editor.selectedPowerup = 'extra_life';
+    editor.placeBlock(224, 336, 'crate');
+    // A wall, with a drop still chosen. Nothing ever destroys one, so it
+    // must not take the drop -- and a level that saved it would fail the
+    // rule in tests/levels.test.mjs that says exactly this.
+    editor.selectedPowerup = 'shield';
+    editor.placeBlock(256, 336, 'platform');
+    return {
+      obstacles: editor.buildDef().obstacles.map((o) => `${o.type}${o.powerup ? `:${o.powerup}` : ''}`),
+      markers: editor.dropIcons.size,
+    };
+  });
+  assert.deepEqual(placed.obstacles, ['crate:shield', 'crate', 'crate:extra_life', 'platform']);
+  assert.equal(placed.markers, 2, 'a block holding a drop has to be visible as one');
+
+  // Round trip: a level read back shows its drops too, or the editor
+  // cannot be used to check what a level already holds.
+  const reloaded = await game.scene((s) => {
+    const def = s.editor.buildDef();
+    s.editor.clearAll();
+    s.editor.loadDef(def);
+    return { markers: s.editor.dropIcons.size, obstacles: s.editor.buildDef().obstacles.length };
+  });
+  assert.equal(reloaded.markers, 2, 'a loaded level does not show which blocks hold drops');
+  assert.equal(reloaded.obstacles, 4);
+
+  // ...and erasing a block takes its marker with it.
+  const erased = await game.scene((s) => {
+    s.editor.eraseAt(160, 336);
+    return s.editor.dropIcons.size;
+  });
+  assert.equal(erased, 1, 'erasing a block left its drop marker behind');
 
   await game.scene((s) => s.exitEditor());
   await game.frames(2);

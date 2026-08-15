@@ -1,22 +1,21 @@
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, BALL_ELEMENTS } from './elements.js';
 import { AUDIO_CONFIG } from './audio.js';
-import { WEAPON_TYPES, PLAYER_CONFIG, SHOT_LOCK_SEC } from './config.js';
+import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { LEVELS } from './LevelManager.js';
 import { daylightBackgroundNames } from './regions.js';
 import { VIRTUAL_W, VIRTUAL_H, COLORS } from './constants.js';
 import { hexColor } from './colors.js';
 import {
-  ballTextureKey, ballTexturePath, HEX_SPIN_FRAMES, ballSpinAnimKey,
-  ballPopTextureKey, ballPopTexturePath, BALL_POP_FRAMES, POP_FRAME_SCALE, ballPopAnimKey,
-  PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME, PLAYER_ANIM_FRAMES,
-  PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH, PLAYER_SHIELD_FRAMES, PLAYER_SHIELD_ANIM_KEY,
-  PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, PLAYER_HIT_FRAMES, PLAYER_HIT_SIZE, PLAYER_HIT_ANIM_KEY,
-  PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH, PLAYER_DUST_FRAMES,
-  PLAYER_DUST_SIZE, PLAYER_DUST_HEIGHT, PLAYER_DUST_ANIM_KEY,
-  PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAMES,
-  PLAYER_GHOST_FRAME, PLAYER_GHOST_ANIM_KEY,
+  ballTextureKey, ballTexturePath,
+  ballPopTextureKey, ballPopTexturePath,
+  PLAYER_TEXTURE_KEY, PLAYER_TEXTURE_PATH, PLAYER_FRAME,
+  PLAYER_SHIELD_TEXTURE_KEY, PLAYER_SHIELD_TEXTURE_PATH,
+  PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_TEXTURE_PATH, PLAYER_HIT_SIZE,
+  PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_TEXTURE_PATH,
+  PLAYER_DUST_SIZE, PLAYER_DUST_HEIGHT,
+  PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAME,
   BULLET_TEXTURE_KEY, BULLET_TEXTURE_PATH,
-  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
+  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_SIZE,
   obstacleTextureKey, obstacleTexturePath,
   ladderTextureKey, ladderTexturePath,
   WEAPON_SHOTS_KEY, WEAPON_SHOTS_PATH, WEAPON_SHOTS_FRAME,
@@ -34,26 +33,11 @@ import {
   hudWeaponIconKey, hudWeaponIconPath,
   INTRO_FONT_KEY, INTRO_FONT_PATH, INTRO_FONT_FRAME,
 } from './assets.js';
-
-// Angular speed a hex ball's fixed diagonal speed/radius implies (this is
-// the same relationship Ball.js used to apply as a smooth per-frame
-// rotation transform -- bigger/slower balls turn slower -- before that
-// became visibly blurry/aliased on this game's tiny pixel-art hexagons at
-// arbitrary rotation angles), converted from radians/sec to frames/sec
-// for a HEX_SPIN_FRAMES-frame-per-rotation cycle, then sped up on top of
-// that physically-derived rate (SPIN_SPEED_MULTIPLIER: 1.5x, then a
-// further 30% on top of that -- 1.5 * 1.3 = 1.95).
-const SPIN_SPEED_MULTIPLIER = 1.95;
+import { gameAnimations, ballPopFrameSize } from './animations.js';
 
 // Shortest time the loading screen stays up before Game takes over -- see
 // the hold at the end of create().
 const LOADING_MIN_MS = 900;
-
-function hexSpinFrameRate(speed, radius) {
-  const hSpeed = speed * Math.SQRT1_2;
-  const angularSpeed = hSpeed / radius; // radians/sec
-  return (angularSpeed / (Math.PI * 2)) * HEX_SPIN_FRAMES * SPIN_SPEED_MULTIPLIER;
-}
 
 // Runs after ElementsScene, which has already populated BALL_ELEMENTS/
 // OBSTACLE_TYPES/POWERUP_TYPE_KEYS (see elements.js) -- this scene's only
@@ -79,7 +63,7 @@ export class BootScene extends Phaser.Scene {
         this.load.image(ballTextureKey(el.shape, el.size), ballTexturePath(el.shape, el.size));
       }
 
-      const popFrameSize = Math.round(el.radius * 2 * POP_FRAME_SCALE);
+      const popFrameSize = ballPopFrameSize(el.radius);
       this.load.spritesheet(ballPopTextureKey(el.shape, el.size), ballPopTexturePath(el.shape, el.size), { frameWidth: popFrameSize, frameHeight: popFrameSize });
     }
 
@@ -216,48 +200,18 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    this.buildPlayerAnimations();
-    this.buildBallAnimations();
-    this.anims.create({
-      key: PLAYER_SHIELD_ANIM_KEY,
-      frames: this.anims.generateFrameNumbers(PLAYER_SHIELD_TEXTURE_KEY, { start: 0, end: PLAYER_SHIELD_FRAMES - 1 }),
-      frameRate: 8,
-      repeat: -1,
-    });
-    // Same rate as the ball-pop burst (see buildBallAnimations), so a hit
-    // on the player and a hit on a ball read as the same kind of event.
-    this.anims.create({
-      key: BULLET_HIT_ANIM_KEY,
-      frames: this.anims.generateFrameNumbers(BULLET_HIT_TEXTURE_KEY, { start: 0, end: BULLET_HIT_FRAMES - 1 }),
-      frameRate: 14,
-      repeat: 0,
-    });
-    this.anims.create({
-      key: PLAYER_HIT_ANIM_KEY,
-      frames: this.anims.generateFrameNumbers(PLAYER_HIT_TEXTURE_KEY, { start: 0, end: PLAYER_HIT_FRAMES - 1 }),
-      frameRate: 12,
-      repeat: 0,
-    });
-    // Slower than the impact bursts above on purpose: dust settles, it
-    // doesn't snap.
-    this.anims.create({
-      key: PLAYER_DUST_ANIM_KEY,
-      frames: this.anims.generateFrameNumbers(PLAYER_DUST_TEXTURE_KEY, { start: 0, end: PLAYER_DUST_FRAMES - 1 }),
-      frameRate: 9,
-      repeat: 0,
-    });
-    // The only looping one of these: the ghost beats its wings for the
-    // whole of its flight rather than playing a burst and stopping, so it
-    // repeats and the tween that carries it up is what ends it (see
-    // GameScene.spawnDeathGhost). Slow enough to read as wingbeats -- two
-    // frames at a burst rate would just flicker -- and DEATH_GHOST_SEC is
-    // long enough to fit several of them.
-    this.anims.create({
-      key: PLAYER_GHOST_ANIM_KEY,
-      frames: this.anims.generateFrameNumbers(PLAYER_GHOST_TEXTURE_KEY, { start: 0, end: PLAYER_GHOST_FRAMES - 1 }),
-      frameRate: 7,
-      repeat: -1,
-    });
+    // Every animation in the game, straight out of the registry that also
+    // tells the admin tool how to play each sheet back (js/animations.js)
+    // -- so a rate is written down once and both agree by construction.
+    // Nothing here decides anything: it is one anims.create per entry.
+    for (const anim of gameAnimations(BALL_ELEMENTS)) {
+      this.anims.create({
+        key: anim.key,
+        frames: anim.frames.map((frame) => ({ key: anim.textureKey, frame })),
+        frameRate: anim.frameRate,
+        repeat: anim.loop ? -1 : 0,
+      });
+    }
 
     // Hold the finished loading screen briefly before handing over. On a
     // fast (or cached) load the whole thing can complete in a few frames,
@@ -269,58 +223,4 @@ export class BootScene extends Phaser.Scene {
     else this.time.delayedCall(remaining, () => this.scene.start('Game'));
   }
 
-  // One pop animation per (shape, size) ball (see assets.js's
-  // ballPopAnimKey), plus one looping spin animation per hex size --
-  // round balls don't spin, so they only get a pop animation.
-  buildBallAnimations() {
-    for (const el of BALL_ELEMENTS) {
-      this.anims.create({
-        key: ballPopAnimKey(el.shape, el.size),
-        frames: this.anims.generateFrameNumbers(ballPopTextureKey(el.shape, el.size), { start: 0, end: BALL_POP_FRAMES - 1 }),
-        frameRate: 12,
-        repeat: 0,
-      });
-
-      if (el.shape === 'hex') {
-        this.anims.create({
-          key: ballSpinAnimKey(el.shape, el.size),
-          frames: this.anims.generateFrameNumbers(ballTextureKey(el.shape, el.size), { start: 0, end: HEX_SPIN_FRAMES - 1 }),
-          frameRate: hexSpinFrameRate(el.speed, el.radius),
-          repeat: -1,
-        });
-      }
-    }
-  }
-
-  // One Phaser animation per player state, built from frame indices within
-  // the one player spritesheet (see assets.js's PLAYER_ANIM_FRAMES) --
-  // Player.js just calls this.play('player-<state>'). idle/move loop;
-  // shot/victory/dead play once and Player.js switches back to idle/move
-  // itself when they end (see Player.js's 'animationcomplete' handling).
-  buildPlayerAnimations() {
-    const LOOPING = new Set(['idle', 'move', 'climb']);
-    // levelclear's rate is what makes its 6 frames (three idle/victory
-    // alternations, see assets.js) last exactly the LEVEL_CLEAR_MIN_SEC that
-    // GameScene holds the celebration for -- change one and change both.
-    // The step and ladder-exit states are brief on purpose: they cover a
-    // single 16px move, and anything slower reads as the player pausing to
-    // think about it rather than taking the step.
-    //
-    // shot's rate is the one that has to agree with something outside this
-    // file: its single frame has to be on screen for exactly as long as
-    // the player is held still by having fired (config.js's
-    // SHOT_LOCK_SEC), so the pose and the pause end together.
-    const FRAME_RATE = {
-      idle: 1, move: 8, shot: 1 / SHOT_LOCK_SEC, victory: 1, dead: 1, levelclear: 3,
-      climb: 6, ladderoff: 8, stepup: 12, stepdown: 12,
-    };
-    for (const [state, frameIndices] of Object.entries(PLAYER_ANIM_FRAMES)) {
-      this.anims.create({
-        key: `player-${state}`,
-        frames: frameIndices.map((frame) => ({ key: PLAYER_TEXTURE_KEY, frame })),
-        frameRate: FRAME_RATE[state] ?? 8,
-        repeat: LOOPING.has(state) ? -1 : 0,
-      });
-    }
-  }
 }
