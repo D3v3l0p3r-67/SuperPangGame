@@ -1873,10 +1873,21 @@ admin/
                        throws with the server's own reason
     util.js            Small shared helpers (fetch-relative-to-project-
                        root JSON loading, DOM element builders)
-    graphicsTab.js      Lists every image the game loads (built from
-                       elements/*.json + js/assets.js, so it can't go
-                       stale) with a live preview and a file-replace +
-                       Save button per image
+    graphicsTab.js      Lists every image the game loads, grouped and
+                       filterable, each card opening the sprite studio
+                       (see "Sprite studio" below)
+    spriteMeta.js       What that list IS: every graphic, its cell size if
+                       it is a spritesheet, the game's own animations that
+                       run on it, and whether a tool draws it -- built from
+                       elements/*.json + js/assets.js + js/animations.js,
+                       so it cannot go stale
+    spriteStudio.js     The popup over that list: Animate (play the game's
+                       own animations on the file), Paint, Replace file
+    spriteEditor.js     The Paint pane -- a pixel editor over the file's
+                       own pixels, with the frame grid drawn over it
+    imageFile.js        Reading a graphic into pixels and writing pixels
+                       back out as the same format, never without checking
+                       first what the re-encode costs
     soundsTab.js        Lists every sound from assets/audio/audio.json --
                        edit category/mode/volume/overlap/max-duration per
                        sound (kept in memory, written back as one
@@ -1895,6 +1906,60 @@ admin/
     main.js             Tab switching + lazy per-tab loading (each tab
                        only fetches its data the first time it's opened)
 ```
+
+### Sprite studio
+
+The Graphics tab lists every image the game loads -- grouped by what it
+is, with a filter, because there are a couple of hundred of them.
+Opening one opens the **sprite studio** over the list: a popup about that
+one file, with three panes.
+
+- **Animate** plays the file. The animations it offers are the game's
+  own, out of `js/animations.js` -- the same registry `BootScene` builds
+  Phaser's animations from -- so "Walk" here is the walk cycle at the
+  frames and the rate the game will actually run it at, not a guess. Play/
+  pause, step a frame at a time, click any frame in the strip, and zoom.
+  The FPS box overrides the rate for looking at something closely; it
+  changes the preview, never the game. **Mirror** flips the frame, which
+  is how half the game shows the walk and step frames (they are authored
+  facing left and mirrored with `setFlipX`, see "Swapping graphics").
+  A sheet also offers "all N frames in the file" -- the way to page
+  through the digits or the font, which nothing animates.
+- **Paint** is a pixel editor over the file's own pixels: pencil, eraser,
+  flood fill, and an eyedropper, a brush of 1-8px, zoom up to 24x with a
+  pixel grid, undo/redo (Ctrl+Z / Ctrl+Shift+Z), and a palette of the
+  colours already in the file -- which is how the art is drawn, out of a
+  handful of them, so picking one out of the picture beats matching it by
+  eye. For a spritesheet the cell boundaries are drawn over the picture
+  and the readout says which frame the cursor is in; the sheet is still
+  edited as ONE image, which is what keeps the cells aligned with the
+  layout the game slices them by.
+- **Replace file** is the old upload: hand over art drawn somewhere else.
+  It is also the only way to change a graphic's SIZE -- Paint edits the
+  pixels a file already has.
+
+Two things the studio is careful about, both of them about not quietly
+costing quality:
+
+- **A save is checked before it is written.** Save encodes the picture,
+  decodes what it just encoded, and compares. What it compares is what
+  gets DRAWN -- the colour difference weighted by the alpha it is drawn at
+  -- because the raw bytes are misleading here. Measured on this game's
+  own files in Chromium: PNG comes back identical every time; WebP comes
+  back identical for anything opaque (backgrounds, tiles, HUD digits: not
+  one pixel moves); and on a sprite with a soft edge WebP keeps the alpha
+  exactly while the colour under a 3%-opaque pixel moves by up to 30 of
+  255 -- which is 1.2 steps of what actually reaches the screen, and
+  re-encoding the result again does not grow it. So a save that stays
+  under two steps goes through and reports how many pixels were
+  re-encoded; anything above that writes nothing until Save is pressed a
+  second time. Every pixel nobody painted keeps the bytes the file was
+  read with.
+- **A file that a tool draws says so**, in a banner across the studio
+  (`tools/player_sprite.py` and the four others, see "Graphics are
+  generated" in CLAUDE.md). Painting it works exactly as well as painting
+  anything else -- right up until that tool is run again and overwrites
+  it. For a change that lasts, change the tool.
 
 ### Running it locally
 

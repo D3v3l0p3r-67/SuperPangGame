@@ -83,7 +83,9 @@ tools/app_icons.py           the PWA icons
 ```
 
 Each derives from something else on purpose, so a redraw propagates.
-Editing the generated `.webp`/`.png` directly gets overwritten.
+Editing the generated `.webp`/`.png` directly gets overwritten — the
+admin tool's sprite studio (`admin/js/spriteStudio.js`) will paint them
+anyway, and says so in a banner on the file.
 
 ## Two things that constrain UI work
 

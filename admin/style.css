@@ -376,3 +376,279 @@ main {
   color: var(--accent);
   font-size: 13px;
 }
+
+/* -- Graphics list -------------------------------------------------------- */
+
+.graphics-filter {
+  width: 100%;
+  max-width: 380px;
+  margin-bottom: 18px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.graphics-group h2 {
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  margin: 22px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.graphic-card .preview {
+  cursor: zoom-in;
+  margin-bottom: 6px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  opacity: 0.85;
+}
+
+.badge-anim {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.badge-generated {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #2a1c00;
+  font-weight: 600;
+}
+
+/* -- Sprite studio (the popup over the list) ------------------------------ */
+
+.studio-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(5, 4, 10, 0.8);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+.studio {
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  width: min(980px, 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.studio-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.studio-header h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.studio-close {
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 10px;
+}
+
+.studio-warning {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(255, 210, 63, 0.08);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.studio-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px 0;
+  border-bottom: 2px solid var(--panel-border);
+}
+
+.studio-body {
+  padding: 16px;
+}
+
+/* -- Animate pane --------------------------------------------------------- */
+
+.animate-controls,
+.paint-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rate-input {
+  width: 70px;
+}
+
+.animate-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background:
+    linear-gradient(45deg, #2a2350 25%, transparent 25%),
+    linear-gradient(-45deg, #2a2350 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2a2350 75%),
+    linear-gradient(-45deg, transparent 75%, #2a2350 75%);
+  background-color: #1a1530;
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  overflow: auto;
+  max-height: 60vh;
+}
+
+.animate-canvas,
+.paint-canvas {
+  image-rendering: pixelated;
+}
+
+.frame-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.frame-thumb {
+  image-rendering: pixelated;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  background: #1a1530;
+  cursor: pointer;
+}
+
+.frame-thumb.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.size-note,
+.paint-readout {
+  font-size: 11px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.paint-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.paint-footer .status {
+  margin: 0;
+}
+
+/* -- Paint pane ----------------------------------------------------------- */
+
+.tool-btn.active {
+  background: var(--panel-border);
+  font-weight: 600;
+}
+
+.colour-swatch {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+}
+
+.alpha-slider {
+  width: 90px;
+  vertical-align: middle;
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.palette-label {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-right: 4px;
+}
+
+.palette-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid var(--panel-border);
+}
+
+.paint-stage {
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: #1a1530;
+  overflow: auto;
+  max-height: 58vh;
+  padding: 8px;
+}
+
+.paint-canvas {
+  cursor: crosshair;
+  display: block;
+  margin: 0 auto;
+}
+
+.studio-replace .preview {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  image-rendering: pixelated;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 6px;
+  margin-bottom: 10px;
+}

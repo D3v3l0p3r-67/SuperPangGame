@@ -1,159 +1,104 @@
-// Lists every graphic the game loads (see ../js/assets.js) and lets the
-// admin replace each one by uploading a new file at the exact same path.
-// Which balls/obstacle tiles/power-ups exist is read straight from
-// elements/*.json (via elements/index.json) -- same source of truth the
-// game itself boots from (see ElementsScene.js) -- so this list can never
-// drift out of sync with what the game actually loads.
-import * as assets from '../../js/assets.js';
-import { WEAPON_TYPES } from '../../js/config.js';
-import { SAVED_ASSET_MSG, el, fetchJSON, rootUrl, statusParagraph } from './util.js';
-
-async function fetchElements() {
-  const ids = await fetchJSON(assets.ELEMENTS_INDEX_PATH);
-  const results = await Promise.all(ids.map(async (id) => {
-    try {
-      return await fetchJSON(assets.elementFilePath(id));
-    } catch (err) {
-      console.error(`Skipping ${id}:`, err);
-      return null;
-    }
-  }));
-  return results.filter(Boolean);
-}
-
-// Every distinct `background` a levels/level_NN.json actually uses, same
-// probing convention levelsTab.js uses (no manifest, just try each slot up
-// to MAX_LEVEL_FILES and keep whichever load) -- plus DEFAULT_BACKGROUND
-// itself, since the level editor always starts pointed at it even before
-// any level names it.
-async function fetchBackgroundNames() {
-  const names = new Set([assets.DEFAULT_BACKGROUND]);
-  for (let n = 1; n <= assets.MAX_LEVEL_FILES; n++) {
-    try {
-      const level = await fetchJSON(assets.levelFilePath(n));
-      if (level.background) names.add(level.background);
-    } catch {
-      // No file at this slot -- expected past the last level.
-    }
-  }
-  return names;
-}
-
-async function buildGraphicList() {
-  const elements = await fetchElements();
-  const list = [];
-
-  for (const item of elements) {
-    if (item.category === 'ball') {
-      const spinNote = item.shape === 'hex' ? ` -- ${assets.HEX_SPIN_FRAMES}-frame spin spritesheet` : '';
-      list.push({ label: `Ball -- ${item.shape} size ${item.size} (${item.label ?? item.id})${spinNote}`, path: assets.ballTexturePath(item.shape, item.size) });
-      list.push({ label: `Ball pop effect -- ${item.shape} size ${item.size} (${assets.BALL_POP_FRAMES}-frame)`, path: assets.ballPopTexturePath(item.shape, item.size) });
-    }
-  }
-
-  list.push({ label: 'Player spritesheet (idle, shot, 4 walk, victory, dead -- see README)', path: assets.PLAYER_TEXTURE_PATH });
-  list.push({ label: `Shield effect (${assets.PLAYER_SHIELD_FRAMES}-frame loop, while the shield power-up is active)`, path: assets.PLAYER_SHIELD_TEXTURE_PATH });
-
-  const tileNames = new Set(elements.filter((item) => item.category === 'obstacle').map((item) => item.tileTexture));
-  for (const name of tileNames) {
-    list.push({ label: `Obstacle tile -- ${name}`, path: assets.obstacleTexturePath(name) });
-  }
-
-  for (const item of elements) {
-    if (item.category === 'powerup') {
-      list.push({ label: `Power-up icon -- ${item.label} (${item.type})`, path: assets.powerupTexturePath(item.type) });
-    }
-  }
-
-  list.push({ label: 'Weapon shots (4 cells of 36x400, one per weapon -- head at the top of each cell)', path: assets.WEAPON_SHOTS_PATH });
-  list.push({ label: 'Burst particle (tinted at runtime -- keep plain white)', path: assets.PARTICLE_TEXTURE_PATH });
-
-  list.push({ label: 'HUD -- score digits (large, 10 frames)', path: assets.HUD_DIGITS_LARGE_PATH });
-  list.push({ label: 'HUD -- time/world/hi digits (small, 10 frames)', path: assets.HUD_DIGITS_SMALL_PATH });
-  list.push({ label: 'HUD -- "1-P" label', path: assets.HUD_1P_PATH });
-  list.push({ label: 'HUD -- "TIME" label', path: assets.HUD_TIME_LABEL_PATH });
-  list.push({ label: 'HUD -- "WORLD" label', path: assets.HUD_WORLD_LABEL_PATH });
-  list.push({ label: 'HUD -- "HI" label', path: assets.HUD_HI_LABEL_PATH });
-  list.push({ label: 'HUD -- life icon', path: assets.HUD_LIFE_PATH });
-  list.push({ label: 'HUD -- weapon socket frame', path: assets.HUD_WEAPON_FRAME_PATH });
-  for (const type of Object.keys(WEAPON_TYPES)) {
-    list.push({ label: `HUD -- weapon icon (${type})`, path: assets.hudWeaponIconPath(type) });
-  }
-
-  list.push({ label: 'Menu/level-intro pixel font (A-Z, 0-9, !, :, .)', path: assets.INTRO_FONT_PATH });
-
-  const backgroundNames = await fetchBackgroundNames();
-  for (const name of backgroundNames) {
-    list.push({ label: `Level background -- ${name}`, path: assets.backgroundTexturePath(name) });
-  }
-
-  return list;
-}
+// Every image the game loads, grouped by what it is, with a filter for
+// finding one among the two hundred of them -- and a card that opens the
+// sprite studio (see spriteStudio.js), which is where anything is
+// actually done to a graphic: watched, painted, or replaced.
+//
+// The list itself is derived, never written down: spriteMeta.js builds it
+// from elements/*.json + js/assets.js + js/animations.js, the same three
+// places the game reads. A new element or a new animation appears here on
+// its own.
+import { el, rootUrl } from './util.js';
+import { buildCatalogue } from './spriteMeta.js';
+import { openSpriteStudio } from './spriteStudio.js';
 
 export async function initGraphicsTab(panel, fs) {
-  panel.innerHTML = '<p>Loading graphics list…</p>';
-  let list;
+  panel.replaceChildren(el('p', { textContent: 'Loading graphics…' }));
+  let groups;
   try {
-    list = await buildGraphicList();
+    groups = await buildCatalogue();
   } catch (err) {
-    panel.innerHTML = `<p class="error">Failed to load elements: ${err.message}</p>`;
+    panel.replaceChildren(el('p', { className: 'error', textContent: `Failed to load the graphics list: ${err.message}` }));
     return;
   }
 
-  panel.innerHTML = '';
-  panel.append(el('p', { className: 'tab-intro', textContent:
-    'Every image file the game loads, straight from elements/*.json + js/assets.js -- upload a replacement (same pixel dimensions as the current file) and Save.' }));
+  const filter = el('input', { type: 'search', placeholder: 'Filter by name or path…', className: 'graphics-filter' });
+  const listEl = el('div', {});
 
-  const grid = document.createElement('div');
-  grid.className = 'graphics-grid';
-  panel.appendChild(grid);
-  for (const item of list) grid.appendChild(buildGraphicCard(item, fs));
+  panel.replaceChildren(
+    el('p', { className: 'tab-intro', textContent:
+      'Every image file the game loads. Open one to play its animations, paint its pixels, or replace the whole file.' }),
+    filter,
+    listEl,
+  );
+
+  const cards = [];
+  for (const group of groups) {
+    if (!group.items.length) continue;
+    const grid = el('div', { className: 'graphics-grid' });
+    const section = el('section', { className: 'graphics-group' }, [
+      el('h2', { textContent: `${group.title} (${group.items.length})` }),
+      grid,
+    ]);
+    for (const entry of group.items) {
+      const card = buildCard(entry, fs);
+      cards.push({ entry, card, section });
+      grid.append(card);
+    }
+    listEl.append(section);
+  }
+
+  filter.addEventListener('input', () => {
+    const needle = filter.value.trim().toLowerCase();
+    const shown = new Set();
+    for (const { entry, card, section } of cards) {
+      const hit = !needle || entry.label.toLowerCase().includes(needle) || entry.path.toLowerCase().includes(needle);
+      card.classList.toggle('hidden', !hit);
+      if (hit) shown.add(section);
+    }
+    // A heading with nothing under it reads as an empty category rather
+    // than as one the filter simply did not match.
+    for (const section of new Set(cards.map((c) => c.section))) {
+      section.classList.toggle('hidden', !shown.has(section));
+    }
+  });
 }
 
-function buildGraphicCard({ label, path }, fs) {
-  const card = document.createElement('div');
-  card.className = 'card';
+function buildCard(entry, fs) {
+  const card = el('div', { className: 'card graphic-card' });
+  const preview = el('img', { className: 'preview', alt: entry.label, src: `${rootUrl(entry.path)}?t=${Date.now()}` });
 
-  card.append(el('h3', { textContent: label }));
-  card.append(el('code', { textContent: path, className: 'path' }));
+  const badges = el('div', { className: 'badges' });
+  if (entry.animations.length) {
+    badges.append(el('span', {
+      className: 'badge badge-anim',
+      textContent: `▶ ${entry.animations.length} animation${entry.animations.length === 1 ? '' : 's'}`,
+    }));
+  }
+  if (entry.frame) {
+    badges.append(el('span', {
+      className: 'badge',
+      textContent: `${entry.frame.frameWidth}x${entry.frame.frameHeight} cells`,
+    }));
+  }
+  if (entry.generator) {
+    badges.append(el('span', { className: 'badge badge-generated', textContent: 'generated', title: `Drawn by ${entry.generator.tool}` }));
+  }
 
-  const preview = el('img', { className: 'preview', alt: label, src: `${rootUrl(path)}?t=${Date.now()}` });
-  card.append(preview);
-
-  const fileInput = el('input', { type: 'file', accept: 'image/*' });
-  card.append(fileInput);
-
-  const status = statusParagraph();
-
-  let pendingFile = null;
-  fileInput.addEventListener('change', () => {
-    pendingFile = fileInput.files[0] || null;
-    if (pendingFile) preview.src = URL.createObjectURL(pendingFile);
-    status.textContent = '';
+  const openBtn = el('button', { textContent: 'Open', className: 'primary' });
+  const open = () => openSpriteStudio(entry, fs, {
+    // Whatever was saved in there, this card is still showing the file as
+    // it was when the list was built.
+    onClose: () => { preview.src = `${rootUrl(entry.path)}?t=${Date.now()}`; },
   });
+  openBtn.addEventListener('click', open);
+  preview.addEventListener('click', open);
 
-  const saveBtn = el('button', { textContent: 'Save' });
-  saveBtn.addEventListener('click', async () => {
-    if (!pendingFile) {
-      status.textContent = 'Choose a replacement file first.';
-      return;
-    }
-    saveBtn.disabled = true;
-    status.textContent = 'Saving…';
-    try {
-      await fs.saveFile(path, pendingFile);
-      // Re-read the just-written file from the server instead of leaving
-      // the local object URL on screen, so the preview reflects what is
-      // actually on disk now. Cache-busted: the path didn't change, so
-      // the browser would otherwise reuse its cached copy.
-      preview.src = `${rootUrl(path)}?t=${Date.now()}`;
-      status.textContent = SAVED_ASSET_MSG;
-    } catch (err) {
-      status.textContent = `Save failed: ${err.message}`;
-    }
-    saveBtn.disabled = false;
-  });
-  card.append(saveBtn, status);
-
+  card.append(
+    el('h3', { textContent: entry.label }),
+    el('code', { textContent: entry.path, className: 'path' }),
+    preview,
+    badges,
+    openBtn,
+  );
   return card;
 }
