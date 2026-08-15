@@ -17,7 +17,7 @@
 // reaching anyone who had already opened the game). The old cache is
 // deleted the moment the new worker activates (see activate), so a
 // release is never served half from the previous one.
-const CACHE_VERSION = 'super-pang-edcb9c65e51b';
+const CACHE_VERSION = 'super-pang-e8396f17e30f';
 const PRECACHE_LIST = 'sw-precache.json';
 
 // The files the game cannot start without. These have to cache for the

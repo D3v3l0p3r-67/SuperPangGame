@@ -30,7 +30,7 @@ const ELEMENT_IDS = [
   'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
   'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x', 'btn-zoom-fit',
   'screen-keys', 'keys-title', 'keys-list', 'keys-hint', 'btn-keys-reset', 'btn-close-keys',
-  'screen-level-select', 'level-select-title', 'level-select-list', 'btn-new-level',
+  'screen-level-select', 'level-select-title', 'level-select-list',
   'screen-pause', 'pause-title',
   'screen-game-over', 'gameover-title', 'final-score',
   'screen-victory', 'victory-title', 'victory-score',
@@ -97,7 +97,6 @@ const STATIC_LABELS = [
   ['btn-erase-no', 'CANCEL', 'button', COLORS.text],
   ['erase-done', 'PROGRESS ERASED.', 'body', COLORS.accent],
   ['btn-close-options', 'BACK', 'button', COLORS.text],
-  ['btn-new-level', 'NEW LEVEL', 'button', COLORS.text],
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
   ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
@@ -196,16 +195,6 @@ export class UI {
 
     this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
-
-    // A new level has to go in one of the campaign's slots -- there are
-    // fifty and no fifty-first (see the README's "Adding levels"). So
-    // this does not choose one: it arms the list above it, and the next
-    // slot picked opens EMPTY instead of with what is in it. Pressing it
-    // again puts the list back to ordinary editing.
-    this.el['btn-new-level'].addEventListener('click', () => {
-      this.newLevelArmed = !this.newLevelArmed;
-      this.renderLevelSelect();
-    });
 
     // Erasing what the player has DONE -- scores, unlocks, record times;
     // never their settings, their keys or their edited levels (see
@@ -499,10 +488,6 @@ export class UI {
     } else if (state === GAME_STATES.HIGH_SCORE_TABLE) {
       this.renderHighScores();
     } else if (state === GAME_STATES.LEVEL_SELECT) {
-      // Never armed on arrival: NEW LEVEL changes what clicking a slot
-      // DOES, and a screen that reopened still armed would blank a level
-      // someone only meant to edit.
-      this.newLevelArmed = false;
       this.renderLevelSelect();
     } else if (state === GAME_STATES.KEY_CONFIG) {
       this.renderKeyList();
@@ -522,18 +507,8 @@ export class UI {
     const list = this.el['level-select-list'];
     list.innerHTML = '';
     const editing = this.game.levelSelectMode === 'edit';
-    const arming = editing && this.newLevelArmed;
     const edits = this.storage.loadLevelEdits();
-    // The title carries the armed state, because it is the one thing on
-    // screen big enough to say what the next click will do -- and what it
-    // will do to a slot that already has a level in it is not obvious
-    // from a highlighted button alone.
-    const title = editing ? (arming ? 'NEW LEVEL: PICK A SLOT' : 'EDIT LEVEL') : 'START LEVEL';
-    setPixelText(this.el['level-select-title'], title, 'h2', COLORS.accent);
-    this.el['btn-new-level'].classList.toggle('hidden', !editing);
-    this.el['btn-new-level'].classList.toggle('menu-btn-on', arming);
-    setPixelText(this.el['btn-new-level'], arming ? 'CANCEL NEW LEVEL' : 'NEW LEVEL', 'button',
-      arming ? COLORS.accent : COLORS.text);
+    setPixelText(this.el['level-select-title'], editing ? 'EDIT LEVEL' : 'START LEVEL', 'h2', COLORS.accent);
     const progress = this.storage.loadProgress();
     const times = this.storage.loadLevelTimes();
     LEVELS.forEach((def, i) => {
@@ -568,7 +543,7 @@ export class UI {
       if (unlocked) {
         btn.addEventListener('click', () => {
           this.audio.resumeContext();
-          if (editing) this.game.editLevel(i, arming);
+          if (editing) this.game.editLevel(i);
           else this.game.startAtLevel(i);
         });
       }

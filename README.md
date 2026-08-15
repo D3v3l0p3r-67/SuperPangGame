@@ -1209,14 +1209,15 @@ The **FILE** buttons all act on that same level:
 - **Import** replaces what is being edited with a level file from disk,
   and **Clear all** empties it -- neither writes anything until Save.
 - **New** starts a BLANK level in the slot this session has open, which is
-  what lets the editor author a level rather than only edit one. The same
-  thing is reachable one step earlier, which is where you would look for
-  it: the **EDIT LEVEL** picker has a **NEW LEVEL** button. A new level
-  still has to go in one of the fifty slots, so that button does not
-  choose one -- it ARMS the list, and the next slot picked opens empty
-  instead of with what is in it. The title says so while it is armed, and
-  it is never armed when the screen opens, because a picker that reopened
-  armed would blank a level someone only meant to edit. Not the
+  what lets the editor author a level rather than only edit one.
+
+  It lives in the editor and nowhere else, deliberately. There was
+  briefly a **NEW LEVEL** button on the **EDIT LEVEL** picker, and it was
+  a promise the game cannot keep: there are fifty level slots and no
+  fifty-first, so "new level" there could only mean "open one of these
+  fifty and wipe it", which is what New already does with the slot you
+  have open. A button whose name says one thing and whose effect is
+  another is worse than no button. Not the
   same thing as Clear all: that empties the field but leaves everything
   the level IS -- its name, time limit, background and weapon all still
   come from whatever was opened, so what you are left with is that level

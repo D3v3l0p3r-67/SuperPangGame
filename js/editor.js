@@ -23,13 +23,58 @@ const TILE_BRUSHES = [
   { id: 'crate', label: 'Crate' },
 ];
 const START_BRUSH = { id: 'start', label: 'Start' };
+// How many ball brushes go on one row of the panel: half of the current
+// twenty-three, so they sit in two rows. One row of them was wider than
+// the whole panel by itself. Chunked by a count rather than split in
+// half, so a sixth kind of ball wraps onto a third row instead of making
+// the two rows longer again (see buildPanel, and the smoke test that
+// measures the panel against the width it actually has).
+const BALL_BRUSHES_PER_ROW = 12;
 const ERASE_BRUSH = { id: 'erase', label: 'Erase' };
+
+// Two letters per ball kind, unique across all of them: the first, plus
+// the first letter that tells it apart from the other kinds starting the
+// same way. round/wave need only the first; hex, heavy and hunter all
+// start with H and become HX, HA, HN.
+//
+// One letter was enough when there were two kinds. With five, thirteen
+// of the twenty-three ball brushes were all labelled "H" and there was
+// no way to tell a hunter from a heavy in the editor at all. Two is also
+// as many as the panel can afford -- these buttons sit in rows of twelve
+// across a strip exactly as wide as the canvas.
+//
+// Derived rather than a table of names, so a kind added later is
+// distinguished without anyone remembering to come here.
+function shapeAbbreviations() {
+  const shapes = [...new Set(BALL_ELEMENTS.map((el) => el.shape))];
+  const out = {};
+  for (const shape of shapes) {
+    const sharing = shapes.filter((other) => other !== shape && other[0] === shape[0]);
+    let mark = '';
+    if (sharing.length) {
+      // The first position where this name differs from every other name
+      // that starts the same. A name that is another's prefix has none,
+      // and keeps its whole self rather than a letter it doesn't have.
+      const at = [...shape].findIndex((letter, i) => i > 0 && sharing.every((other) => other[i] !== letter));
+      mark = at > 0 ? shape[at] : shape.slice(1);
+    }
+    out[shape] = (shape[0] + mark).toUpperCase();
+  }
+  return out;
+}
 
 // Builds the brush list for balls straight from BALL_ELEMENTS, so a new
 // elements/<shape>-ball-<size>.json shows up as a brush automatically --
-// same registry the debug spawn panel uses.
+// same registry the debug spawn panel uses. The button is small, so the
+// label is the abbreviation above and the element's own name is the
+// tooltip.
 function ballBrushes() {
-  return BALL_ELEMENTS.map((el) => ({ id: `ball-${el.shape}-${el.size}`, label: `${el.shape[0].toUpperCase()}${el.size}` }));
+  const abbreviation = shapeAbbreviations();
+  return BALL_ELEMENTS.map((el) => ({
+    id: `ball-${el.shape}-${el.size}`,
+    label: `${abbreviation[el.shape]}${el.size}`,
+    title: el.label,
+  }));
 }
 
 // Same idea for ladders: a new elements/<ladder>.json is a new brush, no
@@ -61,7 +106,7 @@ function backgroundNames() {
 // have used anyway for a level that never had one; there is no control
 // for it here, so a level authored this way is renamed by editing the
 // exported file.
-export function blankLevelDef(levelNumber) {
+function blankLevelDef(levelNumber) {
   return {
     id: levelNumber,
     name: `Level ${levelNumber}`,
@@ -181,7 +226,7 @@ export class Editor {
 
     this.brushButtons = {};
     const brushButton = (brush) => {
-      const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.id);
+      const btn = makeButton(brush.label, () => this.setBrush(brush.id), brush.title ?? brush.id);
       this.brushButtons[brush.id] = btn;
       return btn;
     };
@@ -189,10 +234,23 @@ export class Editor {
     // What the pointer paints. Split by what the brushes actually put
     // down -- the structure of the level on one row, the balls that have
     // to be popped in it on the next -- rather than one long run of them.
+    // ...and the balls wrapped over as many rows as they need rather than
+    // one long line. There are five kinds of them now; in a single row
+    // that one group was wider than the whole panel, which is a fixed
+    // band across the HUD strip -- so it scrolled sideways, and
+    // everything after it (FILE, GO, the counts) could only be reached by
+    // dragging the panel. Chunked by a count rather than split in half,
+    // so a sixth kind wraps onto another row instead of making the rows
+    // longer again.
+    const balls = ballBrushes().map(brushButton);
+    const ballRows = [];
+    for (let i = 0; i < balls.length; i += BALL_BRUSHES_PER_ROW) {
+      ballRows.push(row(...balls.slice(i, i + BALL_BRUSHES_PER_ROW)));
+    }
     this.panelEl.appendChild(group(
       'BRUSH',
       row(...[...TILE_BRUSHES, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
-      row(...ballBrushes().map(brushButton)),
+      ...ballRows,
     ));
 
     // Options that apply to the NEXT placed ball/crate: initial direction

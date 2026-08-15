@@ -279,47 +279,20 @@ test('the editor can start a level from nothing', async () => {
   assert.equal(drainErrors(), '');
 });
 
-test('NEW LEVEL arms the picker, and a save with no admin tool says so', async () => {
-  const picker = () => game.page.evaluate(() => ({
-    newVisible: !document.getElementById('btn-new-level').classList.contains('hidden'),
-    armed: document.getElementById('btn-new-level').classList.contains('menu-btn-on'),
-  }));
-
-  // Through the menu each time, which is the only way to reach this
-  // screen: the list is rebuilt when the screen is ENTERED, so switching
-  // mode without leaving it -- something no player can do -- would leave
-  // the previous mode's list on screen.
-  await game.scene((s) => s.goToMenu());
-  await game.scene((s) => s.showLevelSelect('play'));
-  await game.frames(3);
-  assert.equal((await picker()).newVisible, false, 'NEW LEVEL has no business on the play picker');
-
-  await game.scene((s) => s.goToMenu());
-  await game.scene((s) => s.showLevelSelect('edit'));
-  await game.frames(3);
-  assert.deepEqual(await picker(), { newVisible: true, armed: false });
-
-  await game.page.click('#btn-new-level');
-  await game.frames(2);
-  assert.equal((await picker()).armed, true, 'pressing NEW LEVEL should arm the list, not open anything');
-
-  // Slot 12 has a level in it; armed, it must open empty anyway.
-  await game.page.evaluate(() => document.querySelectorAll('#level-select-list button')[11].click());
-  await game.frames(6);
-  assert.deepEqual(await game.scene((s) => ({
-    level: s.editor.levelNumber, blocks: s.editor.blocks.size, balls: s.editor.balls.size,
-  })), { level: 12, blocks: 0, balls: 0 });
-
+test('a save with no admin tool says it is local, and does it', async () => {
   // These tests are served by tests/smoke/server.mjs, which is Node and
-  // has no PHP -- so the file save cannot work, and the editor has to say
-  // that plainly rather than reporting a save that only this browser can
-  // see as though it had reached the project.
+  // has no PHP -- so the file save cannot work. The editor has to say
+  // that plainly rather than reporting a save only this browser can see
+  // as though it had reached the project.
+  await game.scene((s) => s.editLevel(11));
+  await game.frames(6);
   await game.scene((s) => { s.editor.setBlock(160, 336, 'crate', null); s.editor.save(); });
   await game.page.waitForFunction(
     () => !/SAVING/.test(window.game.scene.getScene('Game').editor.statusMessage || ''), null, { timeout: 15000 },
   );
   const status = await game.scene((s) => s.editor.statusMessage);
   assert.match(status, /THIS BROWSER ONLY/, `save should own up to being local, said: ${status}`);
+
   // Contains, not equals: the erase-progress test above deliberately
   // leaves an edit of its own behind, and this one has no business
   // caring about that.
@@ -329,13 +302,36 @@ test('NEW LEVEL arms the picker, and a save with no admin tool says so', async (
   assert.ok(savedLevels.includes('12'),
     `the local save is the fallback -- it has to actually be there, found ${JSON.stringify(savedLevels)}`);
 
-  // And the arming must not survive the screen closing: a picker that
-  // reopened armed would blank a level someone only meant to edit.
-  await game.scene((s) => s.goToMenu());
-  await game.scene((s) => s.showLevelSelect('edit'));
-  await game.frames(3);
-  assert.equal((await picker()).armed, false);
-  await game.scene((s) => s.goToMenu());
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
+  assert.equal(drainErrors(), '');
+});
+
+test('every ball brush says which kind it is', async () => {
+  // Five kinds of ball, three of whose names begin with the same letter.
+  // A panel of buttons where thirteen of twenty-three read "H" is a panel
+  // you cannot author with.
+  await game.scene((s) => s.editLevel(0));
+  await game.frames(6);
+  const labels = await game.page.evaluate(() => [...document.querySelectorAll('#editor-panel button')]
+    .filter((b) => /^[A-Z]+[0-9]$/.test(b.textContent))
+    .map((b) => b.textContent));
+  assert.ok(labels.length >= 20, `expected a brush per ball element, found ${labels.length}`);
+  assert.equal(new Set(labels).size, labels.length,
+    `two ball brushes share a label: ${labels.join(' ')}`);
+
+  // And the panel has to FIT: it is a fixed band across the HUD strip,
+  // and anything past its right edge can only be reached by dragging it
+  // sideways -- which is where Save, Play and the counts had ended up.
+  const panel = await game.page.evaluate(() => {
+    const el = document.getElementById('editor-panel');
+    return { content: el.scrollWidth, visible: el.clientWidth };
+  });
+  assert.ok(panel.content <= panel.visible,
+    `the editor panel needs ${panel.content}px of the ${panel.visible}px it has`);
+
+  await game.scene((s) => s.exitEditor());
+  await game.frames(2);
   assert.equal(drainErrors(), '');
 });
 

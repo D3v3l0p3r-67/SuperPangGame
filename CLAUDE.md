@@ -89,10 +89,12 @@ Editing the generated `.webp`/`.png` directly gets overwritten.
 - **The pixel font draws uppercase, digits, and `!`, `:`, `.` only**
   (`INTRO_FONT_CHARS`). No commas, apostrophes or arrows in any menu
   string, or the glyph is simply missing.
-- **The debug and editor panels are exactly the canvas's width.** The
-  editor's is a fixed band; a group that grows a row pushes its own
-  buttons out of it. Make a revealed row *replace* one rather than add
-  one.
+- **The debug and editor panels are exactly the canvas's width**, and the
+  editor's is also a fixed-height band. It is full: adding a control
+  costs another one its place, and adding a row overflows the band. The
+  ball brushes wrap at `BALL_BRUSHES_PER_ROW`, only the readout group is
+  allowed to shrink, and a revealed row must *replace* one rather than
+  add one. `tests/smoke/` measures the panel against the width it has.
 
 ## Conventions
 

@@ -25,7 +25,7 @@ import {
 } from './regions.js';
 import { ScorePopup } from './ScorePopup.js';
 import { Debug } from './debug.js';
-import { Editor, blankLevelDef } from './editor.js';
+import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
 import * as storage from './storage.js';
@@ -451,14 +451,9 @@ export class GameScene extends Phaser.Scene {
   // Opens the editor on a campaign level, from the level list (see
   // showLevelSelect('edit')). A fresh pick starts from that level as it
   // stands, so any buffer left by a previous session's playtest goes.
-  // `blank` opens the slot with a level that has nothing in it rather
-  // than with what is there -- authoring one instead of changing one (see
-  // the level picker's NEW LEVEL). It needs no plumbing of its own: a
-  // blank level IS a draft, which is the buffer the editor already opens
-  // with when a playtest hands one back.
-  editLevel(levelIndex, blank = false) {
+  editLevel(levelIndex) {
     this.editorLevelIndex = levelIndex;
-    this.editorDraft = blank ? blankLevelDef(levelIndex + 1) : null;
+    this.editorDraft = null;
     this.enterEditor();
   }
 
