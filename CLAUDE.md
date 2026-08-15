@@ -57,6 +57,7 @@ Two traps, both of which have cost real debugging time:
 | geometry, colours, states | `js/constants.js` |
 | balls / obstacles / power-ups / ladders | `elements/*.json`, registered by `js/elements.js` |
 | every file path + texture key | `js/assets.js` — the one place both loader and consumer read |
+| every animation (frames, fps, loop) | `js/animations.js` — `BootScene` iterates it, the admin's sprite studio replays it |
 | levels | `levels/level_NN.json`, probed 1..`MAX_LEVEL_FILES` (50) |
 | writing a level back | `js/levelFile.js` -> `admin/save.php`, only where PHP runs and the admin session exists; `localStorage` otherwise |
 | regions | `levels/regions.json`, one per `LEVELS_PER_REGION` levels |

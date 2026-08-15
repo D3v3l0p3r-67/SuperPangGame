@@ -964,6 +964,13 @@ js/
                       level file to its texture/cache key and file path --
                       the one place every loader/consumer reads from, so
                       they can't disagree
+  animations.js      Every animation as data -- which texture, which of
+                      its frames in which order, how fast, and whether it
+                      loops. assets.js names files, this names motion.
+                      BootScene builds Phaser's animations by iterating it,
+                      and the admin tool's sprite studio plays a sheet back
+                      from the same entries, so a preview cannot run at a
+                      rate the game does not
   Ladder.js          Climbable scenery: a rectangle and a picture, with no
                       physics body at all -- see Player.js for the climb
   elements.js        BALL_ELEMENTS/OBSTACLE_TYPES/LADDER_TYPES/
@@ -979,9 +986,10 @@ js/
                       then starts Boot
   BootScene.js       Boots second (registries are populated by now, so it
                       knows exactly which files to ask for): loads every
-                      graphic (see assets.js) and builds the player's
-                      Phaser animations -- nothing is drawn procedurally,
-                      everything is a loaded file
+                      graphic (see assets.js) and creates one Phaser
+                      animation per entry in animations.js -- nothing is
+                      drawn procedurally and no rate is decided here,
+                      everything is a loaded file read from a registry
   GameScene.js       The whole game: state machine, Arcade colliders/
                       overlaps, keyboard input, particle bursts, and the
                       public API (startNewGame/pause/etc.) ui.js talks to
@@ -1455,7 +1463,7 @@ dimensions:
   each frame that same square, one rotation phase spaced across the
   shape's own rotational symmetry so the last frame loops back into the
   first seamlessly (see `js/assets.js`'s `ballSpinAnimKey` and
-  `BootScene.js`'s `hexSpinFrameRate` for the fixed per-size playback
+  `js/animations.js`'s `hexSpinFrameRate` for the fixed per-size playback
   speed) -- a `hasGravity: true` shape (round today) never spins, so it
   stays one plain static image.
 - **Ball pop effect**: `assets/balls/pop_<shape>_<size>.webp` -- one
