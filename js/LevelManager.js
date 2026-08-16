@@ -99,12 +99,15 @@ export function loadLevel(scene, idxOrDef) {
 
   scene.clearEntities();
 
-  for (const o of def.obstacles) {
+  // One id per authored obstacle, shared by every block it decomposes
+  // into: a 64x16 crate is four bodies and one THING, and shooting it
+  // takes the thing (see GameScene.onProjectileHitObstacle).
+  def.obstacles.forEach((o, pieceId) => {
     for (const [dx, dy, bw, bh] of obstacleBlocks(o)) {
-      const block = new Obstacle(scene, o.type, o.x + dx, o.y + dy, bw, bh, o.powerup || null);
+      const block = new Obstacle(scene, o.type, o.x + dx, o.y + dy, bw, bh, o.powerup || null, pieceId);
       scene.obstacles.add(block);
     }
-  }
+  });
   refreshObstacleSeams(scene.obstacles);
 
   // Optional, and defaulted here rather than required in the data: every

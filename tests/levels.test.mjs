@@ -81,10 +81,12 @@ test('obstacles are on the 16px grid and inside the playfield', () => {
       }
       if (o.powerup !== undefined) {
         assert.ok(POWERUP_TYPES.has(o.powerup), `${where}: unknown powerup "${o.powerup}"`);
-        // The tag is copied onto every block the obstacle becomes, so a
-        // four-block crate holding a power-up bursts four of them.
-        assert.equal(obstacleCells(o, OBSTACLE_BLOCK_SIZE).length, 1,
-          `${where}: holds a power-up in more than one block`);
+        // Any size, because a breakable obstacle now goes down as one
+        // thing and drops its power-up once (GameScene's
+        // onProjectileHitObstacle). It used to have to be a single block:
+        // the tag is copied onto every block the obstacle becomes, and
+        // back when a shot took one block at a time, a four-block crate
+        // holding a shield paid out four shields.
         assert.equal(o.type, 'crate', `${where}: holds a power-up but cannot be broken open`);
       }
     }

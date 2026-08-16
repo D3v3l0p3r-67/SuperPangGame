@@ -777,6 +777,17 @@ seam between the canvas and the page behind it.
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
   shooting it with the harpoon.
+- **A breakable obstacle goes down as one thing.** A 64x16 crate is four
+  bodies -- that is how it collides, and how a shape stays solid while
+  part of it is gone -- but a player shooting it is shooting a crate, not
+  a quarter of one, so one shot takes the whole obstacle the level
+  authored (`LevelManager` gives every block of one entry the same
+  `pieceId`; see `GameScene.onProjectileHitObstacle`). The burst is spread
+  along it rather than fired from its middle, so a beam reads as coming
+  apart along its length. A guaranteed drop pays out once, from the middle
+  of what just broke -- which is why a drop may now sit on an obstacle of
+  any size, where it used to have to be a single block to avoid paying out
+  once per block.
 - A shield absorbs one hit with no life lost and no interruption; without
   a shield, a hit costs a life and restarts the *current* level from
   scratch (score and remaining lives carry over). Zero lives ends the run.

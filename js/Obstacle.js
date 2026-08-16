@@ -32,7 +32,7 @@ import { hexColor } from './colors.js';
 // half of them rendering nothing -- and left the two to be kept in step
 // by hand on every destroy.
 export class Obstacle extends Phaser.GameObjects.TileSprite {
-  constructor(scene, type, x, y, w, h, powerup = null) {
+  constructor(scene, type, x, y, w, h, powerup = null, pieceId = null) {
     const def = OBSTACLE_TYPES[type];
     super(scene, x, y, w, h, obstacleTextureKey(def.tileTexture));
     this.setOrigin(0, 0);
@@ -49,6 +49,14 @@ export class Obstacle extends Phaser.GameObjects.TileSprite {
     // GameScene.onProjectileHitObstacle. Meaningless (never read) for an
     // indestructible platform block, which never takes damage.
     this.forcedPowerup = powerup;
+    // Which authored obstacle this block is part of (LevelManager gives
+    // every block of one level entry the same id). A breakable obstacle
+    // goes down as a WHOLE -- see GameScene.onProjectileHitObstacle -- so
+    // the blocks have to know what whole they belong to. Null for a block
+    // that stands alone, which is every block the editor paints: what is
+    // one piece there is decided when the level is saved (see
+    // js/obstaclePieces.js) and read back here on the way in.
+    this.pieceId = pieceId;
   }
 
   // Returns true if this hit destroyed the obstacle.
