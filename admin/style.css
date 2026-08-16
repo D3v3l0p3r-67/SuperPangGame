@@ -535,11 +535,6 @@ button.primary {
   border: 1px solid var(--panel-border);
 }
 
-.alpha-slider {
-  width: 88px;
-  vertical-align: middle;
-}
-
 .palette-group {
   display: inline-flex;
   flex-wrap: wrap;

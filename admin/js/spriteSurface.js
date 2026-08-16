@@ -278,17 +278,25 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
     // The colours already in the file, commonest first: this art is drawn
     // from a handful of them, so picking one out of the picture beats
     // matching it by eye in a colour dialog.
+    //
+    // Keyed by COLOUR, not by colour-and-alpha. Keying by both put one
+    // blue in the row a dozen times over -- the same blue at a dozen
+    // alphas, indistinguishable as swatches and useless as choices --
+    // and a swatch is a colour to paint with, which is now always fully
+    // opaque (see the studio: there is no alpha to pick). Pixels that are
+    // fully transparent hold no colour at all and are skipped; the rest
+    // count towards their colour whatever their alpha.
     filePalette(limit = 20) {
       const counts = new Map();
       for (let i = 0; i < state.pixels.length; i += 4) {
         if (state.pixels[i + 3] === 0) continue;
-        const key = `${state.pixels[i]},${state.pixels[i + 1]},${state.pixels[i + 2]},${state.pixels[i + 3]}`;
+        const key = `${state.pixels[i]},${state.pixels[i + 1]},${state.pixels[i + 2]}`;
         counts.set(key, (counts.get(key) ?? 0) + 1);
       }
       return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit)
-        .map(([key]) => {
-          const [r, g, b, a] = key.split(',').map(Number);
-          return { r, g, b, a };
+        .map(([key, count]) => {
+          const [r, g, b] = key.split(',').map(Number);
+          return { r, g, b, a: 255, count };
         });
     },
     render,

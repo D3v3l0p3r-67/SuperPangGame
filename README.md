@@ -1997,11 +1997,19 @@ The controls are three labelled rows above the canvas:
   aligning a column or carrying a limb from one frame into the next.
 - **paint** -- pencil, eraser, flood fill (bounded by the frame on
   screen, so it cannot leak into the cell next door), eyedropper, a brush
-  of 1-8px, alpha, and the pixel grid.
+  of 1-8px, and the pixel grid. Every colour painted is fully opaque and
+  there is no alpha to set: transparency in this art is a SHAPE -- where
+  the sprite is and where it is not -- and the eraser is what says "not
+  here". A half-transparent stroke is a third answer nobody wanted, and it
+  was what filled the palette with one colour repeated at a dozen alphas.
 - **colours** -- the colours already in the file, commonest first, and
   beside them the **game palette** (`js/constants.js`'s `COLORS`) for a
   colour that is not in this file yet but is already in the game. The
-  colour dialog reaches everything else.
+  colour dialog reaches everything else. The file's own row is keyed by
+  COLOUR rather than by colour-and-alpha, so one blue appears once however
+  many alphas it is drawn at, and each swatch's tooltip says its hex and
+  how many pixels of the file are that colour -- which is the question a
+  row of similar swatches raises and could not answer.
 - **file** -- Undo/Redo (Ctrl+Z / Ctrl+Shift+Z), **Open file…**, **Reload
   from disk**, **Save to project**.
 
