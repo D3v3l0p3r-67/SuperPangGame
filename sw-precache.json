@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-0c611d3c4e2d",
+  "version": "super-pang-899aadeca15f",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "2c034a0593ffd3b2",
@@ -32,7 +32,7 @@
     "js/config.js": "bf5fec2e3e958676",
     "js/constants.js": "da319cddaadc3f04",
     "js/debug.js": "cf22717185b803fc",
-    "js/editor.js": "e5a64b7b7c727a0f",
+    "js/editor.js": "af845705eba73da4",
     "js/elements.js": "a434dbda178bd1c1",
     "js/input.js": "2c25ef1904917b4c",
     "js/introText.js": "70df2293e09f66d3",
