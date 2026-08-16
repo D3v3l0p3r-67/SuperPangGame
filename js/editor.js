@@ -13,6 +13,7 @@ import { Ladder } from './Ladder.js';
 import { makeButton, makeSelect, labelled, row, group, setGroupTitle } from './panelUi.js';
 import * as storage from './storage.js';
 import { saveLevelFile } from './levelFile.js';
+import { OBSTACLE_PIECES, obstaclePiece, mergeBlocks } from './obstaclePieces.js';
 
 // Split into the two brushes that TILE (painted cell by cell while the
 // pointer is dragged) and the two that don't, because the panel row below
@@ -263,10 +264,24 @@ export class Editor {
     );
     this.powerupSelect.title = 'Guaranteed drop from the next ball or breakable crate placed'
       + ' -- a wall cannot be broken open, so it never carries one';
+    // How big a piece a wall/crate press puts down. The level format has
+    // always had obstacles bigger than a cell (the shipped levels are full
+    // of 16x64 pillars and 64x16 beams -- see js/obstaclePieces.js); this
+    // is the editor catching up with it. A piece is painted as the cells
+    // it covers, so erasing, seams and the counts all go on working a cell
+    // at a time, and buildDef puts the cells back together on the way out.
+    this.selectedPiece = OBSTACLE_PIECES[0].id;
+    this.pieceSelect = makeSelect(
+      OBSTACLE_PIECES.map((piece) => [piece.id, piece.label]),
+      () => { this.selectedPiece = this.pieceSelect.value; },
+    );
+    this.pieceSelect.title = 'Size of the next wall/crate placed'
+      + ' -- a piece bigger than one block never carries a drop, which belongs on a one-block crate';
     this.panelEl.appendChild(group(
       'NEXT PLACED',
       row(this.dirXBtn, this.dirYBtn),
       row(labelled('Drops ', this.powerupSelect)),
+      row(labelled('Block ', this.pieceSelect)),
       row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect),
     ));
     this.updateOptionLabels();
@@ -576,6 +591,13 @@ export class Editor {
     return `${x},${y}`;
   }
 
+  // The brushes that paint OBSTACLE cells, and so the ones the piece size
+  // applies to -- balls, ladders, the start and the eraser each place
+  // their own thing.
+  isTileBrush() {
+    return TILE_BRUSHES.some((brush) => brush.id === this.brush);
+  }
+
   // Low-level placement (grid cell already known) shared by the live
   // pointer brush and loadDef() -- a wall/crate block always fully
   // occupies its cell, so placing one evicts any ball sitting there.
@@ -643,8 +665,29 @@ export class Editor {
   // obstacle's own element rather than by testing for 'crate', so a
   // second breakable type carries drops without a change here.
   placeBlock(x, y, type) {
-    const drop = OBSTACLE_TYPES[type]?.destructible ? this.selectedPowerup : null;
-    this.setBlock(x, y, type, drop);
+    const piece = obstaclePiece(this.selectedPiece);
+    // A drop belongs on a ONE-BLOCK crate: on a bigger piece the tag goes
+    // onto every block it becomes and bursts one power-up per block (see
+    // js/obstaclePieces.js and the rule in tests/levels.test.mjs).
+    const single = piece.cols === 1 && piece.rows === 1;
+    const drop = single && OBSTACLE_TYPES[type]?.destructible ? this.selectedPowerup : null;
+    const origin = this.pieceOrigin(x, y, piece);
+    for (let row = 0; row < piece.rows; row++) {
+      for (let col = 0; col < piece.cols; col++) {
+        this.setBlock(origin.x + col * OBSTACLE_BLOCK_SIZE, origin.y + row * OBSTACLE_BLOCK_SIZE, type, drop);
+      }
+    }
+  }
+
+  // Where a piece actually lands: the grid snap only guarantees the cell
+  // under the cursor is inside the playfield, and a piece is up to four of
+  // them wide or tall -- so it is pulled back in at the right and bottom
+  // edges rather than being placed half outside (the same thing setLadder
+  // does for a ladder, which is six cells tall).
+  pieceOrigin(x, y, piece) {
+    const maxX = VIRTUAL_W - BORDER_THICKNESS - piece.cols * OBSTACLE_BLOCK_SIZE;
+    const maxY = GROUND_Y - piece.rows * OBSTACLE_BLOCK_SIZE;
+    return { x: Math.min(x, maxX), y: Math.min(y, maxY) };
   }
 
   // A ladder is placed whole, keyed by its top-left cell, and clamped so
@@ -796,7 +839,15 @@ export class Editor {
     // draw its true radius, extending down-right from that same corner, so
     // the cursor shows the whole element about to be placed rather than
     // just the small grid square at its corner.
-    this.cursorGraphics.strokeRect(this.hoverCell.x, this.hoverCell.y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE);
+    // A tile brush outlines the whole PIECE it would put down, not the one
+    // cell under the cursor: a 64x16 beam placed from a 16x16 cursor is a
+    // guess about where its other three cells go.
+    const piece = this.isTileBrush() ? obstaclePiece(this.selectedPiece) : { cols: 1, rows: 1 };
+    const origin = this.isTileBrush() ? this.pieceOrigin(this.hoverCell.x, this.hoverCell.y, piece) : this.hoverCell;
+    this.cursorGraphics.strokeRect(
+      origin.x, origin.y,
+      piece.cols * OBSTACLE_BLOCK_SIZE, piece.rows * OBSTACLE_BLOCK_SIZE,
+    );
     if (this.brush.startsWith('ball-')) {
       const [, shape, sizeStr] = this.brush.split('-');
       const size = parseInt(sizeStr, 10);
@@ -851,12 +902,19 @@ export class Editor {
   }
 
   buildDef() {
-    const obstacles = [...this.blocks.entries()].map(([key, block]) => {
-      const [x, y] = key.split(',').map(Number);
-      const entry = { type: block.type, x, y, w: OBSTACLE_BLOCK_SIZE, h: OBSTACLE_BLOCK_SIZE };
-      if (block.forcedPowerup) entry.powerup = block.forcedPowerup;
-      return entry;
-    });
+    // Painted cells go out as the fewest rectangles that cover exactly
+    // them (see js/obstaclePieces.js) -- which is how the hand-authored
+    // levels are written, and what makes a 64x16 beam one obstacle in the
+    // file instead of four. LevelManager splits them back into the same
+    // blocks on load, so the level is unchanged either way; the file is
+    // simply the shape a person would have written.
+    const obstacles = mergeBlocks(
+      [...this.blocks.entries()].map(([key, block]) => {
+        const [x, y] = key.split(',').map(Number);
+        return { x, y, type: block.type, powerup: block.forcedPowerup || null };
+      }),
+      OBSTACLE_BLOCK_SIZE,
+    );
     const balls = [...this.balls.values()].map((b) => {
       const entry = { shape: b.shape, size: b.size, x: b.x, y: b.y, vx: b.vx, vy: b.vy };
       if (b.powerup) entry.powerup = b.powerup;
