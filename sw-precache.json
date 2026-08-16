@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-27f3a8634d4f",
+  "version": "super-pang-b092ebe8b347",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "2c034a0593ffd3b2",
@@ -19,7 +19,7 @@
     "js/LevelIntro.js": "20796804696fcf53",
     "js/LevelManager.js": "877f3617c61dbb8d",
     "js/LevelTransition.js": "c0189b5d450e5b9b",
-    "js/Obstacle.js": "775b9d18c628be8d",
+    "js/Obstacle.js": "7458d37b92d4b23d",
     "js/PixelText.js": "f5eabc8f8b7e7ecc",
     "js/Player.js": "1c4123eb5b747ec8",
     "js/Projectile.js": "ad3daebb34593a92",
@@ -32,7 +32,7 @@
     "js/config.js": "bf5fec2e3e958676",
     "js/constants.js": "da319cddaadc3f04",
     "js/debug.js": "1348643ad34e5fde",
-    "js/editor.js": "a28152ccc480376b",
+    "js/editor.js": "102e589252085446",
     "js/elements.js": "f59a697ecf52d88c",
     "js/input.js": "2c25ef1904917b4c",
     "js/introText.js": "70df2293e09f66d3",

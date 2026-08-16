@@ -165,6 +165,14 @@ export class Editor {
     this.scene = scene;
     this.brush = 'platform';
     this.blocks = new Map(); // "gx,gy" -> Obstacle instance
+    // One id per PRESS (and per obstacle entry on load): what was put down
+    // together is one obstacle, and stays one through saving, loading and
+    // being shot. Four crates placed side by side are four crates -- they
+    // are drawn with four outlines and they break one at a time -- while
+    // one 64x16 press is one crate that goes in a single shot. The editor
+    // could not tell those apart while the file was written by merging
+    // whatever happened to touch.
+    this.nextPieceId = 0;
     this.dropIcons = new Map(); // "gx,gy" -> the icon drawn on a block that holds a drop
     this.balls = new Map(); // "gx,gy" -> { shape, size, x, y, vx, vy, powerup, sprite }
     this.ladders = new Map(); // "gx,gy" (top-left cell) -> { type, x, y, sprite }
@@ -490,9 +498,12 @@ export class Editor {
       if (!OBSTACLE_TYPE_KEYS.includes(o.type)) continue;
       if (![o.x, o.y, o.w, o.h].every(Number.isFinite)) continue;
       const powerup = POWERUP_TYPE_KEYS.includes(o.powerup) ? o.powerup : null;
+      // One id for the whole entry: an obstacle the file wrote as one
+      // thing stays one thing through editing and back out again.
+      const pieceId = this.nextPieceId++;
       for (let dy = 0; dy < o.h; dy += OBSTACLE_BLOCK_SIZE) {
         for (let dx = 0; dx < o.w; dx += OBSTACLE_BLOCK_SIZE) {
-          this.setBlock(o.x + dx, o.y + dy, o.type, powerup);
+          this.setBlock(o.x + dx, o.y + dy, o.type, powerup, pieceId);
         }
       }
     }
@@ -604,7 +615,7 @@ export class Editor {
   // Low-level placement (grid cell already known) shared by the live
   // pointer brush and loadDef() -- a wall/crate block always fully
   // occupies its cell, so placing one evicts any ball sitting there.
-  setBlock(x, y, type, powerup) {
+  setBlock(x, y, type, powerup, pieceId = null) {
     const key = this.keyFor(x, y);
     const existingBlock = this.blocks.get(key);
     if (existingBlock) existingBlock.destroy();
@@ -613,7 +624,10 @@ export class Editor {
       existingBall.sprite.destroy();
       this.balls.delete(key);
     }
-    const block = new Obstacle(this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup);
+    const block = new Obstacle(
+      this.scene, type, x, y, OBSTACLE_BLOCK_SIZE, OBSTACLE_BLOCK_SIZE, powerup,
+      pieceId === null ? this.nextPieceId++ : pieceId,
+    );
     this.scene.obstacles.add(block);
     this.blocks.set(key, block);
     this.setDropIcon(key, x, y, powerup);
@@ -675,9 +689,10 @@ export class Editor {
     const single = piece.cols === 1 && piece.rows === 1;
     const drop = single && OBSTACLE_TYPES[type]?.destructible ? this.selectedPowerup : null;
     const origin = this.pieceOrigin(x, y, piece);
+    const pieceId = this.nextPieceId++;
     for (let row = 0; row < piece.rows; row++) {
       for (let col = 0; col < piece.cols; col++) {
-        this.setBlock(origin.x + col * OBSTACLE_BLOCK_SIZE, origin.y + row * OBSTACLE_BLOCK_SIZE, type, drop);
+        this.setBlock(origin.x + col * OBSTACLE_BLOCK_SIZE, origin.y + row * OBSTACLE_BLOCK_SIZE, type, drop, pieceId);
       }
     }
   }
@@ -727,7 +742,7 @@ export class Editor {
       block.destroy();
       this.blocks.delete(key);
       this.setDropIcon(key, x, y, null);
-      refreshObstacleSeams(this.scene.obstacles);
+        refreshObstacleSeams(this.scene.obstacles);
     }
     const ball = this.balls.get(key);
     if (ball) {
@@ -905,19 +920,25 @@ export class Editor {
   }
 
   buildDef() {
-    // Painted cells go out as the fewest rectangles that cover exactly
-    // them (see js/obstaclePieces.js) -- which is how the hand-authored
-    // levels are written, and what makes a 64x16 beam one obstacle in the
-    // file instead of four. LevelManager splits them back into the same
-    // blocks on load, so the level is unchanged either way; the file is
-    // simply the shape a person would have written.
-    const obstacles = mergeBlocks(
-      [...this.blocks.entries()].map(([key, block]) => {
-        const [x, y] = key.split(',').map(Number);
-        return { x, y, type: block.type, powerup: block.forcedPowerup || null };
-      }),
-      OBSTACLE_BLOCK_SIZE,
-    );
+    // Out as the pieces they were put down as, each of them as the fewest
+    // rectangles that cover exactly its cells (see js/obstaclePieces.js).
+    // Grouping by piece FIRST is what keeps four crates in a row four
+    // crates: merging by geometry alone would write them as one 64x16
+    // obstacle, which is one shot instead of four now that a breakable
+    // obstacle goes down whole (see GameScene.onProjectileHitObstacle).
+    // Within a piece the merge still applies, so a 64x16 press is one
+    // entry and a piece with a hole shot in it is as few as it can be.
+    const byPiece = new Map();
+    for (const [key, block] of this.blocks.entries()) {
+      const [x, y] = key.split(',').map(Number);
+      const id = block.pieceId ?? -1;
+      if (!byPiece.has(id)) byPiece.set(id, []);
+      byPiece.get(id).push({ x, y, type: block.type, powerup: block.forcedPowerup || null });
+    }
+    const obstacles = [...byPiece.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .flatMap(([, cells]) => mergeBlocks(cells, OBSTACLE_BLOCK_SIZE));
+
     const balls = [...this.balls.values()].map((b) => {
       const entry = { shape: b.shape, size: b.size, x: b.x, y: b.y, vx: b.vx, vy: b.vy };
       if (b.powerup) entry.powerup = b.powerup;

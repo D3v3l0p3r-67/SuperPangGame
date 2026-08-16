@@ -112,11 +112,58 @@ export function refreshObstacleSeams(obstaclesGroup) {
     block.body.checkCollision.down = !down;
     block.body.checkCollision.left = !left;
     block.body.checkCollision.right = !right;
-    // The same four answers decide what the shape LOOKS like: an internal
-    // face is not an edge, so nothing is drawn along it.
-    block.edges = { up: !up, down: !down, left: !left, right: !right };
+  }
+
+  // What the shape LOOKS like is a different question from what it
+  // collides as, and the difference is what breaks.
+  //
+  // Collision is about geometry: two bodies that touch must not catch on
+  // their shared seam, whoever owns them. The bevel is about identity: a
+  // breakable obstacle goes down as one thing (see GameScene's
+  // onProjectileHitObstacle), so its outline has to be the outline of the
+  // thing that goes down. Drawn by adjacency instead, one 64x16 crate and
+  // four 16x16 crates flush against each other were the same picture --
+  // measured, pixel for pixel -- while one costs a shot and the other
+  // costs four.
+  //
+  // Only for what can be destroyed. Nothing ever breaks an indestructible
+  // wall, so for those the shape IS the truth and two of them meeting is
+  // not a fact worth drawing a line about -- an arch built from three
+  // entries stays one arch.
+  for (const block of blocks) {
+    const exposed = (neighbour) => !neighbour || !samePiece(block, neighbour);
+    const neighbours = { up: null, down: null, left: null, right: null };
+    const { x, y, width: w, height: h } = block.body;
+    for (const other of blocks) {
+      if (other === block) continue;
+      const o = other.body;
+      const verticalOverlap = o.x < x + w && o.x + o.width > x;
+      const horizontalOverlap = o.y < y + h && o.y + o.height > y;
+      if (verticalOverlap && o.y + o.height === y) neighbours.up = other;
+      if (verticalOverlap && o.y === y + h) neighbours.down = other;
+      if (horizontalOverlap && o.x + o.width === x) neighbours.left = other;
+      if (horizontalOverlap && o.x === x + w) neighbours.right = other;
+    }
+    block.edges = {
+      up: exposed(neighbours.up),
+      down: exposed(neighbours.down),
+      left: exposed(neighbours.left),
+      right: exposed(neighbours.right),
+    };
   }
   drawObstacleEdges(obstaclesGroup);
+}
+
+// Whether two touching blocks are the same OBJECT, for the purpose of
+// drawing an edge between them. Indestructible blocks of one material
+// count as one: nothing ever takes them apart, so where one ends and the
+// next begins is not something the player has to know. Breakable ones
+// have to belong to the same authored obstacle (LevelManager's pieceId,
+// or the editor's own -- see editor.js's assignPieceIds).
+function samePiece(a, b) {
+  if (a.type !== b.type) return false;
+  if (!a.def.destructible) return true;
+  return a.pieceId !== null && a.pieceId !== undefined && a.pieceId === b.pieceId;
 }
 
 // The bevel, drawn around the outside of whatever shape the blocks form.

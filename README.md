@@ -777,6 +777,12 @@ seam between the canvas and the page behind it.
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
   shooting it with the harpoon.
+- **You can see what breaks together.** The bevel is drawn around the
+  piece, not around whatever happens to touch: four crates side by side
+  are four outlines and four shots, one 64x16 crate is one outline and one
+  shot. Walls are the exception and stay merged -- nothing ever breaks
+  one, so where one ends and the next begins is not a fact the player
+  needs, and an arch built from three entries stays one arch.
 - **A breakable obstacle goes down as one thing.** A 64x16 crate is four
   bodies -- that is how it collides, and how a shape stays solid while
   part of it is gone -- but a player shooting it is shooting a crate, not
@@ -1316,11 +1322,16 @@ new reaches the level format here -- an obstacle has always been
 A piece is painted as the cells it covers, so erasing, the seam
 recalculation and the counts all go on working a cell at a time, and the
 cursor outlines the whole piece rather than the one cell under it.
-**Save/Export put the cells back together**: `js/obstaclePieces.js`'s
-`mergeBlocks` writes the fewest rectangles that cover exactly the painted
-cells, which is the shape a person writing the file by hand would have
-used -- a beam is one obstacle rather than four, and a painted wall is one
-entry rather than eleven. `LevelManager` splits them into the same blocks
+**Save/Export put the cells back together, one PRESS at a time**: every
+press gets an id, and the file is written by grouping the cells by that
+id and running `js/obstaclePieces.js`'s `mergeBlocks` within each group --
+the fewest rectangles that cover exactly those cells. So a 64x16 press is
+one obstacle in the file, and four 16x16 presses side by side are four
+obstacles, which is the difference between one shot and four now that a
+breakable obstacle goes down whole. (Merging by geometry alone, which is
+what this did at first, could not tell those two apart -- and neither
+could the picture, until the bevel started following pieces rather than
+whatever happened to touch.) `LevelManager` splits them into the same blocks
 again on load, so the level itself is unchanged either way, and
 `tests/obstacles.test.mjs` holds the one thing that must never drift: the
 merged obstacles cover exactly the cells that were painted, each once.
