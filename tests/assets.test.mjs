@@ -30,6 +30,41 @@ test('elements/index.json lists exactly the element files that exist', () => {
   for (const id of onDisk) assert.ok(listed.has(id), `elements/${id}.json exists but is not in index.json`);
 });
 
+// An element is addressed by its FILENAME (elements/index.json lists
+// filenames, and js/assets.js's elementFilePath builds the path from
+// one), and carries that same name again in its own `id` field. Nothing
+// in the game reads `id` -- which is exactly why a rename that forgets it
+// goes unnoticed until someone reads the file and believes it.
+test('every element is named the same thing in all three places', () => {
+  for (const el of [...EL.balls, ...EL.obstacles, ...EL.ladders, ...EL.powerups]) {
+    assert.ok(exists(`elements/${el.id}.json`),
+      `an element calls itself "${el.id}", but there is no elements/${el.id}.json -- `
+      + 'the file was renamed and the id inside it was not');
+  }
+});
+
+// A power-up's file is named after its `type`, kebab-cased: that type is
+// the key EVERYTHING else uses -- a level's `powerup` field, the HUD, the
+// effect, and assets/powerups/<type>.webp -- so deriving the filename
+// from it is what makes the file findable from a level that names it.
+//
+// The rule this enforces in general is "nothing in a name that can change
+// while the thing stays the same". These files used to be called
+// powerup-shield-8s, powerup-stoptime-6s and so on, and the seconds in
+// three of those names had already drifted from the durationMs inside
+// them. A ball's size stays in its name (round-ball-3) because a ball
+// cannot change size and still be the same ball -- a shield can change
+// how long it lasts.
+test('a power-up file is named after its type, and after nothing else', () => {
+  for (const el of EL.powerups) {
+    assert.equal(el.id, `powerup-${el.type.replace(/_/g, '-')}`,
+      `${el.id}: a power-up's file is named "powerup-<type>" -- here the type is "${el.type}"`);
+    assert.ok(!/\d/.test(el.id),
+      `${el.id}: a number in the name is a value that can change (a duration, a count) `
+      + 'while the power-up stays the same power-up -- it belongs in the file, not in its name');
+  }
+});
+
 test('every element has the graphic BootScene will load for it', () => {
   for (const el of EL.balls) {
     assert.ok(exists(ballTexturePath(el.shape, el.size)), `${el.id}: missing ${ballTexturePath(el.shape, el.size)}`);

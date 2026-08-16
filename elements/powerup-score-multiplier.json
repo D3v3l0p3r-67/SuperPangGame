@@ -1,5 +1,5 @@
 {
-  "id": "powerup-scoremultiplier-15s",
+  "id": "powerup-score-multiplier",
   "category": "powerup",
   "type": "score_multiplier",
   "label": "2x Score",

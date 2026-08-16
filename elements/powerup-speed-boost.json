@@ -1,5 +1,5 @@
 {
-  "id": "powerup-speedboost-10s",
+  "id": "powerup-speed-boost",
   "category": "powerup",
   "type": "speed_boost",
   "label": "Speed Boost",
