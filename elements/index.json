@@ -25,11 +25,11 @@
   "obstacle-platform",
   "obstacle-crate",
   "ladder",
-  "powerup-bonusfruit-instant",
-  "powerup-rapidshot-12s",
-  "powerup-speedboost-10s",
-  "powerup-extralife-instant",
-  "powerup-scoremultiplier-15s",
-  "powerup-stoptime-6s",
-  "powerup-shield-8s"
+  "powerup-bonus-fruit",
+  "powerup-rapid-shot",
+  "powerup-speed-boost",
+  "powerup-extra-life",
+  "powerup-score-multiplier",
+  "powerup-time-freeze",
+  "powerup-shield"
 ]

@@ -1090,9 +1090,23 @@ js/
 ### Adding elements
 
 A ball size/shape, obstacle type, ladder, or power-up is a JSON file under
-`elements/`, freely named (`round-ball-1.json`, `powerup-stoptime-5s
-.json`, ...) -- `js/elements.js`'s `registerElement()` reads its
-`category` field to know which registry to put it in. To add one: drop
+`elements/` (`round-ball-1.json`, `powerup-time-freeze.json`, ...) --
+`js/elements.js`'s `registerElement()` reads its `category` field to know
+which registry to put it in.
+
+**A file's name says what the thing IS, never what it is set to.** A
+power-up is named after its `type`, kebab-cased -- `time_freeze` lives in
+`powerup-time-freeze.json` -- because that type is the key everything else
+uses (a level's `powerup` field, the HUD, the effect, and
+`assets/powerups/<type>.webp`), so the file is findable from any level
+that names it. A ball keeps its size in its name (`round-ball-3.json`)
+because a ball cannot change size and still be the same ball. What must
+stay out is anything that can change while the thing stays the same:
+these files used to be called `powerup-shield-8s.json`,
+`powerup-stoptime-6s.json` and so on, and the seconds in those names had
+already drifted from the `durationMs` inside them. `tests/assets.test
+.mjs` holds both halves of this now -- the name matching the `id` field
+inside, and a power-up's name matching its type. To add one: drop
 the file in `elements/`, then add its filename (no `.json`) to
 `elements/index.json`'s array. The level editor's brushes and powerup
 dropdown, and the debug panel's spawn controls, are all driven directly
@@ -1148,17 +1162,19 @@ from the fixed set in `js/elements.js`'s `POWERUP_BEHAVIORS`
 own numbers:
 ```json
 {
-  "id": "powerup-stoptime-6s", "category": "powerup", "type": "time_freeze",
+  "id": "powerup-time-freeze", "category": "powerup", "type": "time_freeze",
   "label": "Time Freeze", "color": "#48dbfb",
   "durationMs": 6000, "instant": false,
   "kind": "freeze_balls", "params": {}, "pickupSound": "itempick"
 }
 ```
 Two power-ups can share a `kind` and just differ in `durationMs`/`params`
--- e.g. `powerup-stoptime-6s.json` and a hypothetical
-`powerup-stoptime-12s.json` (with its own `type`, since that's the key
-used everywhere else -- effects tracking, HUD, level `powerup` fields) can
-both use `kind: "freeze_balls"`. Needs an
+-- e.g. `powerup-time-freeze.json` and a hypothetical
+`powerup-time-freeze-long.json` can both use `kind: "freeze_balls"`. The
+second one needs its own `type` (that is the key used everywhere else --
+effects tracking, HUD, level `powerup` fields), and since the file is
+named after the type, the two names stay distinct without either of them
+naming a duration. Needs an
 `assets/powerups/<type>.webp` icon (18x18, see "Swapping graphics"). Adding
 a genuinely new *behavior* (not just a new tuning of an existing one) does
 need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`. `pickupSound`

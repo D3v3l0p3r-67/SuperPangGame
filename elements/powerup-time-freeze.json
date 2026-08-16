@@ -1,5 +1,5 @@
 {
-  "id": "powerup-stoptime-6s",
+  "id": "powerup-time-freeze",
   "category": "powerup",
   "type": "time_freeze",
   "label": "Time Freeze",

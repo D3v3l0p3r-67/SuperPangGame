@@ -35,9 +35,10 @@ export class ElementsScene extends Phaser.Scene {
     this.load.image(PERCENT_TEXTURE_KEY, PERCENT_TEXTURE_PATH);
     this.load.spritesheet(HUD_DIGITS_SMALL_KEY, HUD_DIGITS_SMALL_PATH, HUD_DIGITS_SMALL_FRAME);
 
-    // Elements are freely named (round-ball-1.json, powerup-stoptime-5s
-    // .json, ...) with no fixed convention to probe like levels, so their
-    // set is read from a small manifest instead -- see assets.js.
+    // Elements are named for what they are (round-ball-1.json,
+    // powerup-time-freeze.json, ...) with no fixed convention to probe
+    // like levels, so their set is read from a small manifest instead --
+    // see assets.js.
     this.load.json(ELEMENTS_INDEX_KEY, ELEMENTS_INDEX_PATH);
 
     // Levels DO follow a fixed level_NN name, so -- same as before -- just

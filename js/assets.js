@@ -349,12 +349,13 @@ export const PANIC_LEVEL_PATH = `${LEVELS_DIR}panic.json`;
 
 // Elements: one JSON file per ball size/shape, obstacle type, or power-up
 // -- category, id, and the fields that category needs (see elements.js's
-// registerElement) -- under elements/, freely named (round-ball-1.json,
-// powerup-stoptime-5s.json, ...). Unlike levels (which follow a fixed
-// level_NN naming ElementsScene can just probe), element filenames are
-// meant to be descriptive and unordered, so there's no naming convention
-// to probe -- ElementsScene instead reads elements/index.json, a plain
-// array of filenames (no extension), and loads exactly those. Adding a
+// registerElement) -- under elements/, named for what the thing IS
+// (round-ball-1.json, powerup-time-freeze.json, ...) and never for a
+// value it holds; see the README's "Adding elements". Unlike levels
+// (which follow a fixed level_NN naming ElementsScene can just probe),
+// element filenames are descriptive and unordered, so there is no naming
+// convention to probe -- ElementsScene instead reads elements/index.json,
+// a plain array of filenames (no extension), and loads exactly those. Adding a
 // new element is: drop the file in elements/, add its name to
 // elements/index.json.
 export const ELEMENTS_DIR = 'elements/';
