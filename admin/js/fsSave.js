@@ -14,7 +14,9 @@ const CSRF_TOKEN = document.querySelector('meta[name="admin-csrf"]')?.content ??
 // `rootRelativePath` is slash-separated, relative to the project root
 // (e.g. "elements/round-ball-1.json", "assets/balls/ball_round_1.webp").
 // `content` is either a string (JSON/text files) or a Blob/File (images,
-// audio). Resolves on success; throws on any failure.
+// audio). Resolves with the server's answer on success -- which includes
+// whether it managed to tell the game's offline copy that something moved
+// (see includes/precache.php) -- and throws on any failure.
 export async function saveFile(rootRelativePath, content) {
   const formData = new FormData();
   formData.append('path', rootRelativePath);
@@ -32,4 +34,5 @@ export async function saveFile(rootRelativePath, content) {
     throw new Error(`server returned HTTP ${res.status} (not JSON -- is PHP running?)`);
   }
   if (!res.ok || !data.ok) throw new Error(data.error || `server returned HTTP ${res.status}`);
+  return data;
 }

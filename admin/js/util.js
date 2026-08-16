@@ -28,11 +28,13 @@ export function labeled(text, input) {
 }
 
 // Replacing an asset FILE (an image or a sound) leaves its URL unchanged,
-// so a browser that already cached it keeps handing the game the old copy
-// -- the save landed on the server, it just isn't visible in the game
-// until a cache-skipping reload. The JSON tabs don't need this caveat:
-// the game re-reads elements/levels from disk on every boot.
-export const SAVED_ASSET_MSG = 'Saved. Hard-refresh the game (Ctrl+Shift+R) to see it.';
+// and the game is served by a service worker that answers from its own
+// cache first -- so what a player keeps getting is the copy on their
+// device, and a hard reload does not change that (it empties the
+// browser's cache, not the worker's). What does is the worker seeing a
+// new version, which the save arranges for itself (see
+// admin/includes/precache.php) and which arrives on the game's next load.
+export const SAVED_ASSET_MSG = 'Saved. The game picks it up on its next load.';
 
 export function statusParagraph() {
   const p = document.createElement('p');

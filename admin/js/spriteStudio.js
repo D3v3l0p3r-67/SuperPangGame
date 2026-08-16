@@ -453,14 +453,14 @@ export function openSpriteStudio(entry, fs, { onClose } = {}) {
         saveBtn.disabled = false;
         return;
       }
-      await fs.saveFile(entry.path, blob);
+      const answer = await fs.saveFile(entry.path, blob);
       forceSave = false;
       saveBtn.textContent = 'Save to project';
       surface.markSaved();
-      status.textContent = changed === 0
-        ? 'Saved, pixel for pixel. Hard-refresh the game (Ctrl+Shift+R) to see it.'
-        : `Saved. ${changed} pixels were re-encoded, none of them visibly (worst ${worst} of 255). `
-          + 'Hard-refresh the game (Ctrl+Shift+R) to see it.';
+      const written = changed === 0
+        ? 'Saved, pixel for pixel.'
+        : `Saved. ${changed} pixels were re-encoded, none of them visibly (worst ${worst} of 255).`;
+      status.textContent = `${written} ${reachesTheGame(answer)}`;
     } catch (err) {
       status.textContent = `Save failed: ${err.message}`;
     }
@@ -550,6 +550,21 @@ export function openSpriteStudio(entry, fs, { onClose } = {}) {
 
 export function closeSpriteStudio() {
   open?.close();
+}
+
+// What a save actually means for the game, which is not obvious and used
+// to be described wrongly here. The game is served by a service worker
+// that answers from its own cache first, so a hard reload does NOT show a
+// changed graphic -- it empties the browser's cache, not the worker's.
+// What does is the worker noticing a new version, which the save itself
+// arranges (admin/includes/precache.php) and which lands on the game's
+// next load. If the server could not do that, say so plainly: the file is
+// on disk and the game will not be showing it.
+function reachesTheGame(answer) {
+  if (answer?.offline?.updated) return 'The game picks it up on its next load.';
+  const note = answer?.offline?.note ? ` (${answer.offline.note})` : '';
+  return `The offline copy was NOT told about it${note}, so the game will keep showing the old one `
+    + 'until sw-precache.json and service-worker.js are refreshed -- run tools/build_precache.mjs.';
 }
 
 function controlRow(tag, children) {

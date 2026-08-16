@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-401184f82272",
+  "version": "super-pang-15d10a1e836a",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "2c034a0593ffd3b2",
@@ -32,13 +32,14 @@
     "js/config.js": "bf5fec2e3e958676",
     "js/constants.js": "da319cddaadc3f04",
     "js/debug.js": "cf22717185b803fc",
-    "js/editor.js": "af845705eba73da4",
+    "js/editor.js": "dc0568b581e7a3eb",
     "js/elements.js": "a434dbda178bd1c1",
     "js/input.js": "2c25ef1904917b4c",
     "js/introText.js": "70df2293e09f66d3",
     "js/keys.js": "5245c1c004446fb4",
     "js/levelFile.js": "1f52ddaa127e57ef",
     "js/main.js": "24a6365aad2387ef",
+    "js/obstaclePieces.js": "87b450407f7a7f74",
     "js/panelUi.js": "5bb4c4ff1b364570",
     "js/pwa.js": "c9bcc0fcafec48ce",
     "js/regions.js": "c84b25728db85625",

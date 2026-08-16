@@ -26,6 +26,7 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
     guides: null,                          // cell size, for the whole-sheet view
     zoom: 4, grid: true, mirror: false, locked: false,
     tool: 'pencil', brush: 1, color: { r: 255, g: 255, b: 255, a: 255 },
+    hover: null,                           // the pixel under the cursor, for the brush outline
     undo: [], redo: [], painting: false, dirty: false,
   };
 
@@ -90,6 +91,7 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
     if (state.tool === 'fill') floodFill(x, y, state.color);
     else stamp(x, y, state.tool === 'eraser' ? { r: 0, g: 0, b: 0, a: 0 } : state.color);
     state.dirty = true;
+    syncWork();
     render();
   }
 
@@ -99,9 +101,18 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
     return state.rect ?? { x: 0, y: 0, w: state.width, h: state.height };
   }
 
-  function render() {
+  // The buffer -> the offscreen copy everything else draws from. Only
+  // when the pixels actually change: the view is redrawn on every pointer
+  // move (the brush outline follows the cursor), and putting a whole
+  // background's worth of ImageData up on each of those would be work
+  // nobody asked for.
+  function syncWork() {
     if (!state.pixels) return;
     workCtx.putImageData(new ImageData(state.pixels, state.width, state.height), 0, 0);
+  }
+
+  function render() {
+    if (!state.pixels) return;
     const { x, y, w, h } = view();
     canvas.width = w * state.zoom;
     canvas.height = h * state.zoom;
@@ -125,6 +136,20 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
     // where one cell ends and the next begins -- which is the only reason
     // to be looking at the whole sheet in the first place.
     if (state.guides && !state.rect) drawFrameGuides(ctx, state.guides, w, h, state.zoom);
+    // What the next press would cover, before it covers it. A 6px brush
+    // at 8x zoom paints a 48px square, and until this was drawn the only
+    // way to know where its edges fell was to paint and undo.
+    if (state.hover && !state.locked) drawBrushOutline(ctx, brushArea(state.hover), view(), state.zoom);
+  }
+
+  // The pixels a press at (x, y) would touch. Pencil and eraser stamp a
+  // square of the brush size centred on the cursor (see stamp); fill and
+  // the eyedropper act on the one pixel under it, whatever the brush is
+  // set to -- so the outline shows that instead of promising a square.
+  function brushArea({ x, y }) {
+    if (state.tool === 'fill' || state.tool === 'picker') return { x, y, w: 1, h: 1 };
+    const half = Math.floor(state.brush / 2);
+    return { x: x - half, y: y - half, w: state.brush, h: state.brush };
   }
 
   // -- pointer -------------------------------------------------------------
@@ -155,7 +180,9 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
   canvas.addEventListener('pointermove', (event) => {
     if (!state.pixels) return;
     const { x, y } = pixelFromEvent(event);
+    state.hover = { x, y };
     onReadout?.(inside(x, y) ? { x, y, color: pixelAt(x, y) } : null);
+    render();
     // Fill and pick are one decision each: dragging them would run a fill
     // per pixel crossed.
     if (state.painting && (state.tool === 'pencil' || state.tool === 'eraser')) applyAt(x, y);
@@ -168,7 +195,11 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
   };
   canvas.addEventListener('pointerup', stop);
   canvas.addEventListener('pointercancel', stop);
-  canvas.addEventListener('pointerleave', () => { onReadout?.(null); });
+  canvas.addEventListener('pointerleave', () => {
+    state.hover = null;
+    onReadout?.(null);
+    render();
+  });
 
   function inside(x, y) {
     return x >= 0 && y >= 0 && x < state.width && y < state.height;
@@ -197,6 +228,7 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
       state.dirty = keepHistory;
       work.width = width;
       work.height = height;
+      syncWork();
       render();
     },
 
@@ -210,8 +242,8 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
       render();
     },
 
-    setTool(tool) { state.tool = tool; },
-    setBrush(brush) { state.brush = brush; },
+    setTool(tool) { state.tool = tool; render(); },
+    setBrush(brush) { state.brush = brush; render(); },
     setColor(color) { state.color = color; },
     markSaved() { state.dirty = false; },
 
@@ -221,6 +253,7 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
       state.redo.push(state.pixels.slice());
       state.pixels = previous;
       state.dirty = true;
+      syncWork();
       render();
     },
     redo() {
@@ -229,6 +262,7 @@ export function createSurface({ onPick, onReadout, onChange } = {}) {
       state.undo.push(state.pixels.slice());
       state.pixels = next;
       state.dirty = true;
+      syncWork();
       render();
     },
 
@@ -276,6 +310,24 @@ function drawCheckerboard(ctx, width, height) {
       if (((x / SQUARE) + (y / SQUARE)) % 2 === 0) ctx.fillRect(x, y, SQUARE, SQUARE);
     }
   }
+}
+
+// Two lines, light over dark, so the outline is visible on white art and
+// on black art alike without tinting either -- the same reason a marquee
+// is drawn this way everywhere else.
+function drawBrushOutline(ctx, area, view, zoom) {
+  const x = (area.x - view.x) * zoom;
+  const y = (area.y - view.y) * zoom;
+  const w = area.w * zoom;
+  const h = area.h * zoom;
+  ctx.save();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+  ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ctx.restore();
 }
 
 function drawFrameGuides(ctx, frame, width, height, zoom) {

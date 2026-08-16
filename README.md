@@ -1279,14 +1279,33 @@ hidden while editing (see Hud.js's `VISIBLE_STATES`), so that band across
 the bottom of the canvas is free, and using it leaves the whole playfield
 visible with nothing pushing the canvas down the page. They are laid out
 as labelled columns of rows -- **BRUSH** (what the pointer paints, split
-into level structure and the balls to pop), **NEXT PLACED** (direction and
-guaranteed drop for the next ball/crate), **LEVEL n** (background, weapon,
+into level structure and the balls to pop), **NEXT PLACED** (direction,
+guaranteed drop and block size for the next ball/crate), **LEVEL n** (background, weapon,
 clock -- and which level all of it belongs to), **FILE**, **GO**, and a
 **COUNT** readout -- so what each control belongs to is readable at a
 glance. The panel is sized from the canvas (`HUD_H`/`VIRTUAL_H` for the
 height, container query units for everything inside), so it scales with
 the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
+
+**NEXT PLACED**'s **Block** picker is how big a piece a wall or crate
+press puts down: `16x16`, `16x64` (a pillar) or `64x16` (a beam). Nothing
+new reaches the level format here -- an obstacle has always been
+`{type, x, y, w, h}` and the shipped levels are full of 96x16 walls and
+16x64 pillars; it is the editor that could only paint one cell at a time.
+A piece is painted as the cells it covers, so erasing, the seam
+recalculation and the counts all go on working a cell at a time, and the
+cursor outlines the whole piece rather than the one cell under it.
+**Save/Export put the cells back together**: `js/obstaclePieces.js`'s
+`mergeBlocks` writes the fewest rectangles that cover exactly the painted
+cells, which is the shape a person writing the file by hand would have
+used -- a beam is one obstacle rather than four, and a painted wall is one
+entry rather than eleven. `LevelManager` splits them into the same blocks
+again on load, so the level itself is unchanged either way, and
+`tests/obstacles.test.mjs` holds the one thing that must never drift: the
+merged obstacles cover exactly the cells that were painted, each once.
+A piece bigger than one block never carries a drop, for the same reason a
+wall does not -- see below.
 
 **NEXT PLACED**'s power-up picker applies to the next ball *and* the next
 obstacle, and an obstacle only takes it if the level rules allow one: the
@@ -2089,6 +2108,31 @@ validation is one regex covering traversal (`..`), the directory
 whitelist, and the extension whitelist all at once, plus a second
 `realpath()`-based check that the resolved directory is still actually
 inside the project root before anything is written.
+
+**A save also tells the game's offline copy that something moved.** This
+is not optional bookkeeping -- without it a save is invisible. The game
+is served by a service worker that answers from its own cache FIRST (see
+"Offline" above), and it only rebuilds that cache when
+`service-worker.js`'s `CACHE_VERSION` changes, which is a hash of every
+precached file written by `tools/build_precache.mjs` at release time. A
+file written through the admin never went through that tool, so nothing
+told any browser anything had changed: the game went on serving the
+sprite it downloaded first, through hard reloads and all -- a hard reload
+empties the browser's cache, not the worker's.
+
+So `save.php` finishes by doing, for that one file, what the tool would
+have done (`includes/precache.php`): rehash it, write the hash into
+`sw-precache.json`, recompute the manifest's own version and put it in
+the worker. The next time any browser loads the game it fetches
+`service-worker.js`, sees different bytes, installs -- copying the ~300
+unchanged files straight out of the cache it already has and fetching
+only what actually changed -- and the page reloads itself once (see
+`js/pwa.js`). It produces the same version string the tool would, byte
+for byte, so a save and a release never look to each other like a change
+that never happened; `tests/precache.test.mjs` runs both and compares
+them. If the host has no service worker files, or they are not writable,
+the save still succeeds and says so in its own status line rather than
+failing after the file is already written.
 
 **Where saves go is fixed in code** -- `PROJECT_ROOT` in
 `includes/config.php`, resolved from `admin/`'s own location. The admin
