@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/precache.php';
 
 header('Content-Type: application/json');
 
@@ -63,4 +64,15 @@ if (!move_uploaded_file($_FILES['file']['tmp_name'], $target)) {
     fail(500, 'Could not write file -- check that the web server user has write permission.');
 }
 
-echo json_encode(['ok' => true, 'path' => $path]);
+// The file is on disk now, and every browser that has played the game
+// before is still holding the previous copy in its service worker cache
+// (which a hard reload does not touch). Tell the worker something moved,
+// the same way a release does -- see includes/precache.php. A failure
+// here is reported, never fatal: the save itself succeeded.
+[$offlineUpdated, $offlineNote] = refreshPrecache($path);
+
+echo json_encode([
+    'ok' => true,
+    'path' => $path,
+    'offline' => ['updated' => $offlineUpdated, 'note' => $offlineNote],
+]);

@@ -2090,6 +2090,31 @@ whitelist, and the extension whitelist all at once, plus a second
 `realpath()`-based check that the resolved directory is still actually
 inside the project root before anything is written.
 
+**A save also tells the game's offline copy that something moved.** This
+is not optional bookkeeping -- without it a save is invisible. The game
+is served by a service worker that answers from its own cache FIRST (see
+"Offline" above), and it only rebuilds that cache when
+`service-worker.js`'s `CACHE_VERSION` changes, which is a hash of every
+precached file written by `tools/build_precache.mjs` at release time. A
+file written through the admin never went through that tool, so nothing
+told any browser anything had changed: the game went on serving the
+sprite it downloaded first, through hard reloads and all -- a hard reload
+empties the browser's cache, not the worker's.
+
+So `save.php` finishes by doing, for that one file, what the tool would
+have done (`includes/precache.php`): rehash it, write the hash into
+`sw-precache.json`, recompute the manifest's own version and put it in
+the worker. The next time any browser loads the game it fetches
+`service-worker.js`, sees different bytes, installs -- copying the ~300
+unchanged files straight out of the cache it already has and fetching
+only what actually changed -- and the page reloads itself once (see
+`js/pwa.js`). It produces the same version string the tool would, byte
+for byte, so a save and a release never look to each other like a change
+that never happened; `tests/precache.test.mjs` runs both and compares
+them. If the host has no service worker files, or they are not writable,
+the save still succeeds and says so in its own status line rather than
+failing after the file is already written.
+
 **Where saves go is fixed in code** -- `PROJECT_ROOT` in
 `includes/config.php`, resolved from `admin/`'s own location. The admin
 is never asked to pick a folder, and there is no client-side fallback:
