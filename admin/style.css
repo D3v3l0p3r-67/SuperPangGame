@@ -434,7 +434,11 @@ button.primary {
   font-weight: 600;
 }
 
-/* -- Sprite studio (the popup over the list) ------------------------------ */
+/* -- Sprite studio -------------------------------------------------------- */
+
+/* One view, no tabs: rows of controls, one canvas, the frames under it.
+   The row labels down the left are what replaces the tabs -- the grouping
+   is still visible, it just no longer hides anything. */
 
 .studio-backdrop {
   position: fixed;
@@ -486,27 +490,26 @@ button.primary {
   border-bottom: 1px solid var(--panel-border);
 }
 
-.studio-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 10px 16px 0;
-  border-bottom: 2px solid var(--panel-border);
-}
-
 .studio-body {
   padding: 16px;
 }
 
-/* -- Animate pane --------------------------------------------------------- */
-
-.animate-controls,
-.paint-tools {
+.studio-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 16px;
-  margin-bottom: 12px;
+  gap: 7px 14px;
   font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.row-tag {
+  flex: none;
+  width: 54px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.45;
 }
 
 .tool-group {
@@ -515,42 +518,92 @@ button.primary {
   gap: 4px;
 }
 
-.rate-input {
-  width: 70px;
+.tool-btn.active {
+  background: var(--panel-border);
+  font-weight: 600;
 }
 
-.animate-stage {
+.rate-input {
+  width: 66px;
+}
+
+.colour-swatch {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+}
+
+.alpha-slider {
+  width: 88px;
+  vertical-align: middle;
+}
+
+.palette-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.palette-label {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-right: 3px;
+}
+
+.palette-swatch {
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid var(--panel-border);
+}
+
+/* -- the one canvas ------------------------------------------------------- */
+
+.studio-stage {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
-  padding: 12px;
+  height: 46vh;
+  min-height: 260px;
+  padding: 10px;
+  margin-top: 4px;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
-  background:
-    linear-gradient(45deg, #2a2350 25%, transparent 25%),
-    linear-gradient(-45deg, #2a2350 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #2a2350 75%),
-    linear-gradient(-45deg, transparent 75%, #2a2350 75%);
-  background-color: #1a1530;
-  background-size: 16px 16px;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background: #1a1530;
   overflow: auto;
-  max-height: 60vh;
 }
 
-.animate-canvas,
-.paint-canvas {
+/* Playing, or mirrored: the picture on screen is not the one the cursor
+   is over, so the cursor stops promising it can paint. */
+.studio-stage.locked .surface-canvas {
+  cursor: default;
+}
+
+.surface-canvas {
   image-rendering: pixelated;
+  display: block;
+  margin: auto;
+  cursor: crosshair;
 }
 
 .frame-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 12px;
-  max-height: 130px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  max-height: 140px;
   overflow-y: auto;
+}
+
+.frame-strip:empty {
+  display: none;
 }
 
 .frame-thumb {
@@ -561,9 +614,14 @@ button.primary {
   cursor: pointer;
 }
 
+.frame-thumb.dimmed {
+  opacity: 0.4;
+}
+
 .frame-thumb.current {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
+  opacity: 1;
 }
 
 .size-note,
@@ -583,72 +641,4 @@ button.primary {
 
 .paint-footer .status {
   margin: 0;
-}
-
-/* -- Paint pane ----------------------------------------------------------- */
-
-.tool-btn.active {
-  background: var(--panel-border);
-  font-weight: 600;
-}
-
-.colour-swatch {
-  display: inline-block;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  border: 1px solid var(--panel-border);
-}
-
-.alpha-slider {
-  width: 90px;
-  vertical-align: middle;
-}
-
-.palette {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.palette-label {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-right: 4px;
-}
-
-.palette-swatch {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border-radius: 3px;
-  border: 1px solid var(--panel-border);
-}
-
-.paint-stage {
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  background: #1a1530;
-  overflow: auto;
-  max-height: 58vh;
-  padding: 8px;
-}
-
-.paint-canvas {
-  cursor: crosshair;
-  display: block;
-  margin: 0 auto;
-}
-
-.studio-replace .preview {
-  display: block;
-  max-width: 100%;
-  max-height: 220px;
-  image-rendering: pixelated;
-  border: 1px solid var(--panel-border);
-  border-radius: 4px;
-  padding: 6px;
-  margin-bottom: 10px;
 }

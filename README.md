@@ -1881,10 +1881,13 @@ admin/
                        run on it, and whether a tool draws it -- built from
                        elements/*.json + js/assets.js + js/animations.js,
                        so it cannot go stale
-    spriteStudio.js     The popup over that list: Animate (play the game's
-                       own animations on the file), Paint, Replace file
-    spriteEditor.js     The Paint pane -- a pixel editor over the file's
-                       own pixels, with the frame grid drawn over it
+    spriteStudio.js     The popup over that list: ONE view where a file is
+                       played, painted and replaced -- see "Sprite studio"
+                       below. Owns which part of the file is on screen and
+                       when
+    spriteSurface.js    The picture itself: the pixel buffer, the tools
+                       that write into it, and the canvas it is drawn on.
+                       Knows nothing about animation
     imageFile.js        Reading a graphic into pixels and writing pixels
                        back out as the same format, never without checking
                        first what the re-encode costs
@@ -1912,34 +1915,75 @@ admin/
 The Graphics tab lists every image the game loads -- grouped by what it
 is, with a filter, because there are a couple of hundred of them.
 Opening one opens the **sprite studio** over the list: a popup about that
-one file, with three panes.
+one file, and **one view**, not a set of tabs. The picture is painted in
+the same window it is played in, a frame at a time.
 
-- **Animate** plays the file. The animations it offers are the game's
-  own, out of `js/animations.js` -- the same registry `BootScene` builds
-  Phaser's animations from -- so "Walk" here is the walk cycle at the
-  frames and the rate the game will actually run it at, not a guess. Play/
-  pause, step a frame at a time, click any frame in the strip, and zoom.
-  The FPS box overrides the rate for looking at something closely; it
-  changes the preview, never the game. **Mirror** flips the frame, which
-  is how half the game shows the walk and step frames (they are authored
-  facing left and mirrored with `setFlipX`, see "Swapping graphics").
-  A sheet also offers "all N frames in the file" -- the way to page
-  through the digits or the font, which nothing animates.
-- **Paint** is a pixel editor over the file's own pixels: pencil, eraser,
-  flood fill, and an eyedropper, a brush of 1-8px, zoom up to 24x with a
-  pixel grid, undo/redo (Ctrl+Z / Ctrl+Shift+Z), and a palette of the
-  colours already in the file -- which is how the art is drawn, out of a
-  handful of them, so picking one out of the picture beats matching it by
-  eye. For a spritesheet the cell boundaries are drawn over the picture
-  and the readout says which frame the cursor is in; the sheet is still
-  edited as ONE image, which is what keeps the cells aligned with the
-  layout the game slices them by.
-- **Replace file** is the old upload: hand over art drawn somewhere else.
-  It is also the only way to change a graphic's SIZE -- Paint edits the
-  pixels a file already has.
+That is the whole design decision. A file is one thing; a tool that
+showed it in three places -- playing it, painting it, and previewing a
+replacement for it -- asked the reader to hold three pictures of one file
+in their head, and put a tab switch between "draw" and "see it move".
+The cost is that an animation cannot play while it is being painted:
+pressing Play takes the canvas over. In exchange the whole modal width
+goes to the drawing, one zoom means one zoom, and there is no second copy
+of any state to keep in step.
 
-Two things the studio is careful about, both of them about not quietly
-costing quality:
+The controls are three labelled rows above the canvas:
+
+- **motion** -- the animation to show, `◀ Play ▶`, FPS, Loop, Mirror,
+  Zoom. The animations offered are the game's own, out of
+  `js/animations.js` (the registry `BootScene` builds Phaser's animations
+  from), so "Walk" here is the walk cycle at the frames and the rate the
+  game will really run it at. `◀ ▶` step frames while it is stopped,
+  which is also how you pick the frame to paint. The FPS box overrides
+  the rate for looking at something closely; it changes the view, never
+  the game. Two more entries are always at the end of the list: **all N
+  frames in the file** (the way to page through the digits or the font,
+  which nothing animates) and **whole sheet**, which shows every cell at
+  once with its boundaries drawn -- for the edits that cross frames, like
+  aligning a column or carrying a limb from one frame into the next.
+- **paint** -- pencil, eraser, flood fill (bounded by the frame on
+  screen, so it cannot leak into the cell next door), eyedropper, a brush
+  of 1-8px, alpha, and the pixel grid.
+- **colours** -- the colours already in the file, commonest first, and
+  beside them the **game palette** (`js/constants.js`'s `COLORS`) for a
+  colour that is not in this file yet but is already in the game. The
+  colour dialog reaches everything else.
+- **file** -- Undo/Redo (Ctrl+Z / Ctrl+Shift+Z), **Open file…**, **Reload
+  from disk**, **Save to project**.
+
+Under the canvas is every cell in the file, in file order, with the ones
+outside the chosen animation dimmed rather than hidden -- a sheet still
+reads as a sheet while a four-frame walk is selected. Clicking one is how
+you jump to it; clicking a cell the animation does not use switches to
+the all-frames view rather than refusing. The thumbnails are drawn from
+the buffer being painted, so they are the art as it is now, not as the
+file had it.
+
+Three rules make the single view safe:
+
+- **The frame you are editing never moves on its own.** Play advances the
+  canvas, and while it does, painting is off. The first click on a
+  playing canvas stops it and returns the frame that was SELECTED -- not
+  whichever frame the animation happened to be showing when the click
+  landed -- and paints nothing.
+- **Mirror is for looking.** It is how half the game draws the walk and
+  the step frames (authored facing left, flipped with `setFlipX`), and
+  while it is on the tools are disabled. Painting through a mirror is a
+  trap whichever way it resolves.
+- **The grid goes while the picture moves**, since a mesh flickering over
+  an animation is noise rather than an aid.
+
+**Open file…** is the old Replace, with one difference: it does not write
+anything. It loads the chosen image INTO the editor as unsaved pixels, so
+you see it in the one window and in frames before it lands in the
+project, and the same Save writes it as writes a drawing -- one path to
+disk, and an accidental pick is one Undo away. It is also the only way to
+change a graphic's SIZE, and the only thing that will tell you that the
+file you picked is 40x80 where the sheet is sliced into 36x72 cells,
+before the frames stop lining up rather than after.
+
+Two things the studio is careful about, both about not quietly costing
+quality:
 
 - **A save is checked before it is written.** Save encodes the picture,
   decodes what it just encoded, and compares. What it compares is what
