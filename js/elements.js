@@ -166,6 +166,14 @@ export const POWERUP_BEHAVIORS = {
     apply(game) { game.player.shielded = true; },
     revert(game) { game.player.shielded = false; },
   },
+  // Swapping the weapon in hand. Instant and for keeps: a weapon is what
+  // the player is holding, not an effect running on a clock, so there is
+  // nothing to revert -- the level's own weapon comes back when the level
+  // does (see GameScene.loadLevel). `params.weapon` is a WEAPON_TYPES key.
+  give_weapon: {
+    apply(game, params) { game.setWeapon(params.weapon); },
+    revert() {},
+  },
 };
 
 // Dispatches a loaded elements/*.json payload into the right registry

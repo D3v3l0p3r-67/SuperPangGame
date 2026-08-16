@@ -1,0 +1,14 @@
+{
+  "id": "powerup-weapon-grapple",
+  "category": "powerup",
+  "type": "weapon_grapple",
+  "label": "Grapple",
+  "color": "#4ecdc4",
+  "durationMs": 0,
+  "instant": true,
+  "kind": "give_weapon",
+  "params": {
+    "weapon": "grapple"
+  },
+  "pickupSound": "itempick"
+}

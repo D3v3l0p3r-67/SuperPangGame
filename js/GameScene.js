@@ -3,7 +3,7 @@ import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
   TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
 } from './config.js';
-import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
+import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, POWERUP_TYPES, getBallElement } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
@@ -371,6 +371,22 @@ export class GameScene extends Phaser.Scene {
   // How many shots the weapon in hand allows on its own, before any
   // power-up. Read by the rapid_shot behavior, which adds to it rather
   // than replacing it.
+  // Puts a different weapon in the player's hands: the level's own weapon
+  // is only where a level STARTS (see loadLevel), and a weapon power-up
+  // or the debug panel can change it from there.
+  //
+  // createWeaponState rebuilds from the new weapon's base values, which
+  // would silently drop a power-up that is still running -- so whatever is
+  // active is re-applied over the fresh state. Every durable effect's
+  // apply() is a plain setter and instant ones are never held in `active`,
+  // so re-running them is safe.
+  setWeapon(type) {
+    if (!WEAPON_TYPES[type]) return;
+    this.weaponType = type;
+    this.weaponState = createWeaponState(type);
+    for (const active of this.effects.active.keys()) POWERUP_TYPES[active].apply(this);
+  }
+
   get baseMaxActiveShots() {
     return WEAPON_TYPES[this.weaponType].baseMaxActiveShots;
   }

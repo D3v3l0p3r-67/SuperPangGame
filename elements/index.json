@@ -31,5 +31,8 @@
   "powerup-extra-life",
   "powerup-score-multiplier",
   "powerup-time-freeze",
-  "powerup-shield"
+  "powerup-shield",
+  "powerup-weapon-harpoon",
+  "powerup-weapon-grapple",
+  "powerup-weapon-machinegun"
 ]

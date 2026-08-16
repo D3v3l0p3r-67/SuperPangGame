@@ -1,0 +1,14 @@
+{
+  "id": "powerup-weapon-harpoon",
+  "category": "powerup",
+  "type": "weapon_harpoon",
+  "label": "Harpoon",
+  "color": "#ffd23f",
+  "durationMs": 0,
+  "instant": true,
+  "kind": "give_weapon",
+  "params": {
+    "weapon": "harpoon"
+  },
+  "pickupSound": "itempick"
+}
