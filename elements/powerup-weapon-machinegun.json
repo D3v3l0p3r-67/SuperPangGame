@@ -1,0 +1,14 @@
+{
+  "id": "powerup-weapon-machinegun",
+  "category": "powerup",
+  "type": "weapon_machinegun",
+  "label": "Machine Gun",
+  "color": "#ff8b5a",
+  "durationMs": 0,
+  "instant": true,
+  "kind": "give_weapon",
+  "params": {
+    "weapon": "machinegun"
+  },
+  "pickupSound": "itempick"
+}

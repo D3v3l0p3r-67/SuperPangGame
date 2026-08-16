@@ -166,6 +166,14 @@ export const POWERUP_BEHAVIORS = {
     apply(game) { game.player.shielded = true; },
     revert(game) { game.player.shielded = false; },
   },
+  // Swapping the weapon in hand. Instant and for keeps: a weapon is what
+  // the player is holding, not an effect running on a clock, so there is
+  // nothing to revert -- the level's own weapon comes back when the level
+  // does (see GameScene.loadLevel). `params.weapon` is a WEAPON_TYPES key.
+  give_weapon: {
+    apply(game, params) { game.setWeapon(params.weapon); },
+    revert() {},
+  },
 };
 
 // Dispatches a loaded elements/*.json payload into the right registry
@@ -184,6 +192,13 @@ export function registerElement(el, harpoon) {
       hitPoints: el.hitPoints == null ? Infinity : el.hitPoints,
       color: el.color,
       tileTexture: el.tileTexture,
+      // The bevel drawn around a piece made of this material -- light
+      // where the shape faces up or left, dark where it faces down or
+      // right (see Obstacle.js's drawObstacleEdges). Defaulted from
+      // `color` rather than required, so an obstacle written before these
+      // existed still gets an edge rather than a white one.
+      edgeLight: el.edgeLight ?? el.color,
+      edgeDark: el.edgeDark ?? el.color,
     };
     OBSTACLE_TYPE_KEYS.push(el.type);
   } else if (el.category === 'ladder') {

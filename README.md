@@ -762,9 +762,18 @@ seam between the canvas and the page behind it.
   the **grapple**, which anchors to the ceiling for 4s and keeps killing
   along its whole length while it hangs there, and the **machine gun**,
   which fires fanned volleys of four darts, three volleys at a time.
-  `rapid_shot` adds one more shot to whichever is in hand.
-- 7 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
-  multiplier, time freeze, shield. A dropped power-up falls
+  `rapid_shot` adds one more shot to whichever is in hand. A level's
+  weapon is where it STARTS: each of the three also drops as a power-up
+  (see below), so a level can hand one over partway through, or leave it
+  in a crate to be shot open.
+- 10 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
+  multiplier, time freeze, shield, and one per weapon -- harpoon, grapple,
+  machine gun. The weapon ones are instant and for keeps: a weapon is what
+  the player is holding rather than an effect on a clock, so there is
+  nothing to run out, and the level's own weapon comes back when the level
+  restarts. Picking one up does not cancel a timed effect that happens to
+  be running (`GameScene.setWeapon` re-applies it over the new weapon's
+  base values -- `rapid_shot` keeps its extra shot). A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
   shooting it with the harpoon.

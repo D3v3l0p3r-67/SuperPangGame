@@ -2,7 +2,6 @@ import { VIRTUAL_W, VIRTUAL_H, OBSTACLE_BLOCK_SIZE, GAME_STATES } from './consta
 import { BALL_SHAPE_KEYS, BALL_ELEMENTS, maxBallSize, POWERUP_TYPES, POWERUP_TYPE_KEYS } from './elements.js';
 import { WEAPON_TYPES, LEVEL_TRANSITION } from './config.js';
 import { LEVEL_TRANSITIONS } from './LevelTransition.js';
-import { createWeaponState } from './weapons.js';
 import { Ball } from './Ball.js';
 import { Bonus } from './Bonus.js';
 import { LEVELS } from './LevelManager.js';
@@ -120,23 +119,15 @@ export class Debug {
     this.panelEl.appendChild(group('POWER-UP', ...powerupRows));
     this.syncPowerupModeButtons();
 
-    // -- Weapons, alongside the power-up spawns above. These can't be
-    // spawned as a pickup the way a power-up can -- a weapon is a property
-    // of the level (see LevelManager's `weapon` field), not something that
-    // drops -- so the button hands it to the player directly instead.
-    // Driven by the WEAPON_TYPES registry, same as the power-up row, so a
-    // new weapon shows up here on its own.
-    const weaponButtons = Object.entries(WEAPON_TYPES).map(([type, def]) => makeButton(def.label, () => {
-      this.scene.weaponType = type;
-      this.scene.weaponState = createWeaponState(type);
-      // createWeaponState rebuilds from the weapon's base values, which
-      // would silently drop a weapon power-up that's still running --
-      // re-apply whatever is active so switching weapons mid-effect
-      // doesn't cancel it. Every durable effect's apply() is a plain
-      // setter, and instant ones are never held in `active`, so
-      // re-running them is safe.
-      for (const active of this.scene.effects.active.keys()) POWERUP_TYPES[active].apply(this.scene);
-    }, type));
+    // -- Weapons, alongside the power-up spawns above. There is a pickup
+    // for each of them now (elements/powerup-weapon-*.json), and the row
+    // above will spawn one; this row is the shortcut that skips the
+    // collecting, which is what you want when the question is "how does
+    // the grapple handle here". Driven by the WEAPON_TYPES registry, same
+    // as the power-up row, so a new weapon shows up here on its own.
+    const weaponButtons = Object.entries(WEAPON_TYPES).map(([type, def]) => makeButton(
+      def.label, () => this.scene.setWeapon(type), type,
+    ));
     this.panelEl.appendChild(group(
       'GIVE WEAPON',
       row(...weaponButtons.slice(0, 2)),

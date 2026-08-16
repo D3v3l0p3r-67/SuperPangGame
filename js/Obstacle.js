@@ -1,5 +1,6 @@
 import { OBSTACLE_TYPES } from './elements.js';
 import { obstacleTextureKey } from './assets.js';
+import { hexColor } from './colors.js';
 
 // A single rectangular block balls collide with from any side, via a
 // static Arcade body. LevelManager decomposes each level-authored
@@ -12,11 +13,18 @@ import { obstacleTextureKey } from './assets.js';
 // OBSTACLE_TYPES, see elements.js) decides whether it can be destroyed
 // and how many shots it takes.
 //
-// A TileSprite, so it IS its own artwork: the beveled-block wall texture
-// (see assets/obstacles) repeats across whatever w x h this block is,
-// exactly as the border frame does, with only the palette
-// (def.tileTexture) telling a crate from a wall -- so a crate reads as
-// "the same wall, brown material" rather than a distinct look.
+// A TileSprite, so it IS its own artwork: the material texture (see
+// assets/obstacles, drawn by tools/obstacle_tiles.py) repeats across
+// whatever w x h this block is, exactly as the border frame does, with
+// only the palette (def.tileTexture) telling a crate from a wall -- so a
+// crate reads as "the same wall, brown material" rather than a distinct
+// look.
+//
+// The material carries no border of its own. What makes a block look like
+// a block is drawn around the outside of the SHAPE its blocks form, not
+// around each of them -- see drawObstacleEdges below. A 16x64 pillar is
+// then one piece rather than four stacked boxes with seams down the
+// middle of it.
 //
 // One game object, not two. This used to be an invisible Rectangle
 // carrying the body with a separate TileSprite drawn over it, which put
@@ -96,5 +104,57 @@ export function refreshObstacleSeams(obstaclesGroup) {
     block.body.checkCollision.down = !down;
     block.body.checkCollision.left = !left;
     block.body.checkCollision.right = !right;
+    // The same four answers decide what the shape LOOKS like: an internal
+    // face is not an edge, so nothing is drawn along it.
+    block.edges = { up: !up, down: !down, left: !left, right: !right };
   }
+  drawObstacleEdges(obstaclesGroup);
+}
+
+// The bevel, drawn around the outside of whatever shape the blocks form.
+//
+// Every block is a separate object with its own body (that is what lets a
+// crate lose one block to gunfire while the rest stays solid), but a
+// player looking at four stacked crates is looking at a pillar -- so the
+// light and shadow belong to the pillar, not to each of its four blocks.
+// Drawing them per block is what made a 16x64 piece read as four boxes.
+//
+// One Graphics object for the whole group, redrawn from scratch whenever
+// the set of blocks changes -- the same moments the seams are recomputed,
+// which is where the exposed faces come from. Cheap: a few dozen blocks,
+// four lines each at most, and only when something is placed or shot.
+export function drawObstacleEdges(obstaclesGroup) {
+  const scene = obstaclesGroup.scene;
+  if (!scene) return;
+  if (!scene.obstacleEdges) {
+    scene.obstacleEdges = scene.add.graphics();
+    // Above the blocks (depth 1) and below everything that moves in front
+    // of them -- balls, the player, shots.
+    scene.obstacleEdges.setDepth(1.1);
+  }
+  const g = scene.obstacleEdges;
+  g.clear();
+
+  for (const block of obstaclesGroup.getChildren()) {
+    if (!block.active || !block.edges) continue;
+    const { x, y, displayWidth: w, displayHeight: h } = block;
+    const light = hexColor(block.def.edgeLight ?? '#ffffff');
+    const dark = hexColor(block.def.edgeDark ?? '#000000');
+    // Lit from the top left, which is where every other sprite in this
+    // game is lit from: the faces that look up and left catch it, the
+    // ones that look down and right fall into shadow.
+    line(g, light, x, y + 0.5, x + w, y + 0.5, block.edges.up);
+    line(g, light, x + 0.5, y, x + 0.5, y + h, block.edges.left);
+    line(g, dark, x, y + h - 0.5, x + w, y + h - 0.5, block.edges.down);
+    line(g, dark, x + w - 0.5, y, x + w - 0.5, y + h, block.edges.right);
+  }
+}
+
+function line(g, color, x1, y1, x2, y2, draw) {
+  if (!draw) return;
+  g.lineStyle(1, color, 1);
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.lineTo(x2, y2);
+  g.strokePath();
 }
