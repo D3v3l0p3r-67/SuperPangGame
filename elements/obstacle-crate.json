@@ -6,5 +6,7 @@
   "destructible": true,
   "hitPoints": 1,
   "color": "#8b5a2b",
-  "tileTexture": "crate"
+  "tileTexture": "crate",
+  "edgeLight": "#d19462",
+  "edgeDark": "#502700"
 }

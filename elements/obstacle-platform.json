@@ -6,5 +6,7 @@
   "destructible": false,
   "hitPoints": null,
   "color": "#4a3f6b",
-  "tileTexture": "wall"
+  "tileTexture": "wall",
+  "edgeLight": "#7893d9",
+  "edgeDark": "#052457"
 }

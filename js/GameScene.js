@@ -3,7 +3,7 @@ import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
   TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
 } from './config.js';
-import { POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
+import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, getBallElement } from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
@@ -333,6 +333,22 @@ export class GameScene extends Phaser.Scene {
       strip.setOrigin(0, 0);
       strip.setDepth(0.5);
     }
+
+    // The material has no edge of its own any more (see Obstacle.js), so
+    // the frame gets the same bevel the obstacles get: light where it
+    // faces the playfield from above or the left, dark where it faces it
+    // from below or the right. Without it the frame is a flat band and
+    // the playfield has no visible edge at all.
+    const wall = OBSTACLE_TYPES.platform;
+    const light = hexColor(wall.edgeLight ?? '#ffffff');
+    const dark = hexColor(wall.edgeDark ?? '#000000');
+    const edges = this.add.graphics().setDepth(0.6);
+    edges.lineStyle(1, dark, 1);
+    edges.lineBetween(0, t - 0.5, VIRTUAL_W, t - 0.5);              // under the ceiling
+    edges.lineBetween(t - 0.5, t, t - 0.5, GROUND_Y);               // right of the left wall
+    edges.lineStyle(1, light, 1);
+    edges.lineBetween(VIRTUAL_W - t + 0.5, t, VIRTUAL_W - t + 0.5, GROUND_Y); // left of the right wall
+    edges.lineBetween(0, GROUND_Y + 0.5, VIRTUAL_W, GROUND_Y + 0.5);          // top of the floor
   }
 
   get currentLevelDef() {
@@ -376,6 +392,10 @@ export class GameScene extends Phaser.Scene {
     // tween still targeting these before destroying them.
     this.tweens.killTweensOf([...this.projectiles.getChildren(), ...this.powerups.getChildren()]);
     this.obstacles.clear(true, true);
+    // The bevel is drawn around the SHAPE the blocks form (see
+    // Obstacle.js's drawObstacleEdges), so it outlives the blocks unless
+    // it is cleared with them.
+    this.obstacleEdges?.clear();
     this.ladders.clear(true, true);
     this.balls.clear(true, true);
     this.projectiles.clear(true, true);

@@ -553,6 +553,9 @@ export class Editor {
   clearAll() {
     for (const block of this.blocks.values()) block.destroy();
     this.blocks.clear();
+    // Drawn around the shape the blocks formed, so it has to go with them
+    // (see Obstacle.js's drawObstacleEdges).
+    this.scene.obstacleEdges?.clear();
     for (const icon of this.dropIcons.values()) icon.destroy();
     this.dropIcons.clear();
     for (const ball of this.balls.values()) ball.sprite.destroy();
