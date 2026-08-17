@@ -776,7 +776,12 @@ seam between the canvas and the page behind it.
   base values -- `rapid_shot` keeps its extra shot). A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
-  shooting it with the harpoon.
+  shooting it with the harpoon. What it landed on is remembered
+  (`Bonus.restOn`), so shooting that crate out from under it sends it
+  falling again, onto the next obstacle below or the ground: a drop never
+  hangs in the air where a crate used to be. Arcade would not do this on
+  its own -- a resting drop has no gravity and no velocity, so nothing
+  moves it into anything ever again.
 - **You can see what breaks together.** The bevel is drawn around the
   piece, not around whatever happens to touch: four crates side by side
   are four outlines and four shots, one 64x16 crate is one outline and one
@@ -1227,6 +1232,15 @@ Picking one opens it exactly as it currently stands, and the panel's
 whatever brush is selected; right-click always erases whatever's under
 the cursor instead, regardless of the selected brush, alongside the
 dedicated **Erase** brush.
+
+**An erase takes the whole obstacle**, not the cell under the cursor: a
+64x16 crate is one thing -- it is drawn as one and it goes down as one
+when it is shot -- so leaving three quarters of it behind would be the
+last place that still treated it as four. Which cells are one obstacle
+was decided when they were placed, so an erase takes exactly what one
+press put down; three crates placed separately are still erased one at a
+time. The Erase cursor outlines the whole obstacle it would take, so what
+is about to go is visible before it goes.
 
 The **FILE** buttons all act on that same level:
 - **Save** has two destinations and tries the better one first.

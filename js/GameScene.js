@@ -1527,7 +1527,9 @@ export class GameScene extends Phaser.Scene {
   // anything on the way down). Only the vertical case matters: a bonus
   // has no horizontal velocity, so it can't arrive at a side face.
   onPowerupHitObstacle(bonusGO, obstacleGO) {
-    if (bonusGO.body.touching.down) bonusGO.body.setVelocityY(0);
+    // Which block it landed on matters, not just that it landed: shooting
+    // that block open has to drop the power-up on down (see Bonus.restOn).
+    if (bonusGO.body.touching.down) bonusGO.restOn(obstacleGO);
   }
 
   onPlayerCollectPowerup(playerGO, bonusGO) {
