@@ -776,7 +776,12 @@ seam between the canvas and the page behind it.
   base values -- `rapid_shot` keeps its extra shot). A dropped power-up falls
   until it either lands on an obstacle's top surface or reaches the
   ground -- either way it can be collected by walking into it *or*
-  shooting it with the harpoon.
+  shooting it with the harpoon. What it landed on is remembered
+  (`Bonus.restOn`), so shooting that crate out from under it sends it
+  falling again, onto the next obstacle below or the ground: a drop never
+  hangs in the air where a crate used to be. Arcade would not do this on
+  its own -- a resting drop has no gravity and no velocity, so nothing
+  moves it into anything ever again.
 - **You can see what breaks together.** The bevel is drawn around the
   piece, not around whatever happens to touch: four crates side by side
   are four outlines and four shots, one 64x16 crate is one outline and one
