@@ -1228,6 +1228,15 @@ whatever brush is selected; right-click always erases whatever's under
 the cursor instead, regardless of the selected brush, alongside the
 dedicated **Erase** brush.
 
+**An erase takes the whole obstacle**, not the cell under the cursor: a
+64x16 crate is one thing -- it is drawn as one and it goes down as one
+when it is shot -- so leaving three quarters of it behind would be the
+last place that still treated it as four. Which cells are one obstacle
+was decided when they were placed, so an erase takes exactly what one
+press put down; three crates placed separately are still erased one at a
+time. The Erase cursor outlines the whole obstacle it would take, so what
+is about to go is visible before it goes.
+
 The **FILE** buttons all act on that same level:
 - **Save** has two destinations and tries the better one first.
 

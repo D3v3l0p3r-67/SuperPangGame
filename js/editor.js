@@ -605,6 +605,36 @@ export class Editor {
     return `${x},${y}`;
   }
 
+  // Every cell of the obstacle this block belongs to, by map key.
+  pieceCells(block) {
+    return [...this.blocks.entries()]
+      .filter(([, other]) => other.pieceId === block.pieceId)
+      .map(([key]) => key);
+  }
+
+  // One cell gone: the block, its entry and its drop badge. Recomputing
+  // the seams is left to the caller, which is erasing a whole obstacle
+  // and only needs to do that once.
+  eraseBlockAt(key) {
+    const [x, y] = key.split(',').map(Number);
+    this.blocks.get(key)?.destroy();
+    this.blocks.delete(key);
+    this.setDropIcon(key, x, y, null);
+  }
+
+  // The obstacle under a point, as the rectangle an erase would take --
+  // null where there is nothing to take.
+  hoveredPieceBounds(x, y) {
+    const block = this.blocks.get(this.keyFor(x, y));
+    if (!block) return null;
+    const cells = this.pieceCells(block).map((key) => key.split(',').map(Number));
+    const left = Math.min(...cells.map(([cx]) => cx));
+    const top = Math.min(...cells.map(([, cy]) => cy));
+    const right = Math.max(...cells.map(([cx]) => cx)) + OBSTACLE_BLOCK_SIZE;
+    const bottom = Math.max(...cells.map(([, cy]) => cy)) + OBSTACLE_BLOCK_SIZE;
+    return { x: left, y: top, w: right - left, h: bottom - top };
+  }
+
   // The brushes that paint OBSTACLE cells, and so the ones the piece size
   // applies to -- balls, ladders, the start and the eraser each place
   // their own thing.
@@ -739,10 +769,15 @@ export class Editor {
     const key = this.keyFor(x, y);
     const block = this.blocks.get(key);
     if (block) {
-      block.destroy();
-      this.blocks.delete(key);
-      this.setDropIcon(key, x, y, null);
-        refreshObstacleSeams(this.scene.obstacles);
+      // The WHOLE obstacle, not the cell under the cursor. A 64x16 crate
+      // is one thing: it is drawn as one, and it goes down as one when it
+      // is shot (see GameScene.onProjectileHitObstacle) -- leaving three
+      // quarters of it behind when it is erased would be the last place
+      // that still treated it as four. Which cells are one obstacle was
+      // decided when it was placed (setBlock's pieceId), so this erases
+      // exactly what one press put down.
+      for (const cell of this.pieceCells(block)) this.eraseBlockAt(cell);
+      refreshObstacleSeams(this.scene.obstacles);
     }
     const ball = this.balls.get(key);
     if (ball) {
@@ -880,6 +915,11 @@ export class Editor {
         Math.min(Math.max(this.hoverCell.y, BORDER_THICKNESS), GROUND_Y - height),
         width, height,
       );
+    } else if (this.brush === ERASE_BRUSH.id) {
+      // An erase takes the whole obstacle, so the cursor outlines the
+      // whole obstacle rather than the cell it happens to be over.
+      const piece = this.hoveredPieceBounds(this.hoverCell.x, this.hoverCell.y);
+      if (piece) this.cursorGraphics.strokeRect(piece.x, piece.y, piece.w, piece.h);
     } else if (this.brush === START_BRUSH.id) {
       // The player standing where this click would put them: the same
       // clamp the placement itself applies, so the outline never promises
