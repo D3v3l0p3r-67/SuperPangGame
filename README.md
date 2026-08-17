@@ -1320,7 +1320,8 @@ the bottom of the canvas is free, and using it leaves the whole playfield
 visible with nothing pushing the canvas down the page. They are laid out
 as labelled columns of rows -- **BRUSH** (what the pointer paints, split
 into level structure and the balls to pop), **NEXT PLACED** (direction,
-guaranteed drop and block size for the next ball/crate), **LEVEL n** (background, weapon,
+guaranteed drop and block size for the next ball/crate -- only the ones
+the selected brush uses, see below), **LEVEL n** (background, weapon,
 clock -- and which level all of it belongs to), **FILE**, **GO**, and a
 **COUNT** readout -- so what each control belongs to is readable at a
 glance. The panel is sized from the canvas (`HUD_H`/`VIRTUAL_H` for the
@@ -1351,6 +1352,21 @@ again on load, so the level itself is unchanged either way, and
 merged obstacles cover exactly the cells that were painted, each once.
 A piece bigger than one block never carries a drop, for the same reason a
 wall does not -- see below.
+
+**NEXT PLACED follows the brush**: it shows the options the brush in hand
+actually uses and hides the rest, and with a ladder, the start point or
+the eraser selected -- which use none of them -- the group is not there at
+all. A wall has no drop, a crate has no direction or size, a round ball's
+vertical direction is decided by gravity rather than by the panel, and a
+piece bigger than one block cannot carry a drop, so with `16x64` selected
+that row goes away too. The rules are not a second opinion about what is
+sensible: `updateNextPlaced()` asks the same questions the placement code
+answers (`placeBall` reads the directions, `placeBlock` takes a drop only
+from a one-block breakable crate, `computeBallVelocity` ignores `dirY`
+under gravity). Before this, all four rows were shown at all times, so the
+panel asked four questions of which one or two were real -- the Drops
+dropdown in particular sat there fully usable over a Wall brush that threw
+the answer away.
 
 **NEXT PLACED**'s power-up picker applies to the next ball *and* the next
 obstacle, and an obstacle only takes it if the level rules allow one: the

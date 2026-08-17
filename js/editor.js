@@ -281,17 +281,29 @@ export class Editor {
     this.selectedPiece = OBSTACLE_PIECES[0].id;
     this.pieceSelect = makeSelect(
       OBSTACLE_PIECES.map((piece) => [piece.id, piece.label]),
-      () => { this.selectedPiece = this.pieceSelect.value; },
+      () => {
+        this.selectedPiece = this.pieceSelect.value;
+        // A drop only belongs on a one-block crate, so which piece is
+        // selected decides whether the Drops row is even a question.
+        this.updateNextPlaced();
+      },
     );
     this.pieceSelect.title = 'Size of the next wall/crate placed'
       + ' -- a piece bigger than one block never carries a drop, which belongs on a one-block crate';
-    this.panelEl.appendChild(group(
-      'NEXT PLACED',
-      row(this.dirXBtn, this.dirYBtn),
-      row(labelled('Drops ', this.powerupSelect)),
-      row(labelled('Block ', this.pieceSelect)),
-      row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect),
-    ));
+    // Kept so updateNextPlaced() can show each row only where it means
+    // something. Every row in here answers "what about the next thing
+    // placed?", and half of them have no answer for the brush in hand: a
+    // ladder has no direction, a wall has no drop, and neither has a ball
+    // size. They were all shown at all times, so the panel asked four
+    // questions of which one or two were real, and the reader was left to
+    // work out which -- the Drops dropdown in particular sat there, fully
+    // usable, over a Wall brush that silently threw the answer away.
+    this.dirRow = row(this.dirXBtn, this.dirYBtn);
+    this.dropRow = row(labelled('Drops ', this.powerupSelect));
+    this.pieceRow = row(labelled('Block ', this.pieceSelect));
+    this.ballRow = row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect);
+    this.nextGroup = group('NEXT PLACED', this.dirRow, this.dropRow, this.pieceRow, this.ballRow);
+    this.panelEl.appendChild(this.nextGroup);
     this.updateOptionLabels();
 
     // Whole-level settings: background image, starting weapon and clock.
@@ -435,6 +447,34 @@ export class Editor {
       const on = brushId === BALL_BRUSH.id ? id.startsWith('ball-') : brushId === id;
       btn.classList.toggle('panel-btn-on', on);
     }
+    this.updateNextPlaced();
+  }
+
+  // Shows exactly the options the brush in hand actually uses, and hides
+  // the rest -- including the whole group where the brush uses none of
+  // them (a ladder, the start point, the eraser), so the panel never
+  // offers a setting that placing the thing would ignore.
+  //
+  // The rules are the ones the placement code already enforces, in one
+  // place: placeBall reads the directions, placeBlock reads the piece and
+  // takes a drop only from a one-block breakable crate, and a round ball's
+  // vertical direction is decided by gravity rather than by this panel
+  // (see computeBallVelocity).
+  updateNextPlaced() {
+    if (!this.nextGroup) return;
+    const isBall = this.brush.startsWith('ball-');
+    const isTile = this.isTileBrush();
+    const breakable = isTile && OBSTACLE_TYPES[this.brush]?.destructible;
+    const piece = obstaclePiece(this.selectedPiece);
+    const singlePiece = piece.cols === 1 && piece.rows === 1;
+    const show = (el, on) => el.classList.toggle('hidden', !on);
+
+    show(this.dirRow, isBall);
+    show(this.dirYBtn, isBall && !getBallElement(this.ballShape, this.ballSize).hasGravity);
+    show(this.dropRow, isBall || (breakable && singlePiece));
+    show(this.pieceRow, isTile);
+    show(this.ballRow, isBall);
+    show(this.nextGroup, isBall || isTile);
   }
 
   // Opens the editor on one campaign level, picked from the level list
