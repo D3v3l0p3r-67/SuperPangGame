@@ -1362,27 +1362,52 @@ export class GameScene extends Phaser.Scene {
     }
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;
-    // Read while the block still exists: takeHit() destroys it, which takes
-    // its body with it, and a block is positioned by its top-left corner.
-    const centerX = obstacleGO.x + obstacleGO.width / 2;
-    const centerY = obstacleGO.y + obstacleGO.height / 2;
+    const { def } = obstacleGO;
+    // Read while the blocks still exist: takeHit() destroys them, which
+    // takes their bodies with them.
+    const piece = this.pieceBlocks(obstacleGO);
+    const bounds = blocksBounds(piece);
     const destroyed = obstacleGO.takeHit();
     if (destroyed) {
+      // A breakable obstacle goes down as ONE THING. A 64x16 crate is
+      // four bodies because that is how it collides and how a shape stays
+      // solid while part of it is gone -- but a player shooting it is
+      // shooting a crate, not a quarter of one, and watching three
+      // quarters of it hang in the air was the surprise. Every block the
+      // level authored as one obstacle goes with the block that was hit
+      // (see LevelManager's pieceId).
+      for (const block of piece) {
+        if (block !== obstacleGO && block.active) block.destroy();
+      }
       this.audio.play('walldestroy');
-      this.spawnBurst(centerX, centerY, obstacleGO.def.color, 10);
-      // The destroyed block may have been shielding a neighbor's face
+      // Spread over the whole piece rather than fired all at once from
+      // its middle: a beam coming apart along its length reads as the
+      // beam breaking, and the particle budget is the same either way.
+      const perBlock = Math.max(3, Math.min(10, Math.round(60 / piece.length)));
+      for (const block of piece) {
+        this.spawnBurst(block.x + block.width / 2, block.y + block.height / 2, def.color, perBlock);
+      }
+      // The destroyed blocks may have been shielding a neighbor's face
       // from ever registering a collision (see Obstacle.js's
-      // refreshObstacleSeams) -- recompute now that it's actually gone,
-      // or a ball/the player could pass straight through where it used
-      // to be.
+      // refreshObstacleSeams) -- recompute now that they're actually
+      // gone, or a ball/the player could pass straight through where they
+      // used to be.
       refreshObstacleSeams(this.obstacles);
-      // A crate the level editor tagged with a powerup drops it the
-      // moment it's shot down -- see Obstacle.js's forcedPowerup.
+      // A crate the level tagged with a powerup drops it the moment it is
+      // shot down -- see Obstacle.js's forcedPowerup. Once per obstacle,
+      // from the middle of what just broke.
       if (forcedPowerup) {
-        const bonus = new Bonus(this, forcedPowerup, obstacleGO.x, obstacleGO.y);
-        this.powerups.add(bonus);
+        this.powerups.add(new Bonus(this, forcedPowerup, bounds.x, bounds.y));
       }
     }
+  }
+
+  // Every active block of the obstacle this one belongs to, itself
+  // included. A block with no piece (the level editor paints those) is a
+  // piece of one.
+  pieceBlocks(block) {
+    if (block.pieceId === null || block.pieceId === undefined) return [block];
+    return this.obstacles.getChildren().filter((other) => other.active && other.pieceId === block.pieceId);
   }
 
   onProjectileHitBall(projGO, ballGO) {
@@ -1523,4 +1548,14 @@ export class GameScene extends Phaser.Scene {
     this.spawnBurst(bonusGO.x, bonusGO.y, bonusGO.def.color, 8, true);
     bonusGO.destroy();
   }
+}
+
+// The middle of a set of blocks, and how far they reach -- where a
+// drop appears when the obstacle holding it breaks.
+function blocksBounds(blocks) {
+  const left = Math.min(...blocks.map((b) => b.x));
+  const top = Math.min(...blocks.map((b) => b.y));
+  const right = Math.max(...blocks.map((b) => b.x + b.width));
+  const bottom = Math.max(...blocks.map((b) => b.y + b.height));
+  return { x: (left + right) / 2, y: (top + bottom) / 2, width: right - left, height: bottom - top };
 }

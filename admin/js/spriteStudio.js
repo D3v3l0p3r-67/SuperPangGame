@@ -105,7 +105,6 @@ export function openSpriteStudio(entry, fs, { onClose } = {}) {
   // -- row 2: painting -----------------------------------------------------
 
   const colorInput = el('input', { type: 'color', value: '#ffffff' });
-  const alphaInput = el('input', { type: 'range', min: '0', max: '255', value: '255', className: 'alpha-slider' });
   const swatch = el('span', { className: 'colour-swatch' });
   const brushSelect = el('select');
   for (const n of BRUSHES) brushSelect.append(el('option', { value: String(n), textContent: `${n}px` }));
@@ -123,22 +122,31 @@ export function openSpriteStudio(entry, fs, { onClose } = {}) {
   });
   toolButtons[0].classList.add('active');
 
-  colorInput.addEventListener('input', () => setColor({ ...hexToRgb(colorInput.value), a: Number(alphaInput.value) }));
-  alphaInput.addEventListener('input', () => setColor({ ...state.color, a: Number(alphaInput.value) }));
+  colorInput.addEventListener('input', () => setColor(hexToRgb(colorInput.value)));
   brushSelect.addEventListener('change', () => surface.setBrush(Number(brushSelect.value)));
   gridToggle.addEventListener('change', applyView);
 
-  function setColor(color) {
+  // Every colour painted here is fully opaque. Transparency in this art is
+  // a SHAPE -- where the sprite is and where it is not -- and the eraser
+  // is what says "not here"; a half-transparent brush stroke is a third
+  // answer nobody wanted, and it was what put the same colour in the
+  // palette a dozen times at a dozen alphas. Whatever the eyedropper
+  // lifts off a soft pixel comes back opaque for the same reason.
+  function setColor({ r, g, b }) {
+    const color = { r, g, b, a: 255 };
     state.color = color;
     surface.setColor(color);
     colorInput.value = rgbToHex(color);
-    alphaInput.value = String(color.a);
-    swatch.style.background = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
+    swatch.style.background = `rgb(${r}, ${g}, ${b})`;
   }
 
   function swatchButton(color) {
-    const btn = el('button', { className: 'palette-swatch', title: `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})` });
-    btn.style.background = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a / 255})`;
+    // The hex on the tooltip, and how much of the file is that colour --
+    // which is the question a row of similar swatches raises and could
+    // not answer.
+    const pixels = color.count === undefined ? '' : ` -- ${color.count} pixels`;
+    const btn = el('button', { className: 'palette-swatch', title: `${rgbToHex(color)}${pixels}` });
+    btn.style.background = rgbToHex(color);
     btn.addEventListener('click', () => setColor(color));
     return btn;
   }
@@ -506,7 +514,7 @@ export function openSpriteStudio(entry, fs, { onClose } = {}) {
       ]),
       controlRow('paint', [
         el('span', { className: 'tool-group' }, toolButtons),
-        el('span', { className: 'tool-group' }, [swatch, colorInput, labeled('Alpha', alphaInput)]),
+        el('span', { className: 'tool-group' }, [swatch, colorInput]),
         labeled('Brush', brushSelect),
         labeled('Grid', gridToggle),
       ]),
