@@ -770,15 +770,21 @@ seam between the canvas and the page behind it.
   multiplier, time freeze, shield, **dynamite**, **hourglass**, and one per
   weapon -- harpoon, grapple, machine gun.
   **Dynamite** takes every ball on the field apart down to the smallest
-  size there is, in one instant: not a clock but a single act, so there is
-  nothing to run out. It is rounds of the very same pop a shot gives (see
-  `GameScene.shatterBalls`) -- a size-5 ball is four rounds and sixteen
-  smallest balls -- so every split, burst and point is the one the player
-  would have earned the long way. Two things are held back, both for the
-  same reason: the pop sound plays once for the lot rather than thirty
-  times over itself, and the random drop roll is skipped, so one power-up
-  cannot rain six more. A drop the level itself put on a ball still comes
-  out; that one was authored, not rolled for.
+  size there is -- **one size at a time**, half a second between them: a
+  5 becomes 4s, then 3s, then 2s, then 1s, so it reads as a charge going
+  off in stages, each bang visibly halving what is left. Run back to back
+  inside one frame (which is how it started out) sixteen balls simply
+  appeared where one had been and there was nothing to watch. Each pass is
+  the very same pop a shot gives (see `GameScene.shatterBalls`), so every
+  split, burst and point is the one the player would have earned the long
+  way. Two things are held back, both for the same reason: the pop sound
+  is one bang per pass rather than a dozen copies over each other, and the
+  random drop roll is skipped, so one power-up cannot rain six more. A
+  drop the level itself put on a ball still comes out; that one was
+  authored, not rolled for. The passes are driven from `updatePlaying`
+  rather than from a timer, so a pause or a lost life stops the charge
+  where it is, and `clearEntities` cancels whatever is still pending so it
+  can never go off into the next level.
   **Hourglass** puts the balls into slow motion for 10s -- and only the
   balls, so the player keeps full speed, which is the whole point of it.
   It is held as a scale on the scene (`ballSpeedScale`) and applied to

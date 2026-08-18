@@ -54,11 +54,17 @@ const LEVEL_CLEAR_PAUSE_SEC = 1;
 const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
 
-// How many rounds of popping the dynamite is allowed (see shatterBalls).
+// How many passes of popping the dynamite is allowed (see shatterBalls).
 // Four is enough to take the biggest ball there is down to the smallest;
 // this is one more than that, and exists so a ball element added later
 // with a bigger size cannot turn the loop into an endless one.
 const MAX_SHATTER_PASSES = 6;
+
+// The gap between those passes. Long enough that each one is a separate
+// event to watch -- the field halving, again, and again -- and short
+// enough that the whole charge is over in about a second and a half,
+// which is still an instant next to the level clock.
+const SHATTER_PASS_SEC = 0.5;
 
 // The winged ghost that leaves when a life does (see spawnDeathGhost):
 // how long it takes to beat its way up and fade, and how far it gets.
@@ -127,6 +133,11 @@ export class GameScene extends Phaser.Scene {
     // that appears while it is running is slowed too -- every ball reads
     // it once a frame in updatePlaying.
     this.ballSpeedScale = 1;
+    // A dynamite going off, one size of ball per pass (see shatterBalls).
+    // Zero passes left means nothing is running.
+    this.shatterPassesLeft = 0;
+    this.shatterTimer = 0;
+    this.shatterDownToSize = 1;
     this.elapsedMs = 0;
     this.levelTimer = 0;
     this.stateTimer = 0;
@@ -427,6 +438,10 @@ export class GameScene extends Phaser.Scene {
     this.balls.clear(true, true);
     this.projectiles.clear(true, true);
     this.powerups.clear(true, true);
+    // A dynamite is spread over a second and a half (see shatterBalls),
+    // so it can still have passes to go when the level it was set off in
+    // ends -- and it must not go on popping into the next one.
+    this.shatterPassesLeft = 0;
   }
 
   // Shared fresh-run setup behind all four entry points below: what a new
@@ -994,6 +1009,7 @@ export class GameScene extends Phaser.Scene {
     this.elapsedMs += dt * 1000;
     this.levelTimer += dt;
     this.effects.update(this, this.elapsedMs);
+    this.updateShatter(dt);
 
     // Running out of time is exactly the same hit as a ball touching the
     // player (see onTimeUp/hitPlayer) -- checked every frame the clock
@@ -1331,33 +1347,50 @@ export class GameScene extends Phaser.Scene {
   }
 
   // The dynamite (see elements.js's shatter_balls): every ball on the
-  // field taken down to the smallest size there is, in one instant.
+  // field taken down to the smallest size there is -- ONE SIZE AT A TIME.
   //
-  // Rounds rather than recursion, because popping a ball REPLACES it with
-  // two smaller ones -- so each pass takes the field as it stands, pops
-  // everything still too big, and looks again at what that left behind. A
-  // size-5 ball is four passes and sixteen smallest balls; the loop ends
-  // when a pass finds nothing left to pop, and the size cap is only there
-  // so a ball element added with a size bigger than any that exists today
-  // cannot spin it forever.
+  // Passes rather than recursion, because popping a ball REPLACES it with
+  // two smaller ones: each pass takes the field as it stands, pops
+  // everything still too big, and the next pass looks at what that left
+  // behind. A size-5 ball is four passes -- 5 to 4, 4 to 3, 3 to 2, 2 to
+  // 1 -- and sixteen smallest balls at the end of it.
   //
-  // Every pop scores, bursts and splits exactly as a shot's would -- it
-  // IS the same pop -- but quietly and without rolling for drops, which
-  // is the difference between a bang and thirty overlapping copies of one
-  // (see popBall).
+  // The SHATTER_PASS_SEC between them is the whole effect. Run back to
+  // back inside one frame, sixteen balls simply appeared where one had
+  // been and there was nothing to watch; spaced out, it is a charge going
+  // off in stages, each bang visibly halving what is left. Driven from
+  // updatePlaying (see updateShatter) rather than from a timer, so it
+  // stops dead while the game is paused or a life is being lost, and
+  // clearEntities cancels whatever is still pending when the level ends.
   shatterBalls(downToSize = 1) {
-    let popped = 0;
-    for (let pass = 0; pass < MAX_SHATTER_PASSES; pass++) {
-      const tooBig = this.balls.getChildren().filter((ball) => ball.active && ball.size > downToSize);
-      if (!tooBig.length) break;
-      for (const ball of tooBig) this.popBall(ball, { quiet: true, rollDrop: false });
-      popped += tooBig.length;
+    this.shatterDownToSize = downToSize;
+    // Capped so a ball element added later, with a size bigger than any
+    // that exists today, cannot leave this running for ever.
+    this.shatterPassesLeft = MAX_SHATTER_PASSES;
+    this.shatterPass(); // the first bang belongs to the pickup, not to half a second after it
+  }
+
+  updateShatter(dt) {
+    if (this.shatterPassesLeft <= 0) return;
+    this.shatterTimer -= dt;
+    if (this.shatterTimer <= 0) this.shatterPass();
+  }
+
+  // One size off every ball that still has one to lose. Every pop scores,
+  // bursts and splits exactly as a shot's would -- it IS the same pop --
+  // but quietly and without rolling for drops, with a single bang for the
+  // whole pass instead of a dozen copies of the pop sound over each other
+  // (see popBall).
+  shatterPass() {
+    const tooBig = this.balls.getChildren().filter((ball) => ball.active && ball.size > this.shatterDownToSize);
+    if (!tooBig.length) {
+      this.shatterPassesLeft = 0;
+      return;
     }
-    // One bang for the lot of them, and only if there was anything to
-    // blow up -- the pickup sound has already played by now (see
-    // collectPowerup), so silence here would read as the dynamite having
-    // done nothing rather than as there being nothing to do.
-    if (popped) this.audio.play('walldestroy');
+    for (const ball of tooBig) this.popBall(ball, { quiet: true, rollDrop: false });
+    this.audio.play('walldestroy');
+    this.shatterPassesLeft -= 1;
+    this.shatterTimer = SHATTER_PASS_SEC;
   }
 
   // A 2-frame pop animation, one image per (shape, size) ball -- see
