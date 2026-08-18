@@ -1454,6 +1454,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   hitPlayer() {
+    // Debug mode's Invincible toggle (the I key, or the button in its
+    // VIEW group). Everything that can cost a life comes through here --
+    // a ball touching the player and the clock running out both do -- so
+    // this one line is the whole of it, and it is the only place that
+    // needs to know the switch exists. Deliberately before the shield
+    // too: an invincible player does not spend a shield on a hit that
+    // was never going to land.
+    if (this.debug?.invincible) return;
+
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();
     if (!lostLife && hadShield) {

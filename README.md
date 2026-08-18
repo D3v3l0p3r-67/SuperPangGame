@@ -855,6 +855,16 @@ Useful while tuning levels or ball behavior:
   always shown: outlines on, grid off. Either button carries the outline
   the editor's selected brush does while its overlay is showing, so what
   is on is visible in the panel itself.
+- **Invincible** (the **I** key, in the same group) is the one switch here
+  that changes what the game *does* rather than what it shows: nothing can
+  cost a life while it is on -- neither a ball touching the player nor the
+  clock running out. Both of those already funnel through
+  `GameScene.hitPlayer`, so the whole of it is one early return there, and
+  it sits before the shield rather than after: an invincible player does
+  not spend a shield on a hit that was never going to land. Off unless
+  asked for, and while it is on the readout says `INVINCIBLE`, because a
+  run where nothing can go wrong looks exactly like a run where nothing is
+  going wrong.
 - A clearly labeled spawn panel, all of it without replaying the whole
   game or affecting normal play when the panel is off:
   - **BALL** -- pick a shape + size and **Spawn** it; **Remove all** takes
