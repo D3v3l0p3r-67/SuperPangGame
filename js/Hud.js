@@ -22,14 +22,6 @@ const MAX_LIVES_ICONS = 5;
 // weapons.js's EffectManager.apply), so 6 is the real maximum, not 8.
 const MAX_POWERUP_SLOTS = 6;
 
-// Which active power-up (if any) the HUD weapon icon should reflect --
-// checked in this order, first match wins, matching GameScene.tryFire's
-// own "is this shot special" check. Falls back to the plain
-// hudWeaponIconKey(weaponType) icon (see render()) when none is active.
-// A list rather than a single name so a future weapon power-up only needs
-// adding here.
-const WEAPON_ICON_POWERUP_TYPES = ['rapid_shot'];
-
 // The HUD's own pixel-art layout below is authored at a fixed design
 // width/height (all the individual x/y offsets -- 4, 74, 166, 196, 1, 14,
 // 27, ... -- assume it), independent of VIRTUAL_W/HUD_H. Centering the
@@ -83,9 +75,8 @@ class DigitRow {
 //   living apart from the score it's compared against.
 //   Weapon frame + an icon centered inside it, 1.5x the digit-column
 //   art's scale so the currently-held weapon reads as the HUD's focal
-//   point -- the icon itself swaps to whichever weapon-affecting
-//   power-up (rapid_shot) is active, falling back to the plain weapon
-//   icon otherwise (see WEAPON_ICON_POWERUP_TYPES).
+//   point. Always the weapon in hand -- nothing else is ever put in
+//   there (see render).
 //   TIME and LEVEL on the right, each a label + the smaller digit strip
 //   so label and value line up at the same height.
 //   A row of active power-up icons + remaining whole seconds along the
@@ -194,8 +185,13 @@ export class Hud {
     this.container.setVisible(visible);
     if (!visible) return;
 
-    const activeWeaponPowerup = WEAPON_ICON_POWERUP_TYPES.find((type) => g.effects.active.has(type));
-    const weaponIconKey = activeWeaponPowerup ? assets.powerupTextureKey(activeWeaponPowerup) : assets.hudWeaponIconKey(g.weaponType);
+    // The frame shows the WEAPON, and only ever the weapon. A running
+    // rapid_shot used to take the frame over, which hid the one thing it
+    // is for -- and hid it exactly when the answer matters, since what a
+    // rapid shot does depends on which weapon it is speeding up. It is
+    // already in the power-up row along the bottom, with the seconds it
+    // has left, which is where an effect on a clock belongs.
+    const weaponIconKey = assets.hudWeaponIconKey(g.weaponType);
     if (weaponIconKey !== this.lastWeaponIconKey) {
       this.lastWeaponIconKey = weaponIconKey;
       this.weaponIcon.setTexture(weaponIconKey);

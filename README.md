@@ -1940,11 +1940,13 @@ in place, keeping the same filename and pixel dimensions:
   always centered on the frame (`Hud.js` reads the frame's own width/
   height), so the two can be swapped independently as long as the icon
   stays smaller than the frame. Adding a weapon type is just dropping in
-  its icon file alongside its `WEAPON_TYPES` entry. While `rapid_shot` is
-  active, the socket
-  shows that power-up's own icon (from
-  `assets/powerups/`, see "Adding elements" below) instead, reverting to
-  the plain weapon icon once it expires.
+  its icon file alongside its `WEAPON_TYPES` entry. The socket shows the
+  **weapon and only the weapon**: a running `rapid_shot` used to take it
+  over, which hid the one thing the socket is for -- and hid it exactly
+  when the answer matters, since what a rapid shot does depends on which
+  weapon it is speeding up. It is in the power-up row along the bottom
+  instead, with the seconds it has left, which is where an effect on a
+  clock belongs.
 - **Active power-up row**: no separate art of its own -- reuses each
   power-up's existing `assets/powerups/<type>.webp` icon plus the small
   digit strip for a whole-seconds countdown, one pooled slot per
