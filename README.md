@@ -1273,11 +1273,16 @@ into each other, and a doubled-up glyph would be twice as coarse as the
 HUD around it -- but they live in one file on purpose: the pickup that
 drops on the field and the icon that appears in the frame when it is
 collected are the same weapon, and a change to one that misses the other
-leaves the game showing two. It also fixed what the HUD frame could not
-say before: the grapple and the machine gun were the same teal in near
-enough the same shape, which is useless in the one place you look to see
-what you are holding. They are now the hook in teal and three orange
-barrels, each matching its own pickup.
+leaves the game showing two.
+
+**All three weapons share one yellow**, disc and HUD icon alike: a weapon
+is a weapon, so the colour says the family and the shape says which one.
+That puts the whole difference on the outlines, and no two of them share
+one -- the harpoon flares outward into barbs, the grapple opens into two
+prongs, the machine gun is three barrels over a body. It is also what the
+HUD frame could not say before: the grapple and the machine gun were the
+same teal in near enough the same shape, which is useless in the one
+place you look to see what you are holding.
 
 Running the tool writes only the types it has a glyph for, so anything
 drawn by hand or through the admin tool is never overwritten by it.

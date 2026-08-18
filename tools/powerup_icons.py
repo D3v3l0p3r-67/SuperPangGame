@@ -12,11 +12,10 @@ player who cannot tell WHICH thing from across the playfield.
 Only the types in GLYPHS below are written, so the icons drawn by hand
 (shield, the fruit, and the rest) are never overwritten by running this.
 The disc colours come from each type's own elements/powerup-*.json rather
-than being repeated here. For the weapons they are deliberately not
-simply copied from WEAPON_TYPES: the grapple and the machine gun share
-one colour there (#4ecdc4), which is fine for a HUD slot that also
-carries the weapon's name and useless for an 18px disc that has to be
-told apart in a hurry.
+than being repeated here. All three weapons share one yellow: a weapon is
+a weapon, and which one it is has to be read off the glyph in any case --
+the frame in the HUD shows one at a time, and on the field the disc is a
+weapon dropping rather than an effect on a clock.
 """
 
 import json
@@ -201,9 +200,13 @@ GLYPHS = {
 # frame do not divide into each other, and a doubled-up glyph in the HUD
 # would be twice as coarse as everything around it.
 #
-# What they fix, beyond matching: the grapple and the machine gun used to
-# be the same teal, in near enough the same shape, so the frame could not
-# be read at a glance -- which is the only thing it is for.
+# The shapes have to carry the whole difference, because the colour no
+# longer does any of it: all three weapons are one yellow. So no two of
+# them share an outline -- the harpoon flares outward into barbs, the
+# grapple opens into two prongs, the machine gun is three barrels over a
+# body. Before, the grapple and the machine gun were the same teal in
+# near enough the same shape, and the frame could not be read at a
+# glance, which is the only thing it is for.
 HUD_SIZE = 21
 HUD_GLYPHS = {
     'harpoon': [
