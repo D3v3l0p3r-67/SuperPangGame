@@ -1262,9 +1262,15 @@ darker tone of the same hue. **No letters, anywhere.** They used to be
 there -- an `R` for rapid shot, an `S` for speed boost, an `F` for time
 freeze -- and each was a thing the player had to already know the name of,
 in a game whose playfield has no text in it at all. They are a lightning
-bolt, a heart, a snowflake, a shield, a star, a fruit and a doubled arrow
-now, plus the stick of dynamite and the hourglass. The two that were
-never letters, the spear and the hook, stayed as they were.
+bolt, a boot, a heart, a snowflake, a shield, a star and a fruit now,
+plus the stick of dynamite and the hourglass. The two that were never
+letters, the spear and the hook, stayed as they were.
+
+The bolt is on **rapid shot**, not on speed boost, which is the way round
+that survives being looked at: a bolt says the SHOT comes faster, and
+what moves faster about the player is their legs -- so the boot is theirs.
+Getting that pair the wrong way round is easy and costs the player the
+one glance the icon exists for.
 
 The same tool draws the three weapons' **HUD** icons (21x21, the frame
 beside the score), from glyphs written next to the disc ones. They are
@@ -1275,8 +1281,10 @@ drops on the field and the icon that appears in the frame when it is
 collected are the same weapon, and a change to one that misses the other
 leaves the game showing two.
 
-**All three weapons share one yellow**, disc and HUD icon alike: a weapon
-is a weapon, so the colour says the family and the shape says which one.
+**All three weapons share one yellow**, disc and HUD icon alike -- and so
+does rapid shot, which is not a weapon but is entirely about one: a
+weapon is a weapon, so the colour says the family and the shape says
+which member.
 That puts the whole difference on the outlines, and no two of them share
 one -- the harpoon flares outward into barbs, the grapple opens into two
 prongs, the machine gun is three barrels over a body. It is also what the

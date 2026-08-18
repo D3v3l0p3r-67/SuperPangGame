@@ -110,21 +110,11 @@ GLYPHS = {
         '.#####.',
         '..###..',
     ],
-    # Two arrowheads on one shaft: more shots in the air at once, said as
-    # a shot doubled rather than as a letter.
+    # A lightning bolt: the shot that comes faster. On the weapons' own
+    # yellow too (see its element), because that is what it acts on --
+    # the disc says "something about your gun" before the glyph says
+    # which something.
     'rapid_shot': [
-        '...#...',
-        '..###..',
-        '.#####.',
-        '...#...',
-        '..###..',
-        '.#####.',
-        '...#...',
-        '...#...',
-        '...#...',
-    ],
-    # A lightning bolt -- speed, in the one shape nobody has to be taught.
-    'speed_boost': [
         '....##.',
         '...##..',
         '..##...',
@@ -134,6 +124,21 @@ GLYPHS = {
         '..##...',
         '.##....',
         '.#.....',
+    ],
+    # A boot. The bolt used to be here, which put the same picture on the
+    # power-up that makes the PLAYER faster and left nothing for the one
+    # that speeds up the shot -- and of the two, the shot is what a bolt
+    # says. What moves faster here is the legs, so it is what is on them.
+    'speed_boost': [
+        '.####..',
+        '.####..',
+        '.####..',
+        '.####..',
+        '.#####.',
+        '.######',
+        '#######',
+        '#######',
+        '.#####.',
     ],
     # A star: what a score is made of. The multiplier is not spelled out
     # (that would be a digit, which is a letter's cousin) -- the sparkles
