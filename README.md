@@ -766,9 +766,32 @@ seam between the canvas and the page behind it.
   weapon is where it STARTS: each of the three also drops as a power-up
   (see below), so a level can hand one over partway through, or leave it
   in a crate to be shot open.
-- 10 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
-  multiplier, time freeze, shield, and one per weapon -- harpoon, grapple,
-  machine gun. The weapon ones are instant and for keeps: a weapon is what
+- 12 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
+  multiplier, time freeze, shield, **dynamite**, **hourglass**, and one per
+  weapon -- harpoon, grapple, machine gun.
+  **Dynamite** takes every ball on the field apart down to the smallest
+  size there is, in one instant: not a clock but a single act, so there is
+  nothing to run out. It is rounds of the very same pop a shot gives (see
+  `GameScene.shatterBalls`) -- a size-5 ball is four rounds and sixteen
+  smallest balls -- so every split, burst and point is the one the player
+  would have earned the long way. Two things are held back, both for the
+  same reason: the pop sound plays once for the lot rather than thirty
+  times over itself, and the random drop roll is skipped, so one power-up
+  cannot rain six more. A drop the level itself put on a ball still comes
+  out; that one was authored, not rolled for.
+  **Hourglass** puts the balls into slow motion for 10s -- and only the
+  balls, so the player keeps full speed, which is the whole point of it.
+  It is held as a scale on the scene (`ballSpeedScale`) and applied to
+  every ball each frame, which is what carries it onto balls that did not
+  exist when it was picked up: the halves a ball splits into while it
+  runs, and anything Panic Mode drops from the ceiling. Gravity goes by
+  the SQUARE of that scale (see `Ball.setSpeedScale`), and that is not a
+  fudge -- a bounce reaching `h = v²/2g` only keeps its height if gravity
+  scales as the speed does, squared. Scale it linearly instead and a
+  slowed ball bounces four times as high, which is a different game rather
+  than a slower one. The weave, the hunt and the hex spin are slowed with
+  it, so the whole thing is the ball's own flight played back slowly.
+  The weapon ones are instant and for keeps: a weapon is what
   the player is holding rather than an effect on a clock, so there is
   nothing to run out, and the level's own weapon comes back when the level
   restarts. Picking one up does not cancel a timed effect that happens to
@@ -981,7 +1004,12 @@ tools/               Scripts run by hand, never by the game:
                       a lost life leaves (it imports that sheet's own dead
                       frame, palette and renderer, and adds only the wash
                       and the wings, so the two cannot drift apart),
-                      app_icons.py draws the app icons, and
+                      app_icons.py draws the app icons,
+                      powerup_icons.py draws the pickup disc for each
+                      power-up it has a glyph for (the weapons, the
+                      dynamite, the hourglass -- and only those, so the
+                      hand-drawn icons are never overwritten by running
+                      it), and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing

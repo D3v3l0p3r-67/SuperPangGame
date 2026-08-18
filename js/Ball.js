@@ -36,6 +36,9 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
     this.bounceVelocity = el.bounceVelocity;
     this.gravityAccel = el.gravityAccel || 0;
     this.color = el.color;
+    // Normal speed until something says otherwise -- see setSpeedScale.
+    // Set before any velocity below, because hSpeed/vSpeed read it.
+    this.speedScale = 1;
     // Set by the level editor (or level data) to guarantee a specific
     // power-up drops when this exact ball is popped, bypassing the usual
     // random POWERUP_DROP_CHANCE roll -- see GameScene.popBall.
@@ -102,11 +105,48 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
   // collision callback runs, so "reflect whatever's there" would just
   // leave the ball motionless at the wall/obstacle instead of bouncing.
   get hSpeed() {
-    return this.hasGravity ? this.speed : this.speed * Math.SQRT1_2;
+    return (this.hasGravity ? this.speed : this.speed * Math.SQRT1_2) * this.speedScale;
   }
 
   get vSpeed() {
-    return this.speed * Math.SQRT1_2; // only meaningful for hex balls
+    return this.speed * Math.SQRT1_2 * this.speedScale; // only meaningful for hex balls
+  }
+
+  // What a bounce off the floor leaves at. Read through here rather than
+  // off the element so it slows with everything else -- see
+  // setSpeedScale.
+  get bounceSpeed() {
+    return this.bounceVelocity * this.speedScale;
+  }
+
+  // Slow motion, for this ball. `scale` is a factor on every speed it
+  // has: 0.5 is half as fast (the hourglass power-up, see elements.js's
+  // slow_balls), 1 is normal. GameScene applies the scene's current one
+  // to every ball each frame, which is what carries it onto balls that
+  // did not exist when the effect started -- a split half, or a Panic
+  // Mode drop.
+  //
+  // Gravity goes by the SQUARE of the scale, and that is not a fudge: a
+  // bounce reaching height h = v^2 / 2g keeps that height only if g
+  // scales as v does, squared. Scale gravity by the same factor as the
+  // speed and a slowed ball bounces to four times its normal height,
+  // which is a different game rather than a slower one. This way the
+  // whole flight is the ball's own arc played back slowly -- same shape,
+  // same reach, more time to get under it.
+  setSpeedScale(scale) {
+    if (scale === this.speedScale) return;
+    // The velocity it has right now is in the OLD scale's units, so it is
+    // converted rather than recomputed: a ball mid-flight keeps the arc
+    // it was on instead of jumping to a fresh one.
+    const change = scale / this.speedScale;
+    this.body.velocity.scale(change);
+    this.lastVelocityY *= change;
+    this.speedScale = scale;
+    if (this.hasGravity) this.body.setGravityY(this.gravityAccel * scale * scale);
+    // The spin goes with it: a hex ball turning at full speed while
+    // drifting at half of it looks like a bug rather than like slow
+    // motion. No-op on the round balls, which never animate.
+    this.anims.timeScale = scale;
   }
 
   // A fresh random left/right horizontal speed at this ball's fixed
@@ -146,7 +186,7 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
   // balls always leave at exactly bounceVelocity regardless of how fast
   // they were falling; hex balls reflect at their fixed diagonal speed.
   landOnTop() {
-    this.body.setVelocityY(this.hasGravity ? -this.bounceVelocity : -this.vSpeed);
+    this.body.setVelocityY(this.hasGravity ? -this.bounceSpeed : -this.vSpeed);
   }
 
   // Records the vertical speed the ball is currently travelling at, once
@@ -199,7 +239,10 @@ export class Ball extends Phaser.Physics.Arcade.Sprite {
   // Never called while balls are frozen: a movement is motion, and a
   // frozen ball is not moving.
   updateMovement(dt, scene) {
-    this.movement.update(this, dt, scene);
+    // The movement's own clock is slowed with everything else, so a
+    // weave stretches out and a hunter takes longer to come round rather
+    // than turning as sharply as ever at half the speed.
+    this.movement.update(this, dt * this.speedScale, scene);
   }
 
   // Pauses/resumes the hex spin animation started in the constructor

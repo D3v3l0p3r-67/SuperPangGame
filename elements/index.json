@@ -32,6 +32,8 @@
   "powerup-score-multiplier",
   "powerup-time-freeze",
   "powerup-shield",
+  "powerup-dynamite",
+  "powerup-hourglass",
   "powerup-weapon-harpoon",
   "powerup-weapon-grapple",
   "powerup-weapon-machinegun"

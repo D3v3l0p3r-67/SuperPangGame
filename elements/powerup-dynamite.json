@@ -1,0 +1,14 @@
+{
+  "id": "powerup-dynamite",
+  "category": "powerup",
+  "type": "dynamite",
+  "label": "Dynamite",
+  "color": "#f0562d",
+  "durationMs": 0,
+  "instant": true,
+  "kind": "shatter_balls",
+  "params": {
+    "downToSize": 1
+  },
+  "pickupSound": "walldestroy"
+}

@@ -1,20 +1,22 @@
-"""Draws the pickup icons for the weapon power-ups.
+"""Draws the pickup icons for the power-ups that have a glyph here.
 
-    python3 tools/weapon_powerup_icons.py
+    python3 tools/powerup_icons.py
 
 Same shape as every other power-up icon (assets/powerups/<type>.webp,
 18x18): a round disc in the power-up's own colour with a glyph cut into
-it in a darker tone of the same hue. The glyph here says which weapon is
-in the box -- a barbed spear, a two-pronged hook, a bank of barrels --
-because "a weapon drops" is not useful to a player who cannot tell WHICH
-one from across the playfield.
+it in a darker tone of the same hue. The glyph says what is in the box --
+a barbed spear, a two-pronged hook, a bank of barrels, a stick of
+dynamite, an hourglass -- because "something drops" is not useful to a
+player who cannot tell WHICH thing from across the playfield.
 
-The disc colours are the ones in elements/powerup-weapon-*.json, read
-from there rather than repeated here. They are deliberately not simply
-copied from WEAPON_TYPES: the grapple and the machine gun share one
-colour there (#4ecdc4), which is fine for a HUD slot that also carries
-the weapon's name and useless for an 18px disc that has to be told apart
-in a hurry.
+Only the types in GLYPHS below are written, so the icons drawn by hand
+(shield, the fruit, and the rest) are never overwritten by running this.
+The disc colours come from each type's own elements/powerup-*.json rather
+than being repeated here. For the weapons they are deliberately not
+simply copied from WEAPON_TYPES: the grapple and the machine gun share
+one colour there (#4ecdc4), which is fine for a HUD slot that also
+carries the weapon's name and useless for an 18px disc that has to be
+told apart in a hurry.
 """
 
 import json
@@ -63,6 +65,34 @@ GLYPHS = {
         '...#...',
         '..###..',
     ],
+    # A stick with a lit fuse: the fuse leaves the top right and the spark
+    # sits off the end of it, which is what says "about to go off" at this
+    # size -- a plain cylinder would read as a barrel or a battery.
+    'dynamite': [
+        '.....#.',
+        '....#..',
+        '..###..',
+        '..###..',
+        '.#####.',
+        '..###..',
+        '..###..',
+        '..###..',
+        '..###..',
+    ],
+    # Two triangles meeting at the waist, with the sand in the top half:
+    # the shape reads as an hourglass even where the grains do not, and
+    # the frame lines are what keep it from looking like a bow tie.
+    'hourglass': [
+        '#######',
+        '.#####.',
+        '..###..',
+        '..###..',
+        '...#...',
+        '..#.#..',
+        '.#...#.',
+        '#.....#',
+        '#######',
+    ],
 }
 
 
@@ -110,8 +140,10 @@ def draw_glyph(img: Image.Image, rows: list, color: tuple) -> None:
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    for path in sorted(ELEMENTS.glob('powerup-weapon-*.json')):
+    for path in sorted(ELEMENTS.glob('powerup-*.json')):
         element = json.loads(path.read_text())
+        if element['type'] not in GLYPHS:
+            continue
         color = hex_to_rgb(element['color'])
         img = icon(color)
         draw_glyph(img, GLYPHS[element['type']], shade(color, 0.28))
