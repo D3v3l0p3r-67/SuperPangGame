@@ -27,10 +27,15 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 ELEMENTS = ROOT / 'elements'
 OUT = ROOT / 'assets' / 'powerups'
+HUD_OUT = ROOT / 'assets' / 'hud'
 SIZE = 18
 
-# 7x9 pixel glyphs, drawn on the disc. Small on purpose: the icon is
-# looked at as a shape at speed, not read.
+# Up to 7x9 pixel glyphs, drawn on the disc and centred in it (a glyph
+# with fewer rows simply sits in the middle). Small on purpose: the icon
+# is looked at as a SHAPE at speed, not read -- which is also why none of
+# them is a letter any more. An R for rapid shot, an S for speed and an F
+# for freeze were three things a player had to already know the names of,
+# in a game with no text anywhere else in the playfield.
 GLYPHS = {
     'weapon_harpoon': [
         '...#...',
@@ -93,6 +98,183 @@ GLYPHS = {
         '#.....#',
         '#######',
     ],
+    # An apple with its stem and one leaf: the fruit is a bonus of points
+    # and nothing else, so the picture is simply the thing itself.
+    'bonus_fruit': [
+        '...#.##',
+        '...#.#.',
+        '.##.##.',
+        '#######',
+        '#######',
+        '#######',
+        '#######',
+        '.#####.',
+        '..###..',
+    ],
+    # Two arrowheads on one shaft: more shots in the air at once, said as
+    # a shot doubled rather than as a letter.
+    'rapid_shot': [
+        '...#...',
+        '..###..',
+        '.#####.',
+        '...#...',
+        '..###..',
+        '.#####.',
+        '...#...',
+        '...#...',
+        '...#...',
+    ],
+    # A lightning bolt -- speed, in the one shape nobody has to be taught.
+    'speed_boost': [
+        '....##.',
+        '...##..',
+        '..##...',
+        '.#####.',
+        '..###..',
+        '...##..',
+        '..##...',
+        '.##....',
+        '.#.....',
+    ],
+    # A star: what a score is made of. The multiplier is not spelled out
+    # (that would be a digit, which is a letter's cousin) -- the sparkles
+    # either side are the "more" of it.
+    # Wider than the rest at nine pixels across, because a star drawn at
+    # seven is a blob with legs: the arms need a pixel to be thin
+    # against. The glyph is centred whatever its size, so this costs
+    # nothing but the two pixels of margin it takes.
+    'score_multiplier': [
+        '....#....',
+        '...###...',
+        '...###...',
+        '#########',
+        '.#######.',
+        '..#####..',
+        '..##.##..',
+        '.##...##.',
+        '##.....##',
+    ],
+    # A snowflake: the balls stop where they are, and cold is what says
+    # so at seven pixels across.
+    'time_freeze': [
+        '#..#..#',
+        '.#.#.#.',
+        '..###..',
+        '###.###',
+        '..###..',
+        '.#.#.#.',
+        '#..#..#',
+    ],
+    # A heater shield. Not a cross, which is the extra life's, and not a
+    # letter, which is what this used to be.
+    'shield': [
+        '#######',
+        '#######',
+        '#######',
+        '#######',
+        '.#####.',
+        '.#####.',
+        '..###..',
+        '...#...',
+    ],
+    # A heart, for the one power-up that is worth a life.
+    'extra_life': [
+        '.##.##.',
+        '#######',
+        '#######',
+        '#######',
+        '.#####.',
+        '..###..',
+        '...#...',
+    ],
+}
+
+# The same three weapons again, at the size the HUD draws them (21x21,
+# see js/assets.js's hudWeaponIconPath) -- the frame beside the score,
+# which is where a player looks to see what they are holding.
+#
+# Written here, next to the discs, because the two have to say the same
+# thing: the pickup that drops on the field and the icon that appears in
+# the frame when it is collected are one weapon, and a change to either
+# that misses the other leaves the game showing two. They are separate
+# drawings rather than one scaled up because 18px of disc and 21px of
+# frame do not divide into each other, and a doubled-up glyph in the HUD
+# would be twice as coarse as everything around it.
+#
+# What they fix, beyond matching: the grapple and the machine gun used to
+# be the same teal, in near enough the same shape, so the frame could not
+# be read at a glance -- which is the only thing it is for.
+HUD_SIZE = 21
+HUD_GLYPHS = {
+    'harpoon': [
+        '.........###.........',
+        '........#####........',
+        '........#####........',
+        '.......###.###.......',
+        '......###...###......',
+        '.....###.....###.....',
+        '.....##..###..##.....',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '......#########......',
+        '......#########......',
+        '......#########......',
+        '......###...###......',
+        '......###...###......',
+        '.....................',
+    ],
+    'grapple': [
+        '......##.....##......',
+        '......##.....##......',
+        '......##.....##......',
+        '......##.....##......',
+        '.......##...##.......',
+        '.......##...##.......',
+        '........#####........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '......#########......',
+        '......#########......',
+        '......#########......',
+        '......###...###......',
+        '......###...###......',
+        '.....................',
+    ],
+    'machinegun': [
+        '...###...###...###...',
+        '...###...###...###...',
+        '...###...###...###...',
+        '...###...###...###...',
+        '..#################..',
+        '..#################..',
+        '....#############....',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '.........###.........',
+        '......#########......',
+        '......#########......',
+        '......#########......',
+        '......###...###......',
+        '......###...###......',
+        '.....................',
+    ],
 }
 
 
@@ -138,18 +320,45 @@ def draw_glyph(img: Image.Image, rows: list, color: tuple) -> None:
                 px[left + x, top + y] = (*color, 255)
 
 
+# The HUD's version: the weapon's shape alone, no disc behind it -- the
+# frame it sits in is the background (see assets/hud/hud_weapon_frame
+# .webp). Lit from the top left like everything else, so it belongs to
+# the same picture as the pickup it came from.
+def hud_icon(rows: list, color: tuple) -> Image.Image:
+    img = Image.new('RGBA', (HUD_SIZE, HUD_SIZE), (0, 0, 0, 0))
+    px = img.load()
+    centre = (HUD_SIZE - 1) / 2
+    for y, row in enumerate(rows):
+        for x, mark in enumerate(row):
+            if mark != '#':
+                continue
+            lift = 1.0 + 0.35 * ((centre - x) + (centre - y)) / HUD_SIZE
+            px[x, y] = (*shade(color, lift), 255)
+    return img
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
+    HUD_OUT.mkdir(parents=True, exist_ok=True)
     for path in sorted(ELEMENTS.glob('powerup-*.json')):
         element = json.loads(path.read_text())
-        if element['type'] not in GLYPHS:
+        kind = element['type']
+        if kind not in GLYPHS:
             continue
         color = hex_to_rgb(element['color'])
         img = icon(color)
-        draw_glyph(img, GLYPHS[element['type']], shade(color, 0.28))
-        out = OUT / f"{element['type']}.webp"
+        draw_glyph(img, GLYPHS[kind], shade(color, 0.28))
+        out = OUT / f'{kind}.webp'
         img.save(out, 'WEBP', lossless=True)
         print(f'{out.relative_to(ROOT)}: {element["label"]}')
+
+        # The weapons carry on into the HUD frame, in the same colour the
+        # disc uses -- one weapon, one look, wherever it is being shown.
+        weapon = kind[len('weapon_'):] if kind.startswith('weapon_') else None
+        if weapon in HUD_GLYPHS:
+            hud_out = HUD_OUT / f'weapon_{weapon}.webp'
+            hud_icon(HUD_GLYPHS[weapon], color).save(hud_out, 'WEBP', lossless=True)
+            print(f'{hud_out.relative_to(ROOT)}: {element["label"]} (HUD)')
 
 
 if __name__ == '__main__':

@@ -1011,11 +1011,9 @@ tools/               Scripts run by hand, never by the game:
                       frame, palette and renderer, and adds only the wash
                       and the wings, so the two cannot drift apart),
                       app_icons.py draws the app icons,
-                      powerup_icons.py draws the pickup disc for each
-                      power-up it has a glyph for (the weapons, the
-                      dynamite, the hourglass -- and only those, so the
-                      hand-drawn icons are never overwritten by running
-                      it), and
+                      powerup_icons.py draws every power-up's pickup
+                      disc, and the three weapons' HUD icons with them
+                      (see "Icons say it in pictures"), and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
@@ -1255,6 +1253,34 @@ a genuinely new *behavior* (not just a new tuning of an existing one) does
 need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`. `pickupSound`
 names an `assets/audio/audio.json` entry to play on pickup (falls back to
 `"itempick"` if omitted) -- see "Swapping / adding sounds".
+
+### Icons say it in pictures
+
+`tools/powerup_icons.py` draws every pickup disc: 18x18, a disc in the
+power-up's own colour from its element file, with a glyph cut into it in a
+darker tone of the same hue. **No letters, anywhere.** They used to be
+there -- an `R` for rapid shot, an `S` for speed boost, an `F` for time
+freeze -- and each was a thing the player had to already know the name of,
+in a game whose playfield has no text in it at all. They are a lightning
+bolt, a heart, a snowflake, a shield, a star, a fruit and a doubled arrow
+now, plus the stick of dynamite and the hourglass. The two that were
+never letters, the spear and the hook, stayed as they were.
+
+The same tool draws the three weapons' **HUD** icons (21x21, the frame
+beside the score), from glyphs written next to the disc ones. They are
+separate drawings rather than one scaled up -- 18 and 21 do not divide
+into each other, and a doubled-up glyph would be twice as coarse as the
+HUD around it -- but they live in one file on purpose: the pickup that
+drops on the field and the icon that appears in the frame when it is
+collected are the same weapon, and a change to one that misses the other
+leaves the game showing two. It also fixed what the HUD frame could not
+say before: the grapple and the machine gun were the same teal in near
+enough the same shape, which is useless in the one place you look to see
+what you are holding. They are now the hook in teal and three orange
+barrels, each matching its own pickup.
+
+Running the tool writes only the types it has a glyph for, so anything
+drawn by hand or through the admin tool is never overwritten by it.
 
 ### Adding levels
 
