@@ -1354,9 +1354,14 @@ A piece bigger than one block never carries a drop, for the same reason a
 wall does not -- see below.
 
 **NEXT PLACED follows the brush**: it shows the options the brush in hand
-actually uses and hides the rest, and with a ladder, the start point or
-the eraser selected -- which use none of them -- the group is not there at
-all. A wall has no drop, a crate has no direction or size, a round ball's
+actually uses and takes the rest out of the picture -- but never out of
+the layout. The group keeps its size and its heading whatever is
+selected, so with a ladder, the start point or the eraser in hand it is
+an empty NEXT PLACED and **LEVEL**, **FILE**, **GO** and **COUNT** stay
+exactly where they were (`.invisible`, not `.hidden`). Collapsing the
+group instead slid every group after it sideways on each change of brush,
+in a panel whose positions the hand learns.
+A wall has no drop, a crate has no direction or size, a round ball's
 vertical direction is decided by gravity rather than by the panel, and a
 piece bigger than one block cannot carry a drop, so with `16x64` selected
 that row goes away too. The rules are not a second opinion about what is

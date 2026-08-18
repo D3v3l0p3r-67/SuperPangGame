@@ -450,10 +450,17 @@ export class Editor {
     this.updateNextPlaced();
   }
 
-  // Shows exactly the options the brush in hand actually uses, and hides
-  // the rest -- including the whole group where the brush uses none of
-  // them (a ladder, the start point, the eraser), so the panel never
-  // offers a setting that placing the thing would ignore.
+  // Shows exactly the options the brush in hand actually uses and takes
+  // the rest out of the picture, so the panel never offers a setting that
+  // placing the thing would ignore.
+  //
+  // Out of the picture, NOT out of the layout: `invisible` rather than
+  // `hidden` (see style.css), so the group keeps its size whatever the
+  // brush is -- with a ladder, the start point or the eraser selected it
+  // is an empty NEXT PLACED and everything after it stays put. Collapsing
+  // it shifted LEVEL, FILE, GO and COUNT sideways on every change of
+  // brush, which is disorienting in a panel whose positions the hand
+  // learns.
   //
   // The rules are the ones the placement code already enforces, in one
   // place: placeBall reads the directions, placeBlock reads the piece and
@@ -467,14 +474,13 @@ export class Editor {
     const breakable = isTile && OBSTACLE_TYPES[this.brush]?.destructible;
     const piece = obstaclePiece(this.selectedPiece);
     const singlePiece = piece.cols === 1 && piece.rows === 1;
-    const show = (el, on) => el.classList.toggle('hidden', !on);
+    const show = (el, on) => el.classList.toggle('invisible', !on);
 
     show(this.dirRow, isBall);
     show(this.dirYBtn, isBall && !getBallElement(this.ballShape, this.ballSize).hasGravity);
     show(this.dropRow, isBall || (breakable && singlePiece));
     show(this.pieceRow, isTile);
     show(this.ballRow, isBall);
-    show(this.nextGroup, isBall || isTile);
   }
 
   // Opens the editor on one campaign level, picked from the level list
