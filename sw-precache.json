@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-b00ad3798a22",
+  "version": "super-pang-128ff1e241f9",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "78dd1fafbf04d14a",
@@ -39,7 +39,7 @@
     "js/keys.js": "5245c1c004446fb4",
     "js/levelFile.js": "1f52ddaa127e57ef",
     "js/main.js": "24a6365aad2387ef",
-    "js/obstaclePieces.js": "87b450407f7a7f74",
+    "js/obstaclePieces.js": "8af8a721ba343774",
     "js/panelUi.js": "5bb4c4ff1b364570",
     "js/pwa.js": "c9bcc0fcafec48ce",
     "js/regions.js": "c84b25728db85625",

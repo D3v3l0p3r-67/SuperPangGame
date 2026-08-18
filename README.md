@@ -1330,7 +1330,8 @@ the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
 
 **NEXT PLACED**'s **Block** picker is how big a piece a wall or crate
-press puts down: `16x16`, `16x64` (a pillar) or `64x16` (a beam). Nothing
+press puts down: `16x16`, `16x64` or `16x96` (pillars), `64x16` or
+`96x16` (beams). Nothing
 new reaches the level format here -- an obstacle has always been
 `{type, x, y, w, h}` and the shipped levels are full of 96x16 walls and
 16x64 pillars; it is the editor that could only paint one cell at a time.
