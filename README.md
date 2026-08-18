@@ -766,9 +766,38 @@ seam between the canvas and the page behind it.
   weapon is where it STARTS: each of the three also drops as a power-up
   (see below), so a level can hand one over partway through, or leave it
   in a crate to be shot open.
-- 10 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
-  multiplier, time freeze, shield, and one per weapon -- harpoon, grapple,
-  machine gun. The weapon ones are instant and for keeps: a weapon is what
+- 12 power-ups: bonus fruit, rapid shot, speed boost, extra life, score
+  multiplier, time freeze, shield, **dynamite**, **hourglass**, and one per
+  weapon -- harpoon, grapple, machine gun.
+  **Dynamite** takes every ball on the field apart down to the smallest
+  size there is -- **one size at a time**, half a second between them: a
+  5 becomes 4s, then 3s, then 2s, then 1s, so it reads as a charge going
+  off in stages, each bang visibly halving what is left. Run back to back
+  inside one frame (which is how it started out) sixteen balls simply
+  appeared where one had been and there was nothing to watch. Each pass is
+  the very same pop a shot gives (see `GameScene.shatterBalls`), so every
+  split, burst and point is the one the player would have earned the long
+  way. Two things are held back, both for the same reason: the pop sound
+  is one bang per pass rather than a dozen copies over each other, and the
+  random drop roll is skipped, so one power-up cannot rain six more. A
+  drop the level itself put on a ball still comes out; that one was
+  authored, not rolled for. The passes are driven from `updatePlaying`
+  rather than from a timer, so a pause or a lost life stops the charge
+  where it is, and `clearEntities` cancels whatever is still pending so it
+  can never go off into the next level.
+  **Hourglass** puts the balls into slow motion for 10s -- and only the
+  balls, so the player keeps full speed, which is the whole point of it.
+  It is held as a scale on the scene (`ballSpeedScale`) and applied to
+  every ball each frame, which is what carries it onto balls that did not
+  exist when it was picked up: the halves a ball splits into while it
+  runs, and anything Panic Mode drops from the ceiling. Gravity goes by
+  the SQUARE of that scale (see `Ball.setSpeedScale`), and that is not a
+  fudge -- a bounce reaching `h = v²/2g` only keeps its height if gravity
+  scales as the speed does, squared. Scale it linearly instead and a
+  slowed ball bounces four times as high, which is a different game rather
+  than a slower one. The weave, the hunt and the hex spin are slowed with
+  it, so the whole thing is the ball's own flight played back slowly.
+  The weapon ones are instant and for keeps: a weapon is what
   the player is holding rather than an effect on a clock, so there is
   nothing to run out, and the level's own weapon comes back when the level
   restarts. Picking one up does not cancel a timed effect that happens to
@@ -855,6 +884,16 @@ Useful while tuning levels or ball behavior:
   always shown: outlines on, grid off. Either button carries the outline
   the editor's selected brush does while its overlay is showing, so what
   is on is visible in the panel itself.
+- **Invincible** (the **I** key, in the same group) is the one switch here
+  that changes what the game *does* rather than what it shows: nothing can
+  cost a life while it is on -- neither a ball touching the player nor the
+  clock running out. Both of those already funnel through
+  `GameScene.hitPlayer`, so the whole of it is one early return there, and
+  it sits before the shield rather than after: an invincible player does
+  not spend a shield on a hit that was never going to land. Off unless
+  asked for, and while it is on the readout says `INVINCIBLE`, because a
+  run where nothing can go wrong looks exactly like a run where nothing is
+  going wrong.
 - A clearly labeled spawn panel, all of it without replaying the whole
   game or affecting normal play when the panel is off:
   - **BALL** -- pick a shape + size and **Spawn** it; **Remove all** takes
@@ -971,7 +1010,10 @@ tools/               Scripts run by hand, never by the game:
                       a lost life leaves (it imports that sheet's own dead
                       frame, palette and renderer, and adds only the wash
                       and the wings, so the two cannot drift apart),
-                      app_icons.py draws the app icons, and
+                      app_icons.py draws the app icons,
+                      powerup_icons.py draws every power-up's pickup
+                      disc, and the three weapons' HUD icons with them
+                      (see "Icons say it in pictures"), and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
@@ -1212,6 +1254,47 @@ need a new `POWERUP_BEHAVIORS` entry in `js/elements.js`. `pickupSound`
 names an `assets/audio/audio.json` entry to play on pickup (falls back to
 `"itempick"` if omitted) -- see "Swapping / adding sounds".
 
+### Icons say it in pictures
+
+`tools/powerup_icons.py` draws every pickup disc: 18x18, a disc in the
+power-up's own colour from its element file, with a glyph cut into it in a
+darker tone of the same hue. **No letters, anywhere.** They used to be
+there -- an `R` for rapid shot, an `S` for speed boost, an `F` for time
+freeze -- and each was a thing the player had to already know the name of,
+in a game whose playfield has no text in it at all. They are a lightning
+bolt, a boot, a heart, a snowflake, a shield, a star and a fruit now,
+plus the stick of dynamite and the hourglass. The two that were never
+letters, the spear and the hook, stayed as they were.
+
+The bolt is on **rapid shot**, not on speed boost, which is the way round
+that survives being looked at: a bolt says the SHOT comes faster, and
+what moves faster about the player is their legs -- so the boot is theirs.
+Getting that pair the wrong way round is easy and costs the player the
+one glance the icon exists for.
+
+The same tool draws the three weapons' **HUD** icons (21x21, the frame
+beside the score), from glyphs written next to the disc ones. They are
+separate drawings rather than one scaled up -- 18 and 21 do not divide
+into each other, and a doubled-up glyph would be twice as coarse as the
+HUD around it -- but they live in one file on purpose: the pickup that
+drops on the field and the icon that appears in the frame when it is
+collected are the same weapon, and a change to one that misses the other
+leaves the game showing two.
+
+**All three weapons share one yellow**, disc and HUD icon alike -- and so
+does rapid shot, which is not a weapon but is entirely about one: a
+weapon is a weapon, so the colour says the family and the shape says
+which member.
+That puts the whole difference on the outlines, and no two of them share
+one -- the harpoon flares outward into barbs, the grapple opens into two
+prongs, the machine gun is three barrels over a body. It is also what the
+HUD frame could not say before: the grapple and the machine gun were the
+same teal in near enough the same shape, which is useless in the one
+place you look to see what you are holding.
+
+Running the tool writes only the types it has a glyph for, so anything
+drawn by hand or through the admin tool is never overwritten by it.
+
 ### Adding levels
 
 Levels live under `levels/`, one JSON file per level -- `LEVELS.length`
@@ -1320,7 +1403,8 @@ the bottom of the canvas is free, and using it leaves the whole playfield
 visible with nothing pushing the canvas down the page. They are laid out
 as labelled columns of rows -- **BRUSH** (what the pointer paints, split
 into level structure and the balls to pop), **NEXT PLACED** (direction,
-guaranteed drop and block size for the next ball/crate), **LEVEL n** (background, weapon,
+guaranteed drop and block size for the next ball/crate -- only the ones
+the selected brush uses, see below), **LEVEL n** (background, weapon,
 clock -- and which level all of it belongs to), **FILE**, **GO**, and a
 **COUNT** readout -- so what each control belongs to is readable at a
 glance. The panel is sized from the canvas (`HUD_H`/`VIRTUAL_H` for the
@@ -1329,7 +1413,8 @@ the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
 
 **NEXT PLACED**'s **Block** picker is how big a piece a wall or crate
-press puts down: `16x16`, `16x64` (a pillar) or `64x16` (a beam). Nothing
+press puts down: `16x16`, `16x64` or `16x96` (pillars), `64x16` or
+`96x16` (beams). Nothing
 new reaches the level format here -- an obstacle has always been
 `{type, x, y, w, h}` and the shipped levels are full of 96x16 walls and
 16x64 pillars; it is the editor that could only paint one cell at a time.
@@ -1351,6 +1436,26 @@ again on load, so the level itself is unchanged either way, and
 merged obstacles cover exactly the cells that were painted, each once.
 A piece bigger than one block never carries a drop, for the same reason a
 wall does not -- see below.
+
+**NEXT PLACED follows the brush**: it shows the options the brush in hand
+actually uses and takes the rest out of the picture -- but never out of
+the layout. The group keeps its size and its heading whatever is
+selected, so with a ladder, the start point or the eraser in hand it is
+an empty NEXT PLACED and **LEVEL**, **FILE**, **GO** and **COUNT** stay
+exactly where they were (`.invisible`, not `.hidden`). Collapsing the
+group instead slid every group after it sideways on each change of brush,
+in a panel whose positions the hand learns.
+A wall has no drop, a crate has no direction or size, a round ball's
+vertical direction is decided by gravity rather than by the panel, and a
+piece bigger than one block cannot carry a drop, so with `16x64` selected
+that row goes away too. The rules are not a second opinion about what is
+sensible: `updateNextPlaced()` asks the same questions the placement code
+answers (`placeBall` reads the directions, `placeBlock` takes a drop only
+from a one-block breakable crate, `computeBallVelocity` ignores `dirY`
+under gravity). Before this, all four rows were shown at all times, so the
+panel asked four questions of which one or two were real -- the Drops
+dropdown in particular sat there fully usable over a Wall brush that threw
+the answer away.
 
 **NEXT PLACED**'s power-up picker applies to the next ball *and* the next
 obstacle, and an obstacle only takes it if the level rules allow one: the
@@ -1843,11 +1948,13 @@ in place, keeping the same filename and pixel dimensions:
   always centered on the frame (`Hud.js` reads the frame's own width/
   height), so the two can be swapped independently as long as the icon
   stays smaller than the frame. Adding a weapon type is just dropping in
-  its icon file alongside its `WEAPON_TYPES` entry. While `rapid_shot` is
-  active, the socket
-  shows that power-up's own icon (from
-  `assets/powerups/`, see "Adding elements" below) instead, reverting to
-  the plain weapon icon once it expires.
+  its icon file alongside its `WEAPON_TYPES` entry. The socket shows the
+  **weapon and only the weapon**: a running `rapid_shot` used to take it
+  over, which hid the one thing the socket is for -- and hid it exactly
+  when the answer matters, since what a rapid shot does depends on which
+  weapon it is speeding up. It is in the power-up row along the bottom
+  instead, with the seconds it has left, which is where an effect on a
+  clock belongs.
 - **Active power-up row**: no separate art of its own -- reuses each
   power-up's existing `assets/powerups/<type>.webp` icon plus the small
   digit strip for a whole-seconds countdown, one pooled slot per

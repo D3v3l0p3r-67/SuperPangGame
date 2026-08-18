@@ -54,6 +54,18 @@ const LEVEL_CLEAR_PAUSE_SEC = 1;
 const LEFTOVER_FADE_SEC = 1;
 const HIT_FREEZE_SEC = 2;
 
+// How many passes of popping the dynamite is allowed (see shatterBalls).
+// Four is enough to take the biggest ball there is down to the smallest;
+// this is one more than that, and exists so a ball element added later
+// with a bigger size cannot turn the loop into an endless one.
+const MAX_SHATTER_PASSES = 6;
+
+// The gap between those passes. Long enough that each one is a separate
+// event to watch -- the field halving, again, and again -- and short
+// enough that the whole charge is over in about a second and a half,
+// which is still an instant next to the level clock.
+const SHATTER_PASS_SEC = 0.5;
+
 // The winged ghost that leaves when a life does (see spawnDeathGhost):
 // how long it takes to beat its way up and fade, and how far it gets.
 // Long enough to read as a departure and to fit several wingbeats, short
@@ -116,6 +128,16 @@ export class GameScene extends Phaser.Scene {
     this.levelIndex = 0;
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
+    // Slow motion for the balls (the hourglass power-up, see elements.js's
+    // slow_balls). Held on the scene rather than on the balls, so a ball
+    // that appears while it is running is slowed too -- every ball reads
+    // it once a frame in updatePlaying.
+    this.ballSpeedScale = 1;
+    // A dynamite going off, one size of ball per pass (see shatterBalls).
+    // Zero passes left means nothing is running.
+    this.shatterPassesLeft = 0;
+    this.shatterTimer = 0;
+    this.shatterDownToSize = 1;
     this.elapsedMs = 0;
     this.levelTimer = 0;
     this.stateTimer = 0;
@@ -416,6 +438,10 @@ export class GameScene extends Phaser.Scene {
     this.balls.clear(true, true);
     this.projectiles.clear(true, true);
     this.powerups.clear(true, true);
+    // A dynamite is spread over a second and a half (see shatterBalls),
+    // so it can still have passes to go when the level it was set off in
+    // ends -- and it must not go on popping into the next one.
+    this.shatterPassesLeft = 0;
   }
 
   // Shared fresh-run setup behind all four entry points below: what a new
@@ -436,6 +462,7 @@ export class GameScene extends Phaser.Scene {
     this.levelIndex = levelIndex;
     this.scoreMultiplier = 1;
     this.ballsFrozen = false;
+    this.ballSpeedScale = 1;
     this.justSubmittedEntry = null;
     this.isCustomLevel = customDef !== null;
     this.customLevelDef = customDef;
@@ -982,6 +1009,7 @@ export class GameScene extends Phaser.Scene {
     this.elapsedMs += dt * 1000;
     this.levelTimer += dt;
     this.effects.update(this, this.elapsedMs);
+    this.updateShatter(dt);
 
     // Running out of time is exactly the same hit as a ball touching the
     // player (see onTimeUp/hitPlayer) -- checked every frame the clock
@@ -1039,6 +1067,11 @@ export class GameScene extends Phaser.Scene {
       ball.body.moves = !this.ballsFrozen;
       ball.setAlpha(freezeWarning ? (Math.floor(this.elapsedMs / 90) % 2 === 0 ? 0.35 : 1) : 1);
       ball.setFrozen(this.ballsFrozen);
+      // Every frame, for every ball, because this is what reaches the ones
+      // that were not here when the hourglass was picked up: the halves a
+      // ball splits into, and whatever Panic Mode drops from the ceiling.
+      // A no-op whenever the scale has not changed for that ball.
+      ball.setSpeedScale(this.ballSpeedScale);
       // Physics has already stepped by the time scene update runs, so this
       // captures the speed the ball is travelling at going INTO the next
       // step -- i.e. its impact speed, which Arcade wipes before the
@@ -1280,11 +1313,17 @@ export class GameScene extends Phaser.Scene {
     sprite.once('animationcomplete', () => sprite.destroy());
   }
 
-  popBall(ball) {
+  // `quiet` leaves the pop sound out, and `rollDrop` false leaves out the
+  // random chance of a power-up -- both for a pop that is one of many in
+  // the same instant (see shatterBalls), where the sound would be thirty
+  // copies of itself and the rolls would rain drops over the field. A
+  // drop the level itself put on that ball still comes out: that one was
+  // authored, not rolled for.
+  popBall(ball, { quiet = false, rollDrop = true } = {}) {
     const awarded = Math.round(ball.points * this.scoreMultiplier);
     this.score += awarded;
     if (this.isPanicMode) this.advancePanicProgress();
-    this.audio.play('balldestroy');
+    if (!quiet) this.audio.play('balldestroy');
     this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
     this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color, ball.radius));
 
@@ -1299,11 +1338,59 @@ export class GameScene extends Phaser.Scene {
     // A ball the level editor tagged with a powerup guarantees that drop
     // (bypassing the random roll below) -- see Ball.js's forcedPowerup.
     const dropType = forcedPowerup
-      || (Math.random() < POWERUP_DROP_CHANCE ? POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)] : null);
+      || (rollDrop && Math.random() < POWERUP_DROP_CHANCE
+        ? POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)] : null);
     if (dropType) {
       const bonus = new Bonus(this, dropType, ball.x, ball.y);
       this.powerups.add(bonus);
     }
+  }
+
+  // The dynamite (see elements.js's shatter_balls): every ball on the
+  // field taken down to the smallest size there is -- ONE SIZE AT A TIME.
+  //
+  // Passes rather than recursion, because popping a ball REPLACES it with
+  // two smaller ones: each pass takes the field as it stands, pops
+  // everything still too big, and the next pass looks at what that left
+  // behind. A size-5 ball is four passes -- 5 to 4, 4 to 3, 3 to 2, 2 to
+  // 1 -- and sixteen smallest balls at the end of it.
+  //
+  // The SHATTER_PASS_SEC between them is the whole effect. Run back to
+  // back inside one frame, sixteen balls simply appeared where one had
+  // been and there was nothing to watch; spaced out, it is a charge going
+  // off in stages, each bang visibly halving what is left. Driven from
+  // updatePlaying (see updateShatter) rather than from a timer, so it
+  // stops dead while the game is paused or a life is being lost, and
+  // clearEntities cancels whatever is still pending when the level ends.
+  shatterBalls(downToSize = 1) {
+    this.shatterDownToSize = downToSize;
+    // Capped so a ball element added later, with a size bigger than any
+    // that exists today, cannot leave this running for ever.
+    this.shatterPassesLeft = MAX_SHATTER_PASSES;
+    this.shatterPass(); // the first bang belongs to the pickup, not to half a second after it
+  }
+
+  updateShatter(dt) {
+    if (this.shatterPassesLeft <= 0) return;
+    this.shatterTimer -= dt;
+    if (this.shatterTimer <= 0) this.shatterPass();
+  }
+
+  // One size off every ball that still has one to lose. Every pop scores,
+  // bursts and splits exactly as a shot's would -- it IS the same pop --
+  // but quietly and without rolling for drops, with a single bang for the
+  // whole pass instead of a dozen copies of the pop sound over each other
+  // (see popBall).
+  shatterPass() {
+    const tooBig = this.balls.getChildren().filter((ball) => ball.active && ball.size > this.shatterDownToSize);
+    if (!tooBig.length) {
+      this.shatterPassesLeft = 0;
+      return;
+    }
+    for (const ball of tooBig) this.popBall(ball, { quiet: true, rollDrop: false });
+    this.audio.play('walldestroy');
+    this.shatterPassesLeft -= 1;
+    this.shatterTimer = SHATTER_PASS_SEC;
   }
 
   // A 2-frame pop animation, one image per (shape, size) ball -- see
@@ -1454,6 +1541,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   hitPlayer() {
+    // Debug mode's Invincible toggle (the I key, or the button in its
+    // VIEW group). Everything that can cost a life comes through here --
+    // a ball touching the player and the clock running out both do -- so
+    // this one line is the whole of it, and it is the only place that
+    // needs to know the switch exists. Deliberately before the shield
+    // too: an invincible player does not spend a shield on a hit that
+    // was never going to land.
+    if (this.debug?.invincible) return;
+
     const hadShield = this.player.shielded;
     const lostLife = this.player.takeHit();
     if (!lostLife && hadShield) {

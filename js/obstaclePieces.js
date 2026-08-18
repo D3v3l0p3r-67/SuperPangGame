@@ -16,7 +16,9 @@
 export const OBSTACLE_PIECES = [
   { id: 'single', label: '16x16', cols: 1, rows: 1 },
   { id: 'tall', label: '16x64', cols: 1, rows: 4 },
+  { id: 'taller', label: '16x96', cols: 1, rows: 6 },
   { id: 'wide', label: '64x16', cols: 4, rows: 1 },
+  { id: 'wider', label: '96x16', cols: 6, rows: 1 },
 ];
 
 export function obstaclePiece(id) {

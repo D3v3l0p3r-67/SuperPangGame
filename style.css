@@ -158,6 +158,17 @@ body {
   display: none !important;
 }
 
+/* Out of the picture, still in the layout. A control the current brush
+   has no use for (the editor panel's NEXT PLACED group -- see editor.js's
+   updateNextPlaced) leaves its space exactly as it was, so the groups
+   beside it never move when the brush changes. Taking the space with it
+   was the more obvious thing to do and the worse one to use: every group
+   after it slid sideways, and where LEVEL/FILE/GO are is something the
+   hand learns. */
+.invisible {
+  visibility: hidden !important;
+}
+
 /* The always-visible stat bar (score/lives/time/weapon/powerup timers/...)
    is graphic -- see Hud.js, drawn in Phaser inside the HUD_H strip below
    the bordered playfield (constants.js HUD_H/PLAYFIELD_H, GameScene.

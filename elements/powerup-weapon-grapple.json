@@ -3,7 +3,7 @@
   "category": "powerup",
   "type": "weapon_grapple",
   "label": "Grapple",
-  "color": "#4ecdc4",
+  "color": "#ffd23f",
   "durationMs": 0,
   "instant": true,
   "kind": "give_weapon",

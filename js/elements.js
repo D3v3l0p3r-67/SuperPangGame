@@ -162,6 +162,24 @@ export const POWERUP_BEHAVIORS = {
     apply(game) { game.ballsFrozen = true; },
     revert(game) { game.ballsFrozen = false; },
   },
+  // Every ball on the field taken apart down to `params.downToSize` in
+  // one go: not a clock but a single act, so there is nothing to revert.
+  // The work is GameScene's (see shatterBalls) because a split is a split
+  // -- the same popping a shot does, over and over until nothing bigger
+  // than the smallest ball is left.
+  shatter_balls: {
+    apply(game, params) { game.shatterBalls(params.downToSize ?? 1); },
+    revert() {},
+  },
+  // Slow motion for the balls and nothing else. A scale rather than a
+  // set of velocities, because it has to hold for balls that do not
+  // exist yet -- the halves a ball splits into while it is running, and
+  // anything Panic Mode drops from the ceiling (see GameScene's per-ball
+  // sync in updatePlaying and Ball.setSpeedScale).
+  slow_balls: {
+    apply(game, params) { game.ballSpeedScale = params.multiplier ?? 0.5; },
+    revert(game) { game.ballSpeedScale = 1; },
+  },
   player_shield: {
     apply(game) { game.player.shielded = true; },
     revert(game) { game.player.shielded = false; },

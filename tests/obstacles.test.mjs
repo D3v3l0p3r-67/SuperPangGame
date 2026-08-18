@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OBSTACLE_PIECES, obstaclePiece, mergeBlocks } from '../js/obstaclePieces.js';
-import { OBSTACLE_BLOCK_SIZE } from '../js/constants.js';
+import { OBSTACLE_BLOCK_SIZE, VIRTUAL_W, BORDER_THICKNESS, GROUND_Y } from '../js/constants.js';
 
 const STEP = OBSTACLE_BLOCK_SIZE;
 const cell = (col, row, type = 'crate', powerup = null) => ({ x: col * STEP, y: row * STEP, type, powerup });
@@ -29,10 +29,22 @@ test('the pieces are the sizes the editor offers, in cells', () => {
     assert.equal(piece.label, `${piece.cols * STEP}x${piece.rows * STEP}`,
       `${piece.id}: the label says the pixel size, and this one disagrees with its own cells`);
   }
-  // The two the level format already uses (levels ship 16x64 pillars and
-  // 64x16 beams) plus the single cell everything was painted with before.
-  assert.deepEqual(OBSTACLE_PIECES.map((p) => p.label), ['16x16', '16x64', '64x16']);
+  // The ones the level format already uses (levels ship 16x64 pillars and
+  // 64x16 and 96x16 beams) plus the single cell everything was painted
+  // with before. Kept in one order, tall before wide at each size, so the
+  // picker does not reshuffle under the hand when a size is added.
+  assert.deepEqual(OBSTACLE_PIECES.map((p) => p.label),
+    ['16x16', '16x64', '16x96', '64x16', '96x16']);
   assert.equal(obstaclePiece('tall').rows, 4);
+  assert.equal(obstaclePiece('taller').rows, 6);
+  assert.equal(obstaclePiece('wider').cols, 6);
+  // Every piece has to FIT: the playfield is 48 cells across and 24 tall
+  // (see constants.js), and a piece that did not would be silently pulled
+  // back in at the right or bottom edge by the editor's pieceOrigin.
+  for (const piece of OBSTACLE_PIECES) {
+    assert.ok(piece.cols * STEP <= VIRTUAL_W - BORDER_THICKNESS * 2, `${piece.id}: wider than the playfield`);
+    assert.ok(piece.rows * STEP <= GROUND_Y - BORDER_THICKNESS, `${piece.id}: taller than the playfield`);
+  }
   assert.equal(obstaclePiece('nonsense').id, 'single', 'an unknown piece falls back to one cell');
 });
 

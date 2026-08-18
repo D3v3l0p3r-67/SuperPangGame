@@ -21,6 +21,12 @@ export class Debug {
     // to read whenever they weren't what was being looked at. On by
     // default, since that is what turning debug mode on has always meant.
     this.showColliders = true;
+    // Nothing can cost the player a life while this is on -- see
+    // GameScene.hitPlayer, which is the one place both a ball touching
+    // the player and the clock running out end up. Off by default: it is
+    // the one switch here that changes what the game DOES rather than
+    // what it shows, so it is never on unless it was asked for.
+    this.invincible = false;
     this.panelEl = document.getElementById('debug-panel');
     this.textEl = null;
     this.spawnPanelBuilt = false;
@@ -33,6 +39,8 @@ export class Debug {
         this.setOverlay('showGrid', !this.showGrid);
       } else if (e.code === 'KeyC' && this.enabled) {
         this.setOverlay('showColliders', !this.showColliders);
+      } else if (e.code === 'KeyI' && this.enabled) {
+        this.setInvincible(!this.invincible);
       }
     });
 
@@ -178,19 +186,26 @@ export class Debug {
       row(transitionSelect, makeButton('Play', () => this.scene.transition.start(transitionSelect.value, null))),
     ));
 
-    // -- What debug mode draws over the game. Each also has a key of its
-    // own (G and C), so either can be flicked on and off without moving
-    // the pointer off whatever is being watched.
+    // -- What debug mode draws over the game, and the one thing here that
+    // changes the game rather than the picture. Each has a key of its own
+    // (G, C and I), so any of them can be flicked on and off without
+    // moving the pointer off whatever is being watched -- which for
+    // invincibility is the point of it: looking at a level with a wall of
+    // balls in it, without the run ending every few seconds.
     this.overlayButtons = {
       showGrid: makeButton('16x16 grid', () => this.setOverlay('showGrid', !this.showGrid), 'Shortcut: G'),
       showColliders: makeButton('Colliders', () => this.setOverlay('showColliders', !this.showColliders), 'Shortcut: C'),
     };
+    this.invincibleBtn = makeButton('Invincible', () => this.setInvincible(!this.invincible),
+      'Neither a ball nor the clock running out can cost a life. Shortcut: I');
     this.panelEl.appendChild(group(
       'VIEW',
       row(this.overlayButtons.showGrid),
       row(this.overlayButtons.showColliders),
+      row(this.invincibleBtn),
     ));
     this.syncOverlayButtons();
+    this.syncInvincibleButton();
 
     // Live readout, pushed to the far end -- see .panel-status. Two
     // columns of it, so it stays about as tall as the control groups
@@ -212,6 +227,17 @@ export class Debug {
     for (const [name, btn] of Object.entries(this.overlayButtons)) {
       btn.classList.toggle('panel-btn-on', this[name]);
     }
+  }
+
+  // Same arrangement as the overlays: one place to switch it, so the
+  // button and the I key can never disagree about whether it is on.
+  setInvincible(on) {
+    this.invincible = on;
+    this.syncInvincibleButton();
+  }
+
+  syncInvincibleButton() {
+    this.invincibleBtn?.classList.toggle('panel-btn-on', this.invincible);
   }
 
   // What the power-up buttons do: drop the pickup, or apply the effect
@@ -280,6 +306,10 @@ export class Debug {
       `L${g.levelIndex + 1}/${LEVELS.length}`,
       `t${g.remainingLevelTime}`,
       `pts ${g.score}`,
+      // Only when it is on, and said in the readout as well as on the
+      // button: a run where nothing can go wrong looks like a run where
+      // nothing is going wrong, and the line is the only record of why.
+      ...(this.invincible ? ['INVINCIBLE'] : []),
       `lives ${g.lives}`,
       g.weaponLabel,
       `balls ${g.balls.countActive(true)}`,

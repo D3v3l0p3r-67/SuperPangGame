@@ -1,0 +1,14 @@
+{
+  "id": "powerup-hourglass",
+  "category": "powerup",
+  "type": "hourglass",
+  "label": "Hourglass",
+  "color": "#c8a2ff",
+  "durationMs": 10000,
+  "instant": false,
+  "kind": "slow_balls",
+  "params": {
+    "multiplier": 0.5
+  },
+  "pickupSound": "itempick"
+}

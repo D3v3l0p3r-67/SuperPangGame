@@ -3,7 +3,7 @@
   "category": "powerup",
   "type": "weapon_machinegun",
   "label": "Machine Gun",
-  "color": "#ff8b5a",
+  "color": "#ffd23f",
   "durationMs": 0,
   "instant": true,
   "kind": "give_weapon",
