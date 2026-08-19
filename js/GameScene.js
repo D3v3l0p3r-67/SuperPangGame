@@ -364,13 +364,23 @@ export class GameScene extends Phaser.Scene {
     const wall = OBSTACLE_TYPES.platform;
     const light = hexColor(wall.edgeLight ?? '#ffffff');
     const dark = hexColor(wall.edgeDark ?? '#000000');
+    // Each line covers the face it belongs to AND NO MORE. The two
+    // horizontal ones used to run the full width of the canvas, which
+    // took them straight across both side walls -- a light line at the
+    // floor and a dark one at the ceiling, cutting each wall in two at
+    // exactly the height where the frame turns a corner. The frame then
+    // read as four separate bands butted together rather than as one
+    // piece, which is the opposite of what a bevel is for. They stop at
+    // the walls now (one pixel INTO them, so the corners close rather
+    // than leaving a gap where the horizontal and the vertical nearly
+    // meet).
     const edges = this.add.graphics().setDepth(0.6);
     edges.lineStyle(1, dark, 1);
-    edges.lineBetween(0, t - 0.5, VIRTUAL_W, t - 0.5);              // under the ceiling
-    edges.lineBetween(t - 0.5, t, t - 0.5, GROUND_Y);               // right of the left wall
+    edges.lineBetween(t - 1, t - 0.5, VIRTUAL_W - t + 1, t - 0.5);  // under the ceiling
+    edges.lineBetween(t - 0.5, t - 1, t - 0.5, GROUND_Y);           // right of the left wall
     edges.lineStyle(1, light, 1);
-    edges.lineBetween(VIRTUAL_W - t + 0.5, t, VIRTUAL_W - t + 0.5, GROUND_Y); // left of the right wall
-    edges.lineBetween(0, GROUND_Y + 0.5, VIRTUAL_W, GROUND_Y + 0.5);          // top of the floor
+    edges.lineBetween(VIRTUAL_W - t + 0.5, t - 1, VIRTUAL_W - t + 0.5, GROUND_Y + 1); // left of the right wall
+    edges.lineBetween(t - 1, GROUND_Y + 0.5, VIRTUAL_W - t + 1, GROUND_Y + 0.5);      // top of the floor
 
     // ...and the same treatment on the frame's OUTER faces, which is what
     // makes it read as one raised object rather than as a band that

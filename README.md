@@ -1847,13 +1847,18 @@ dimensions:
   just hang there; tweens are not paused with it, which is what lets the
   ghost keep moving through an otherwise frozen picture.
 - **The frame** is drawn from the wall material and beveled on ALL four of
-  its outer faces as well as its inner ones (`GameScene.drawBorder`), which
+  its outer faces as well as its inner ones, each line covering the face
+  it belongs to **and no more** (`GameScene.drawBorder`), which
   is the rule every obstacle piece follows -- light where a shape faces up
   or left, dark where it faces down or right. It used to be lit on the
   inside only, so it read as a band that happened to stop rather than as
   one raised object around the playfield; the difference is visible the
   moment you paint wall over it in the editor and watch the border gain an
-  edge it did not have. Every level gets it, campaign or custom, because
+  edge it did not have. The two horizontal lines used to run the full
+  width of the canvas, which took them straight across both side walls --
+  cutting each one in two at exactly the height where the frame turns a
+  corner, so it read as four bands butted together, which is the opposite
+  of what a bevel is for. Every level gets it, campaign or custom, because
   it is drawn once from the material rather than stored in any level.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
   `crate.webp`, `ice.webp`) -- named by each `elements/obstacle-*.json`'s
