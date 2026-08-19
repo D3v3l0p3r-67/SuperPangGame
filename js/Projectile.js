@@ -125,7 +125,9 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   // What it leaves where it stops -- the beams' own, bigger and grey (see
   // Bullet.js's for the other half of the pair).
   get impact() {
-    return { textureKey: BEAM_HIT_TEXTURE_KEY, animKey: BEAM_HIT_ANIM_KEY };
+    // originY 0: the puff hangs from the surface it came off rather than
+    // straddling it, so no part of the cloud is drawn inside the block.
+    return { textureKey: BEAM_HIT_TEXTURE_KEY, animKey: BEAM_HIT_ANIM_KEY, originY: 0 };
   }
 
   // True once the beam has caught hold of something and stopped climbing.

@@ -309,9 +309,14 @@ any can be tried without editing a file.
 Every one of them **puffs where it stops** on something it cannot break --
 the ceiling, a side wall, an indestructible block (`GameScene
 .playShotImpact`, from the beam's head or the dart's tip, never past the
-underside of what stopped it). **The beams leave their own mark**: half
-again as wide and grey, dust off the block rather than a spark
-(`tools/impact_puffs.py`). One thick shaft arriving in one place is not
+underside of what stopped it). **The beams leave their own mark**: a
+32x20 grey cloud, dust off the block rather than a spark
+(`tools/impact_puffs.py`). It is wider than it is tall on purpose -- it
+has to cover the width of the weapon that made it and then spread ALONG
+the surface -- and it HANGS from that surface rather than straddling it
+(`originY: 0`), so no part of the cloud is ever drawn inside solid stone.
+The bullet's spark still straddles the point it struck, which is what a
+chip flying off looks like. One thick shaft arriving in one place is not
 four darts striking in a scatter, and wearing the same small teal spark
 it read as a stray bullet going off -- while the machine gun's own sparks
 are still on screen, telling the two apart at a glance is the whole job of

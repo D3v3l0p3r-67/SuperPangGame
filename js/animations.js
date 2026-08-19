@@ -22,7 +22,7 @@ import {
   PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_TEXTURE_PATH, PLAYER_GHOST_FRAMES,
   PLAYER_GHOST_FRAME, PLAYER_GHOST_ANIM_KEY,
   BULLET_HIT_TEXTURE_KEY, BULLET_HIT_TEXTURE_PATH, BULLET_HIT_FRAMES, BULLET_HIT_SIZE, BULLET_HIT_ANIM_KEY,
-  BEAM_HIT_TEXTURE_KEY, BEAM_HIT_TEXTURE_PATH, BEAM_HIT_FRAMES, BEAM_HIT_SIZE, BEAM_HIT_ANIM_KEY,
+  BEAM_HIT_TEXTURE_KEY, BEAM_HIT_TEXTURE_PATH, BEAM_HIT_FRAMES, BEAM_HIT_FRAME, BEAM_HIT_ANIM_KEY,
   HEX_SPIN_FRAMES, ballSpinAnimKey, ballTextureKey, ballTexturePath,
   BALL_POP_FRAMES, POP_FRAME_SCALE, ballPopAnimKey, ballPopTextureKey, ballPopTexturePath,
 } from './assets.js';
@@ -104,7 +104,7 @@ export const EFFECT_ANIMATIONS = [
     label: 'Beam impact puff',
     textureKey: BEAM_HIT_TEXTURE_KEY,
     texturePath: BEAM_HIT_TEXTURE_PATH,
-    frame: { frameWidth: BEAM_HIT_SIZE, frameHeight: BEAM_HIT_SIZE },
+    frame: BEAM_HIT_FRAME,
     frameCount: BEAM_HIT_FRAMES,
     // Slower than the bullet's spark: it is a cloud coming apart rather
     // than a chip flying off, and a bigger picture wants the extra

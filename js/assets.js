@@ -263,7 +263,11 @@ export const BULLET_HIT_SIZE = 16;
 export const BEAM_HIT_TEXTURE_KEY = 'beam-hit';
 export const BEAM_HIT_TEXTURE_PATH = 'assets/weapons/beam_hit.webp';
 export const BEAM_HIT_FRAMES = 2;
-export const BEAM_HIT_SIZE = 24;
+// Wider than it is tall, and drawn hanging DOWN from its top edge (see
+// tools/impact_puffs.py): the puff is placed with that edge on the
+// surface the shot stopped against, so it spreads along the block rather
+// than into it. Anything above that line would be dust inside stone.
+export const BEAM_HIT_FRAME = { frameWidth: 32, frameHeight: 20 };
 export const BULLET_HIT_ANIM_KEY = 'bullet-hit-splash';
 export const BEAM_HIT_ANIM_KEY = 'beam-hit-puff';
 

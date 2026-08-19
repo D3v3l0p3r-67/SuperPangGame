@@ -1319,6 +1319,11 @@ export class GameScene extends Phaser.Scene {
   // draws is a puff, and nothing about it was bullet-shaped.)
   playShotImpact(x, y, impact) {
     const sprite = this.add.sprite(x, y, impact.textureKey);
+    // Centred by default -- the bullet's spark straddles the point it
+    // struck, which is what a chip flying off looks like. A shot whose
+    // mark hangs from the surface instead says so (originY 0, see
+    // Projectile's impact).
+    sprite.setOrigin(0.5, impact.originY ?? 0.5);
     sprite.setDepth(6);
     sprite.play(impact.animKey);
     sprite.once('animationcomplete', () => sprite.destroy());
