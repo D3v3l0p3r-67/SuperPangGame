@@ -717,19 +717,27 @@ seam between the canvas and the page behind it.
   can be rebuilt: pressing right at a full run to the left takes about
   0.6s to come to a stop and another 0.3s to reach half speed the other
   way. That turn is what a plate of ice is really made of.
-- **The level's own floor can be icy too.** The editor paints the frame's
-  floor strip -- the one row below the ground line -- which nothing could
-  be put in before, so ice no longer has to be a ledge standing on the
-  floor to be slid on. Only what cannot be broken may be built there
-  (`Editor.floorBrush`): the frame is the one part of a level the player
-  can never open up, and a crate in the floor would leave a hole that the
-  ground goes on being solid through. A floor block is one row deep
-  whatever piece size is selected, and carries no collision at all
-  (`Obstacle`'s constructor turns it off) -- the world bounds already stop
-  everything dead on the ground line a pixel above it, so a live body
-  there would have every ball along the floor resolving two collisions at
-  once. `Player.support` reads its geometry directly instead, which is
-  what lets a floor be slippery underfoot while colliding with nothing. The easing is exponential, so it closes the
+- **The frame is paintable now**, which is what lets a level's own floor
+  be icy rather than only the ledges standing on it. `Editor.brushReach`
+  decides how far out of the playfield each brush goes, and it reads the
+  answer off the element:
+  - *nothing breakable, ever.* The frame is the one part of a level the
+    player can never open up, and a crate in it would leave a hole that
+    the border goes on being solid through.
+  - *a plain wall goes anywhere* in it -- ceiling, both side walls, floor.
+  - *a slippery material only goes in the floor.* Ice is a SURFACE: the
+    only thing it changes is what happens to someone standing on it, and
+    nobody stands on a ceiling or a side wall.
+
+  A block in the floor is one row deep whatever piece size is selected (a
+  pillar painted into the floor would hang under the level), and every
+  frame block carries **no collision at all** -- `Obstacle`'s constructor
+  turns it off. The world bounds already stop everything dead along the
+  inside of the frame, flush with such a block's own inner edge, so a live
+  body there would have every ball resolving two collisions in the same
+  instant on every bounce along it. `Player.support` reads the geometry
+  directly instead, which is what lets a floor be slippery underfoot while
+  colliding with nothing. The easing is exponential, so it closes the
   same fraction of the gap per unit of TIME and one slow frame cannot put
   the player somewhere two fast ones would not. Every other surface
   defaults to `grip: 1` and sets the speed outright, exactly as the game

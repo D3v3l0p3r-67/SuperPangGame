@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { levelFiles, elements, exists, readJSON, obstacleCells } from './helpers.mjs';
 import {
-  VIRTUAL_W, GROUND_Y, BORDER_THICKNESS, OBSTACLE_BLOCK_SIZE,
+  VIRTUAL_W, GROUND_Y, PLAYFIELD_H, BORDER_THICKNESS, OBSTACLE_BLOCK_SIZE,
 } from '../js/constants.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from '../js/config.js';
 
@@ -74,21 +74,31 @@ test('obstacles are on the 16px grid and inside the playfield', () => {
         assert.equal(o.h % OBSTACLE_BLOCK_SIZE, 0, `${where}: height is not whole blocks`);
       }
       for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) {
-        assert.ok(x >= BORDER_THICKNESS && x + OBSTACLE_BLOCK_SIZE <= VIRTUAL_W - BORDER_THICKNESS,
-          `${where}: block (${x}, ${y}) crosses a side wall`);
-        // The floor strip is the one part of the frame a level may build
-        // in: a block whose top is exactly the ground line IS that
-        // level's floor there (an icy stretch of it, usually -- see
-        // elements/obstacle-icy-wall.json and Player.support). It may
-        // only ever be one block deep, and only of something that cannot
-        // be broken -- checked below -- since nothing may open a hole in
-        // the frame.
-        const inFloor = y === GROUND_Y;
-        assert.ok(y >= BORDER_THICKNESS && (inFloor || y + OBSTACLE_BLOCK_SIZE <= GROUND_Y),
-          `${where}: block (${x}, ${y}) crosses the ceiling or floor`);
-        if (inFloor) {
-          assert.equal(OBSTACLE_TYPES.get(o.type).destructible, false,
-            `${where}: the floor is part of the frame, and nothing that can be shot open belongs in it`);
+        // A level may build in the FRAME as well as the playfield -- the
+        // ceiling, the two side walls and the floor strip, each exactly
+        // one block thick (see the editor's brushReach). What it may not
+        // do is leave the canvas.
+        assert.ok(x >= 0 && x + OBSTACLE_BLOCK_SIZE <= VIRTUAL_W,
+          `${where}: block (${x}, ${y}) is off the side of the canvas`);
+        assert.ok(y >= 0 && y + OBSTACLE_BLOCK_SIZE <= PLAYFIELD_H,
+          `${where}: block (${x}, ${y}) is above the ceiling or below the floor`);
+
+        const inFrame = x < BORDER_THICKNESS || y < BORDER_THICKNESS
+          || x + OBSTACLE_BLOCK_SIZE > VIRTUAL_W - BORDER_THICKNESS
+          || y + OBSTACLE_BLOCK_SIZE > GROUND_Y;
+        if (!inFrame) continue;
+        const el = OBSTACLE_TYPES.get(o.type);
+        // Nothing that can be shot open: the frame is the one part of a
+        // level the player can never break through, and a crate in it
+        // would leave a hole the border goes on being solid through.
+        assert.equal(el.destructible, false,
+          `${where}: block (${x}, ${y}) is in the frame, and nothing that can be shot open belongs there`);
+        // A slippery material is a SURFACE, and the only surface of the
+        // frame anyone stands on is its floor. On a ceiling or a side
+        // wall it would be a picture of something that never happens.
+        if ((el.grip ?? 1) < 1) {
+          assert.equal(y, GROUND_Y,
+            `${where}: block (${x}, ${y}) is slippery, and nobody stands on a wall or a ceiling`);
         }
       }
       if (o.powerup !== undefined) {

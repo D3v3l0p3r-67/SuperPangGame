@@ -120,11 +120,18 @@ function gridSnap(bt, grid, rawMax) {
   return bt + Math.floor((rawMax - bt) / grid) * grid;
 }
 
-function snapObstacleOrigin(x, y) {
+// `reach` is how far out of the playfield this brush is allowed (see the
+// Editor's brushReach): 'none' stops at the frame, 'floor' adds the strip
+// below the ground line, 'frame' adds the whole frame. The frame is
+// exactly one cell thick on every side (BORDER_THICKNESS ===
+// OBSTACLE_BLOCK_SIZE, see constants.js), so reaching into it is one more
+// column at each end and one more row at each end -- the grid itself
+// never moves.
+function snapObstacleOrigin(x, y, reach = 'none') {
   const grid = OBSTACLE_BLOCK_SIZE;
-  const bt = BORDER_THICKNESS;
-  const gx = Math.floor((x - bt) / grid) * grid + bt;
-  const maxX = gridSnap(bt, grid, VIRTUAL_W - bt - grid);
+  const bt = reach === 'frame' ? 0 : BORDER_THICKNESS;
+  const gx = Math.floor((x - BORDER_THICKNESS) / grid) * grid + BORDER_THICKNESS;
+  const maxX = gridSnap(BORDER_THICKNESS, grid, VIRTUAL_W - bt - grid);
 
   // Which row up from the ground the pointer is in: 1 is the row resting
   // on the ground, counting upward. ceil, so a pointer anywhere inside a
@@ -134,7 +141,8 @@ function snapObstacleOrigin(x, y) {
   // which the pointer only ever reaches while painting a floor material
   // (see onPointer, which is what allows the pointer down there at all).
   const maxRows = Math.floor((GROUND_Y - bt) / grid);
-  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), 0), maxRows);
+  const minRows = reach === 'none' ? 1 : 0;
+  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), minRows), maxRows);
 
   return { x: Math.min(Math.max(gx, bt), maxX), y: GROUND_Y - rows * grid };
 }
@@ -696,18 +704,30 @@ export class Editor {
     return OBSTACLE_TYPE_KEYS.includes(this.brush);
   }
 
-  // Whether the selected brush may be used on the FLOOR -- the strip of
-  // frame below the ground line, which nothing could be painted on before
-  // and which is what makes a level's own floor icy rather than only the
-  // blocks standing on it.
+  // How far out of the playfield the selected brush may paint:
   //
-  // Only what cannot be broken, and the eraser. The frame is the one part
-  // of a level the player can never open up: a crate built into the floor
-  // would leave a hole in it that the ground underneath goes on being
-  // solid through, which is a picture that lies about what is there.
-  floorBrush() {
-    if (this.brush === 'erase') return true;
-    return this.isTileBrush() && !OBSTACLE_TYPES[this.brush].destructible;
+  //   'frame'  the whole frame -- ceiling, both side walls and the floor
+  //   'floor'  the strip below the ground line, and nothing else
+  //   'none'   the playfield only, which is where everything used to stop
+  //
+  // Nothing breakable ever leaves the playfield. The frame is the one part
+  // of a level the player can never open up, and a crate built into it
+  // would leave a hole that the border goes on being solid through --
+  // a picture that lies about what is there.
+  //
+  // Of what is left, a material whose GRIP is not 1 is a surface rather
+  // than a material: the only thing ice changes is what happens to
+  // someone standing on it, and nobody stands on a ceiling or a side
+  // wall. So it is offered where it means something and nowhere else,
+  // and the plain wall -- which is what the frame is drawn from anyway --
+  // goes anywhere. Read off the element, so a second slippery material
+  // would land on the same side of this on its own.
+  brushReach() {
+    if (this.brush === 'erase') return 'frame';
+    if (!this.isTileBrush()) return 'none';
+    const def = OBSTACLE_TYPES[this.brush];
+    if (def.destructible) return 'none';
+    return def.grip < 1 ? 'floor' : 'frame';
   }
 
   // Low-level placement (grid cell already known) shared by the live
@@ -812,7 +832,8 @@ export class Editor {
   }
 
   pieceOrigin(x, y, piece) {
-    const maxX = VIRTUAL_W - BORDER_THICKNESS - piece.cols * OBSTACLE_BLOCK_SIZE;
+    const side = this.brushReach() === 'frame' ? 0 : BORDER_THICKNESS;
+    const maxX = VIRTUAL_W - side - piece.cols * OBSTACLE_BLOCK_SIZE;
     // In the floor strip a piece is one row deep no matter which one is
     // selected: the floor is exactly one block thick, and a pillar driven
     // into it would be a pillar hanging under the level.
@@ -918,13 +939,15 @@ export class Editor {
     // the ground itself is the inner face there and the whole bottom row
     // is inside the playfield. Subtracting the border thickness here as
     // well was the other half of why nothing could be placed on the floor.
-    // The floor strip below the ground line is reachable too, but only
-    // for what may be built there (see floorBrush) -- everywhere else the
-    // frame is out of bounds exactly as it was.
-    const maxY = this.floorBrush() ? PLAYFIELD_H : GROUND_Y;
-    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > maxY) return;
+    // How much of the frame this brush may reach into (see brushReach) --
+    // for everything that cannot go there, the bounds are the playfield
+    // exactly as they always were.
+    const reach = this.brushReach();
+    const side = reach === 'frame' ? 0 : BORDER_THICKNESS;
+    const maxY = reach === 'none' ? GROUND_Y : PLAYFIELD_H;
+    if (x < side || x > VIRTUAL_W - side || y < side || y > maxY) return;
 
-    const snapped = snapObstacleOrigin(x, y);
+    const snapped = snapObstacleOrigin(x, y, reach);
     this.hoverCell = snapped;
 
     // pointer.isDown only reflects the LEFT button -- the right button

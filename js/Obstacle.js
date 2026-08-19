@@ -1,5 +1,5 @@
 import { OBSTACLE_TYPES } from './elements.js';
-import { GROUND_Y } from './constants.js';
+import { GROUND_Y, VIRTUAL_W, BORDER_THICKNESS } from './constants.js';
 import { obstacleTextureKey } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -59,16 +59,19 @@ export class Obstacle extends Phaser.GameObjects.TileSprite {
     // js/obstaclePieces.js) and read back here on the way in.
     this.pieceId = pieceId;
 
-    // A block built into the FLOOR -- the frame strip below the ground
-    // line, which the editor can now paint (see editor.js's floorBrush).
-    // It is there to be stood on and looked at, not to be collided with:
-    // the world bounds already stop everything dead at the ground line,
-    // one pixel above this block's own top edge, so leaving its body live
-    // would have every ball resolving two collisions at the same instant
-    // on every bounce along the floor. Player.support reads its geometry
-    // directly rather than through a collision, which is what lets an icy
-    // floor still be slippery underfoot with nothing colliding at all.
-    if (y >= GROUND_Y) this.body.checkCollision.none = true;
+    // A block built into the FRAME -- the ceiling, a side wall or the
+    // floor strip, all of which the editor can now paint (see editor.js's
+    // brushReach). It is there to be looked at and, on the floor, stood
+    // on; it is not there to be collided with. The world bounds already
+    // stop everything dead along the inside of the frame, flush with such
+    // a block's own inner edge, so leaving its body live would have every
+    // ball resolving two collisions in the same instant on every bounce
+    // along that edge. Player.support reads the geometry directly rather
+    // than through a collision, which is what lets an icy floor still be
+    // slippery underfoot while colliding with nothing at all.
+    const inFrame = x < BORDER_THICKNESS || y < BORDER_THICKNESS
+      || x + w > VIRTUAL_W - BORDER_THICKNESS || y >= GROUND_Y;
+    if (inFrame) this.body.checkCollision.none = true;
   }
 
   // Returns true if this hit destroyed the obstacle.
