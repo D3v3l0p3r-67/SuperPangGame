@@ -354,8 +354,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   slideSpeed(target, dt) {
     const grip = this.groundGrip;
     if (grip >= 1 || dt <= 0) return target;
-    const rate = PLAYER_CONFIG.slideResponsePerSec * grip;
     const current = this.body.velocity.x;
+    // Asking to go the other way is slower than asking to stop or to set
+    // off: on ice the momentum has to be undone before any of it can be
+    // rebuilt, and that turn is what a plate of ice is really made of.
+    const reversing = target !== 0 && current !== 0 && Math.sign(target) !== Math.sign(current);
+    const rate = PLAYER_CONFIG.slideResponsePerSec * grip
+      * (reversing ? PLAYER_CONFIG.slideTurnFactor : 1);
     return current + (target - current) * (1 - Math.exp(-rate * dt));
   }
 

@@ -27,6 +27,14 @@ export const PLAYER_CONFIG = {
   // reach this at all -- they set the speed outright, exactly as every
   // surface in the game did before ice existed.
   slideResponsePerSec: 20,
+  // And how much of that response is left when the direction being asked
+  // for is the OPPOSITE of the way the player is already travelling.
+  // Turning round on ice is the hard part -- momentum has to be undone
+  // before it can be rebuilt -- so it is deliberately the slowest thing
+  // the surface does: at half the rate, a full-speed run takes about a
+  // second and a half to come back the other way. Stopping and setting
+  // off are not touched by this, only reversing.
+  slideTurnFactor: 0.5,
 };
 
 // Every weapon fires the same way -- one shot per press, a beam whose foot

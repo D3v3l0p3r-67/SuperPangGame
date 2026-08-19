@@ -710,9 +710,13 @@ seam between the canvas and the page behind it.
   underfoot: its element carries `grip: 0.12`, and on anything below full
   grip the player's speed EASES towards what the keys are asking for
   instead of becoming it (`Player.slideSpeed`). Letting go leaves them
-  gliding on, and turning round means travelling the wrong way for a
-  moment first, which is what makes a ledge of ice a thing to judge rather
-  than a thing to walk across. The easing is exponential, so it closes the
+  gliding on -- about 70px before they are near a stop -- which is what
+  makes a ledge of ice a thing to judge rather than a thing to walk
+  across. **Turning round is slower still**, at half that rate
+  (`slideTurnFactor`), because momentum has to be undone before any of it
+  can be rebuilt: pressing right at a full run to the left takes about
+  0.6s to come to a stop and another 0.3s to reach half speed the other
+  way. That turn is what a plate of ice is really made of. The easing is exponential, so it closes the
   same fraction of the gap per unit of TIME and one slow frame cannot put
   the player somewhere two fast ones would not. Every other surface
   defaults to `grip: 1` and sets the speed outright, exactly as the game
