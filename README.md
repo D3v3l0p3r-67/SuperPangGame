@@ -528,6 +528,65 @@ and it lost its ladder for it. `tests/levels.test.mjs` checks all four,
 plus that no start is inside an obstacle or a ball and that a guaranteed
 drop sits on a single breakable block.
 
+## Panic Mode is arithmetic
+
+Panic Mode's wave table used to be written by hand, and it was not hard,
+it was unwinnable. Not late on -- from wave 1, which is why nobody caught
+it: every row looked reasonable on its own.
+
+The thing a hand-written row cannot see is what a ball actually costs.
+Every hit replaces one ball with two of the next size down, so taking a
+ball off the field entirely is the whole tree beneath it:
+
+| size | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- |
+| shots to clear it away | 1 | 3 | 7 | 15 | 31 |
+
+At a working average of two seconds a shot -- lining it up, the flight,
+the miss you sometimes have to redo -- a size-5 ball is **a minute** of
+one player's entire attention. The old table dropped those every 1.9
+seconds. Measured as a fraction of what a player can shoot, wave 1 asked
+for 128%, wave 25 for 383%, and wave 50 for 2100%. The field could only
+grow, whoever was holding the keyboard.
+
+So the interval is no longer authored. `levels/panic.json` carries a
+`panicSpawn.tuning` block, and `node tools/panic_waves.mjs` derives the
+100 waves from it:
+
+```
+cost(size)        = 2^size - 1                     shots, from the split rule
+work(shape, size) = cost * shotTimeSec * effort[shape]
+waveWork          = weighted mean of work over the wave's own mix
+pressure(wave)    = waveWork / intervalSec
+```
+
+`pressure` is the share of the player's shooting time the spawner claims.
+At 1.0 they must land every shot, forever, and never move; the slack
+below 1.0 is everything left over for dodging, missing and walking
+somewhere. `maxPressure` (0.9) is therefore exactly "the point past which
+the field can no longer be cleared", and **the generator refuses to write
+a table that crosses it** -- naming the wave, its mix, and by how much.
+The shipped curve runs 0.40 at wave 1 to 0.88 at wave 100.
+
+What is authored is the part somebody can have an opinion about: the
+interval ramp (5s down to 2.6s), the pop targets, the per-shape effort
+multipliers (a weaving ball is the same one shot, harder to land), and
+`stages` -- which balls turn up from which wave.
+
+One consequence is worth stating because it is not intuitive: **interval
+and ball size cannot both grow.** Bigger balls MUST arrive less often to
+stay clearable. Since the mode wants the opposite, the mixes get *smaller*
+as the run goes on, and the escalation is carried by frequency and
+evasiveness instead. Sizes 4 and 5 never appear at all -- one of them
+would monopolise half a minute -- and the finale is a stream of size-1
+hunters and weavers every 2.6 seconds, which is a harder thing to survive
+than a size-5 ball every 5, and unlike it, a thing that can be survived.
+
+`tests/panic.test.mjs` recomputes the table from the tuning (so a
+forgotten regeneration fails, same contract as `sw-precache.json`),
+re-runs every playability check over the shipped file, and pins the split
+rule itself.
+
 ## Level transitions
 
 Clearing a campaign level doesn't cut straight to the next one: an effect
@@ -724,8 +783,22 @@ seam between the canvas and the page behind it.
   -- calling a ball early is a bet, and the player takes it knowing what
   they are standing under -- but two balls can never arrive closer
   together than 0.6s, which is what stops a held key from emptying a late
-  wave, whose own interval is already down to 1.3s, onto the field in one
+  wave, whose own interval is at its shortest, onto the field in one
   clump. See `GameScene.updatePanicSpawner`.
+- **Panic Mode is arithmetic, and its table is generated from it.** See
+  the section of that name below -- the short version is that a ball of
+  size N takes 2^N - 1 shots to clear away entirely, so how often balls
+  may arrive is a calculation, not a taste.
+- **Every tenth wave the ceiling stops until the field is clear.** The
+  spawner is deliberately allowed to claim most of the player's shooting
+  time, so whatever was missed during one wave is still bouncing during
+  the next; without a pause a run only ever accumulates and ends in a
+  mess that was never clearable. The breather ends the moment the last
+  ball goes -- there is nothing to wait for once it has happened -- or
+  after `restMaxSec`, so a field nobody can finish cannot stop the mode
+  dead. Holding down drains it early, for a player who would rather not
+  sit through it. `restEveryWaves` / `restMaxSec` in `levels/panic.json`;
+  see `GameScene.updatePanicRest`.
 - **Panic Mode's wave counter does not stop at the end of its table.**
   `levels/panic.json` lists 100 waves and the last one repeats forever --
   the table ends at what a player can survive, not at what beats them --
@@ -1124,7 +1197,11 @@ tools/               Scripts run by hand, never by the game:
                       (see "Icons say it in pictures"),
                       impact_puffs.py draws the grey cloud a beam leaves
                       where it stops (the bullet's own spark is hand-drawn
-                      and is not written by it), and
+                      and is not written by it),
+                      panic_waves.mjs derives Panic Mode's wave table
+                      from its tuning block and refuses to write one that
+                      cannot be cleared (see "Panic Mode is arithmetic"),
+                      and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing

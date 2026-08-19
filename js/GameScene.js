@@ -200,6 +200,7 @@ export class GameScene extends Phaser.Scene {
     this.levelSelectMode = 'play';
     this.panicWaveIndex = 0;
     this.panicPopCount = 0;
+    this.panicRestLeft = 0;
     this.weaponType = 'harpoon';
     this.volleyCounter = 0; // see fireVolley -- ids only need to be distinct
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
@@ -678,6 +679,10 @@ export class GameScene extends Phaser.Scene {
     this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
     this.panicSpawnedAt = 0;
     this.panicPopCount = 0;
+    // A breather in progress does not survive a life being lost -- the
+    // field is cleared by the restart anyway, which is everything the
+    // pause was there to allow.
+    this.panicRestLeft = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
     // A key still held from before this level started (e.g. mashed
@@ -1220,10 +1225,11 @@ export class GameScene extends Phaser.Scene {
   // empty a whole wave onto the field at once -- PANIC_HURRY_MIN_GAP is
   // how close together two balls may arrive however hard the key is
   // held, which matters at the late waves where the ordinary interval is
-  // already down to 1.3s.
+  // at its shortest.
   updatePanicSpawner(dt, hurry) {
     const wave = this.panicWave;
     if (!wave) return;
+    if (this.panicRestLeft > 0) { this.updatePanicRest(dt, hurry, wave); return; }
     if (hurry) {
       // Only ever pulls the next ball EARLIER, and never past the floor:
       // the wait passes at the hurried rate (dt of it per frame anyway,
@@ -1236,6 +1242,28 @@ export class GameScene extends Phaser.Scene {
     this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn);
     this.panicSpawnedAt = this.levelTimer;
     this.panicSpawnAt = this.levelTimer + wave.intervalSec;
+  }
+
+  // The breather every `restEveryWaves` waves: the ceiling stops sending
+  // anything down, so what is on the field is all there is and it can
+  // actually be finished. It ends the moment the field IS clear -- that
+  // is the whole point of it, and there is nothing to wait for once it
+  // has happened -- or after `restMaxSec`, whichever comes first, because
+  // a field nobody can finish would otherwise stop the mode dead.
+  //
+  // Holding down drains it at the same rate it hurries an ordinary wait
+  // (see above): a player who does not want the pause should not have to
+  // sit through it.
+  updatePanicRest(dt, hurry, wave) {
+    this.panicRestLeft -= dt * (hurry ? PANIC_HURRY_RATE : 1);
+    if (this.panicRestLeft > 0 && this.balls.countActive(true) > 0) return;
+    this.panicRestLeft = 0;
+    // A full interval before the next wave starts arriving, counted from
+    // now rather than from whenever the last ball happened to fall: the
+    // rest is the reward, and following it immediately with a ball would
+    // take the reward back.
+    this.panicSpawnAt = this.levelTimer + wave.intervalSec;
+    this.panicSpawnedAt = this.levelTimer;
   }
 
   // Picks one (shape, size) from the wave's weighted `shapes` list and
@@ -1301,9 +1329,19 @@ export class GameScene extends Phaser.Scene {
   advancePanicProgress() {
     this.panicPopCount += 1;
     const wave = this.panicWave;
-    if (wave && this.panicPopCount >= wave.popTarget) {
-      this.panicWaveIndex += 1;
-      this.panicPopCount = 0;
+    if (!wave || this.panicPopCount < wave.popTarget) return;
+    this.panicWaveIndex += 1;
+    this.panicPopCount = 0;
+    // Every so many waves, the ceiling stops for a moment (see
+    // updatePanicRest). Without it the field only ever accumulates: the
+    // spawner is deliberately allowed to claim most of the player's
+    // shooting time, so whatever was missed during one wave is still
+    // there during the next, and a run ends in a mess that was never
+    // actually clearable. The pause is the mode's one chance to get back
+    // to an empty screen.
+    const spawn = this.currentLevelDef.panicSpawn;
+    if (spawn.restEveryWaves && this.panicWaveIndex % spawn.restEveryWaves === 0) {
+      this.panicRestLeft = spawn.restMaxSec ?? 0;
     }
   }
 
