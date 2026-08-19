@@ -227,6 +227,7 @@ every push.
 | --- | --- | --- |
 | Move | Arrow Left/Right | Joystick left/right |
 | Climb a ladder | Arrow Up/Down | Joystick up/down |
+| Call the next ball sooner (Panic Mode) | Arrow Down, held | Joystick down, held |
 | Shoot | Space | On-screen shoot button |
 | Pause | Esc | On-screen pause button |
 | Fullscreen | Button in menu/pause screen | Same |
@@ -713,6 +714,18 @@ seam between the canvas and the page behind it.
   ball takes proportionally longer, because there is more of it to come
   through (a size 1 takes a second, a size 5 three). The speed is
   `panicSpawn.ceilingSpeedPx` in `levels/panic.json`.
+- **Holding down in Panic Mode calls the next ball early.** There is no
+  ladder there to climb (`levels/panic.json` has no obstacles at all), so
+  the key was dead -- while what a player standing on an empty field
+  actually wants is the next ball: an empty field is not a rest, it is a
+  wave that isn't advancing and a clock that is. Held, the wait passes at
+  four times its speed, so the opening 2.6s becomes 0.65s. It is offered
+  whatever is already in the air rather than only when the field is thin
+  -- calling a ball early is a bet, and the player takes it knowing what
+  they are standing under -- but two balls can never arrive closer
+  together than 0.6s, which is what stops a held key from emptying a late
+  wave, whose own interval is already down to 1.3s, onto the field in one
+  clump. See `GameScene.updatePanicSpawner`.
 - The campaign uses what the engine has rather than only walls and balls:
   **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name

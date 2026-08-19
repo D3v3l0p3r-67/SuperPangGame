@@ -69,6 +69,15 @@ const MAX_SHATTER_PASSES = 6;
 // walk under it, or to shoot it before it is loose.
 const PANIC_CEILING_SPEED = 16;
 
+// How much faster the wait for the next Panic Mode ball passes while the
+// down key is held, and the shortest gap between two balls that hurrying
+// can produce (seconds). Four times is fast enough to be worth reaching
+// for -- an opening 2.6s wait becomes 0.65s -- and the floor is what
+// keeps the late waves, whose own interval is 1.3s, from arriving as one
+// clump. See updatePanicSpawner.
+const PANIC_HURRY_RATE = 4;
+const PANIC_HURRY_MIN_GAP = 0.6;
+
 // What a shot leaves behind when it does not say (see playShotImpact).
 // A default only a HALF-UPDATED game can reach: this is an offline game,
 // its files are cached one by one, and an update that lands a new caller
@@ -667,6 +676,7 @@ export class GameScene extends Phaser.Scene {
     // start falling again") rather than dumping progress. panicWaveIndex
     // itself is deliberately NOT touched here -- see beginRun().
     this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
+    this.panicSpawnedAt = 0;
     this.panicPopCount = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
@@ -1076,8 +1086,6 @@ export class GameScene extends Phaser.Scene {
       this.hurryUpPlayed = true;
     }
 
-    if (this.isPanicMode) this.updatePanicSpawner();
-
     const inputState = this.readInput();
     // Getting ON a ladder is a press, never a hold: holding up to climb
     // one must not grab the next one the moment the player walks past its
@@ -1086,6 +1094,10 @@ export class GameScene extends Phaser.Scene {
     inputState.downPressed = inputState.down && !this.wasDown;
     this.wasUp = inputState.up;
     this.wasDown = inputState.down;
+
+    // Read AFTER the input, because holding down is what hurries it along.
+    if (this.isPanicMode) this.updatePanicSpawner(dt, inputState.down);
+
     this.player.update(dt, inputState);
 
     // One shot per press, for every weapon and power-up alike: the input
@@ -1190,13 +1202,39 @@ export class GameScene extends Phaser.Scene {
     return Math.min(100, Math.floor(100 * this.panicPopCount / wave.popTarget));
   }
 
-  // Ball spawn timing only -- still purely time-driven (panicSpawnAt vs
+  // Ball spawn timing only -- still time-driven (panicSpawnAt vs
   // levelTimer) since spawn CADENCE is about keeping the pressure steady,
   // unlike wave difficulty which is skill-gated (see panicWave above).
-  updatePanicSpawner() {
+  //
+  // `hurry` is the down key held, which in Panic Mode means nothing else:
+  // there is no ladder to climb down (levels/panic.json has no obstacles
+  // at all), so the key was simply dead. What a player waiting out the
+  // interval actually wants is the next ball -- an empty field is not a
+  // rest, it is a wave that isn't advancing and a clock that is -- and
+  // holding down now asks for it, running the wait at PANIC_HURRY_RATE
+  // times its normal speed for as long as it is held.
+  //
+  // It is deliberately unconditional rather than only offered when the
+  // field is thin: calling the next ball early is a bet, and the player
+  // takes it knowing what is already in the air. What it cannot do is
+  // empty a whole wave onto the field at once -- PANIC_HURRY_MIN_GAP is
+  // how close together two balls may arrive however hard the key is
+  // held, which matters at the late waves where the ordinary interval is
+  // already down to 1.3s.
+  updatePanicSpawner(dt, hurry) {
     const wave = this.panicWave;
-    if (!wave || this.levelTimer < this.panicSpawnAt) return;
+    if (!wave) return;
+    if (hurry) {
+      // Only ever pulls the next ball EARLIER, and never past the floor:
+      // the wait passes at the hurried rate (dt of it per frame anyway,
+      // plus the extra), so holding down for the whole interval is what
+      // costs the whole discount.
+      this.panicSpawnAt = Math.max(this.panicSpawnedAt + PANIC_HURRY_MIN_GAP,
+        this.panicSpawnAt - dt * (PANIC_HURRY_RATE - 1));
+    }
+    if (this.levelTimer < this.panicSpawnAt) return;
     this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn);
+    this.panicSpawnedAt = this.levelTimer;
     this.panicSpawnAt = this.levelTimer + wave.intervalSec;
   }
 

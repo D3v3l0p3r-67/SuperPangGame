@@ -8,7 +8,7 @@
 // rule below is a statement about that JSON.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { levelFiles, elements, exists, readJSON, obstacleCells } from './helpers.mjs';
+import { levelFiles, elements, exists, readJSON, readText, obstacleCells } from './helpers.mjs';
 import {
   VIRTUAL_W, GROUND_Y, PLAYFIELD_H, BORDER_THICKNESS, OBSTACLE_BLOCK_SIZE,
 } from '../js/constants.js';
@@ -258,4 +258,24 @@ test('panic mode has a level of its own, in the same shape', () => {
   assert.ok(Array.isArray(panic.obstacles) && Array.isArray(panic.balls),
     'panic.json must load like any other level');
   assert.ok(panic.panicSpawn, 'panic.json needs its panicSpawn wave table');
+});
+
+test('holding down still buys a Panic Mode player something, on every wave', () => {
+  // Holding down runs the wait for the next ball at PANIC_HURRY_RATE
+  // times its speed, but never closer together than PANIC_HURRY_MIN_GAP
+  // (see GameScene.updatePanicSpawner). A wave whose ordinary interval
+  // is at or below that floor would ignore the key entirely -- the
+  // control would simply stop working the deeper the run got, which is
+  // the worst way for it to fail. The wave table is written by hand and
+  // the intervals shrink, so this is the check that they never shrink
+  // past the point where hurrying means anything.
+  const source = readText('js/GameScene.js');
+  const floor = Number(source.match(/const PANIC_HURRY_MIN_GAP = ([\d.]+);/)[1]);
+  const rate = Number(source.match(/const PANIC_HURRY_RATE = ([\d.]+);/)[1]);
+  assert.ok(rate > 1, 'a hurry rate of 1 or less would not hurry anything');
+  const { waves } = readJSON('levels/panic.json').panicSpawn;
+  for (const [i, wave] of waves.entries()) {
+    assert.ok(wave.intervalSec > floor,
+      `wave ${i}: its ${wave.intervalSec}s interval is already at or under the ${floor}s hurry floor`);
+  }
 });
