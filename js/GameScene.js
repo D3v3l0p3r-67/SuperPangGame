@@ -32,6 +32,7 @@ import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
 import * as storage from './storage.js';
 import {
   obstacleTextureKey, FRAME_TILE_TEXTURE, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
+  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
@@ -67,6 +68,16 @@ const MAX_SHATTER_PASSES = 6;
 // even the biggest takes a few seconds to squeeze out -- long enough to
 // walk under it, or to shoot it before it is loose.
 const PANIC_CEILING_SPEED = 16;
+
+// What a shot leaves behind when it does not say (see playShotImpact).
+// A default only a HALF-UPDATED game can reach: this is an offline game,
+// its files are cached one by one, and an update that lands a new caller
+// beside an old shot would otherwise throw here every frame and freeze
+// the picture. The service worker now installs a release whole (see its
+// store()), so this should never be read -- and if it ever is, a spark is
+// the mark every shot in the game used to leave, which is a far better
+// answer than a frozen game.
+const BULLET_IMPACT = { textureKey: BULLET_HIT_TEXTURE_KEY, animKey: BULLET_HIT_ANIM_KEY };
 
 // The gap between those passes. Long enough that each one is a separate
 // event to watch -- the field halving, again, and again -- and short
@@ -1328,7 +1339,7 @@ export class GameScene extends Phaser.Scene {
   // ceiling is the same event, which is why it looked like less of one.
   // (The artwork is still named for the bullet it was drawn for; what it
   // draws is a puff, and nothing about it was bullet-shaped.)
-  playShotImpact(x, y, impact) {
+  playShotImpact(x, y, impact = BULLET_IMPACT) {
     const sprite = this.add.sprite(x, y, impact.textureKey);
     // Centred by default -- the bullet's spark straddles the point it
     // struck, which is what a chip flying off looks like. A shot whose

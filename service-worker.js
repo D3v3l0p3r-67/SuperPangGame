@@ -17,7 +17,7 @@
 // reaching anyone who had already opened the game). The old cache is
 // deleted the moment the new worker activates (see activate), so a
 // release is never served half from the previous one.
-const CACHE_VERSION = 'super-pang-990baa9a3cca';
+const CACHE_VERSION = 'super-pang-f8ef4ca9307b';
 const PRECACHE_LIST = 'sw-precache.json';
 
 // The files the game cannot start without. These have to cache for the
@@ -47,6 +47,66 @@ async function previousManifest() {
   return null;
 }
 
+// One file into the cache, fetched STRAIGHT FROM THE NETWORK.
+//
+// `cache: 'reload'` is the whole point of this function existing, and it
+// is not a nicety. cache.add() (which this replaces) fetches through the
+// browser's ordinary HTTP cache, so a file still inside its max-age can
+// be served from there -- and a release installed that way is a MIXTURE:
+// some files from the new deploy, some from the last one. That is not a
+// stale picture, it is a game that crashes, because two halves of one
+// change do not meet (a call gaining an argument in one file and losing
+// its meaning in the other is enough to freeze the frame). It also
+// poisons every install after it: the delta below trusts the previous
+// manifest to describe what is actually IN the previous cache, and a
+// stale file stored under a fresh hash never gets fetched again.
+//
+// Throwing (`required`) is for the shell only: the install must fail
+// rather than leave the game unopenable offline.
+async function store(cache, path, required = false) {
+  const response = await fetch(url(path), { cache: 'reload' });
+  if (!response.ok) {
+    if (required) throw new Error(`precache: ${path} answered ${response.status}`);
+    return;
+  }
+  await cache.put(url(path), response);
+}
+
+// What the manifest says a file's contents hash to: sha256, first 16 hex
+// characters, exactly as tools/build_precache.mjs writes it.
+async function digest(response) {
+  const bytes = await response.arrayBuffer();
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+
+// A file taken out of the previous cache instead of off the network --
+// but only once its BYTES have been checked against the manifest.
+//
+// The manifest is a record of what the last install MEANT to store, not
+// of what it managed to store. They came apart once already (an install
+// that fetched through the HTTP cache stored a stale file under a fresh
+// hash), and the damage outlived the release that caused it: every later
+// install saw a matching hash, copied the bad copy forward, and never
+// fetched the file again. Hashing here is what ends that -- a cache can
+// hold a wrong file for one release, never for two -- and it costs
+// reading bytes that are already on the device.
+//
+// Returns false when there is nothing trustworthy to carry over, and the
+// caller fetches the file like any other.
+async function carryOver(cache, previous, path, wanted) {
+  if (!previous || previous.files[path] !== wanted) return false;
+  const hit = await previous.cache.match(url(path));
+  if (!hit) return false;
+  try {
+    if ((await digest(hit.clone())) !== wanted) return false;
+  } catch {
+    return false; // no crypto.subtle (insecure origin): fetch it instead
+  }
+  await cache.put(url(path), hit);
+  return true;
+}
+
 async function precache() {
   const cache = await caches.open(CACHE_VERSION);
   const response = await fetch(url(PRECACHE_LIST), { cache: 'no-cache' });
@@ -57,23 +117,17 @@ async function precache() {
 
   // The shell first and on its own: these are what a blank screen offline
   // is made of, so the install only counts as done if they cached.
-  await cache.addAll(SHELL.map(url));
+  await Promise.all(SHELL.map((path) => store(cache, path, true)));
 
   const outstanding = Object.keys(files).filter((path) => !SHELL.includes(path));
   const fetchAll = [];
   for (const path of outstanding) {
-    // Unchanged since the release being replaced: take the copy that is
-    // already on the device. A new sprite then costs a sprite to install
-    // rather than the whole game, which is the difference between an
-    // update the player never notices and one that re-downloads 7MB over
-    // whatever connection they happen to be on.
-    if (previous && previous.files[path] === files[path]) {
-      const hit = await previous.cache.match(url(path));
-      if (hit) {
-        await cache.put(url(path), hit.clone());
-        continue;
-      }
-    }
+    // Unchanged since the release being replaced, and verified to be:
+    // take the copy that is already on the device. A new sprite then
+    // costs a sprite to install rather than the whole game, which is the
+    // difference between an update the player never notices and one that
+    // re-downloads 7MB over whatever connection they happen to be on.
+    if (await carryOver(cache, previous, path, files[path])) continue;
     fetchAll.push(path);
   }
 
@@ -81,7 +135,7 @@ async function precache() {
     // allSettled, not all: a file that 404s (or a phone that drops the
     // connection halfway through) leaves the rest of the cache intact
     // rather than throwing the whole install away.
-    await Promise.allSettled(fetchAll.slice(i, i + BATCH).map((path) => cache.add(url(path))));
+    await Promise.allSettled(fetchAll.slice(i, i + BATCH).map((path) => store(cache, path)));
   }
 
   // Kept so the NEXT install can diff against this release.
