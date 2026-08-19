@@ -2,7 +2,7 @@
   "id": "obstacle-icy-wall",
   "category": "obstacle",
   "type": "icy_wall",
-  "label": "Icy Wall",
+  "label": "Ice",
   "destructible": false,
   "hitPoints": null,
   "color": "#8cc4de",

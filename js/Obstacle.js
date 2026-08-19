@@ -1,5 +1,6 @@
 import { OBSTACLE_TYPES } from './elements.js';
 import { GROUND_Y, VIRTUAL_W, BORDER_THICKNESS } from './constants.js';
+import { FRAME_TILE_TEXTURE } from './assets.js';
 import { obstacleTextureKey } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -159,11 +160,20 @@ export function refreshObstacleSeams(obstaclesGroup) {
       if (horizontalOverlap && o.x + o.width === x) neighbours.left = other;
       if (horizontalOverlap && o.x === x + w) neighbours.right = other;
     }
+    // ...and a face that meets the FRAME is not exposed either, for a
+    // block made of what the frame is made of. The border is a drawn
+    // strip rather than a block in this group, so it is no one's
+    // neighbour -- which left a wall built against it outlined along the
+    // join, reading as a separate thing pushed up against the frame
+    // instead of as part of it. The other half of the same join is
+    // drawn below (see drawFrameEdges), which is why that line moved out
+    // of GameScene.drawBorder and in here.
+    const framed = isFrameMaterial(block);
     block.edges = {
-      up: exposed(neighbours.up),
-      down: exposed(neighbours.down),
-      left: exposed(neighbours.left),
-      right: exposed(neighbours.right),
+      up: exposed(neighbours.up) && !(framed && y <= BORDER_THICKNESS),
+      down: exposed(neighbours.down) && !(framed && y + h >= GROUND_Y),
+      left: exposed(neighbours.left) && !(framed && x <= BORDER_THICKNESS),
+      right: exposed(neighbours.right) && !(framed && x + w >= VIRTUAL_W - BORDER_THICKNESS),
     };
   }
   drawObstacleEdges(obstaclesGroup);
@@ -179,6 +189,57 @@ function samePiece(a, b) {
   if (a.type !== b.type) return false;
   if (!a.def.destructible) return true;
   return a.pieceId !== null && a.pieceId !== undefined && a.pieceId === b.pieceId;
+}
+
+// Whether a block is made of the same material the playfield frame is
+// drawn from (see GameScene.drawBorder). Compared by TEXTURE rather than
+// by type, because what makes two surfaces continuous to look at is what
+// they are made of -- a second element using the same tile would join the
+// frame just as seamlessly, which is the right answer.
+function isFrameMaterial(block) {
+  return block.def.tileTexture === FRAME_TILE_TEXTURE;
+}
+
+// The frame's own inner bevel: the four faces it turns towards the
+// playfield. Drawn HERE, with the obstacles, rather than once when the
+// border is drawn, because it is not a fixed line -- where a wall is
+// built against the frame the two are one surface, and a line between
+// them is exactly the seam this is meant to avoid. So each side is drawn
+// as the segments left over once the blocks lying against it are taken
+// out.
+function drawFrameEdges(g, blocks) {
+  const t = BORDER_THICKNESS;
+  const wall = OBSTACLE_TYPES.platform;
+  const light = hexColor(wall?.edgeLight ?? '#ffffff');
+  const dark = hexColor(wall?.edgeDark ?? '#000000');
+  const framed = blocks.filter(isFrameMaterial);
+
+  // Each side, minus what covers it, one segment at a time.
+  const side = (from, to, spans, draw) => {
+    const sorted = spans.slice().sort((a, b) => a[0] - b[0]);
+    let at = from;
+    for (const [start, end] of sorted) {
+      if (start > at) draw(at, Math.min(start, to));
+      at = Math.max(at, end);
+    }
+    if (at < to) draw(at, to);
+  };
+
+  const hLine = (color, y) => (a, b) => { g.lineStyle(1, color, 1); g.lineBetween(a, y, b, y); };
+  const vLine = (color, x) => (a, b) => { g.lineStyle(1, color, 1); g.lineBetween(x, a, x, b); };
+
+  side(t - 1, VIRTUAL_W - t + 1,
+    framed.filter((b) => b.y <= t).map((b) => [b.x, b.x + b.displayWidth]),
+    hLine(dark, t - 0.5));                                   // under the ceiling
+  side(t - 1, GROUND_Y,
+    framed.filter((b) => b.x <= t).map((b) => [b.y, b.y + b.displayHeight]),
+    vLine(dark, t - 0.5));                                   // right of the left wall
+  side(t - 1, GROUND_Y + 1,
+    framed.filter((b) => b.x + b.displayWidth >= VIRTUAL_W - t).map((b) => [b.y, b.y + b.displayHeight]),
+    vLine(light, VIRTUAL_W - t + 0.5));                       // left of the right wall
+  side(t - 1, VIRTUAL_W - t + 1,
+    framed.filter((b) => b.y + b.displayHeight >= GROUND_Y).map((b) => [b.x, b.x + b.displayWidth]),
+    hLine(light, GROUND_Y + 0.5));                            // top of the floor
 }
 
 // The bevel, drawn around the outside of whatever shape the blocks form.
@@ -204,6 +265,7 @@ export function drawObstacleEdges(obstaclesGroup) {
   }
   const g = scene.obstacleEdges;
   g.clear();
+  drawFrameEdges(g, obstaclesGroup.getChildren().filter((b) => b.active));
 
   for (const block of obstaclesGroup.getChildren()) {
     if (!block.active || !block.edges) continue;

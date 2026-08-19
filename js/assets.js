@@ -174,6 +174,13 @@ export const PLAYER_DUST_ANIM_KEY = 'player-dust-puff';
 // ever swapped for one.
 export const OBSTACLE_TEXTURE_DIR = 'assets/obstacles/';
 
+// What the playfield frame is drawn from (GameScene.drawBorder) -- and so
+// what a painted block has to be made of to be continuous with it (see
+// Obstacle.js's isFrameMaterial). Named once here rather than spelled out
+// in both places, so the frame and the rule about the frame cannot come
+// apart.
+export const FRAME_TILE_TEXTURE = 'wall';
+
 export function obstacleTextureKey(name) {
   return `obstacle_${name}`;
 }

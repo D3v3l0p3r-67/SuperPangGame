@@ -245,10 +245,18 @@ export class Editor {
     // which a hunter could not be told from a heavy. Which ball the brush
     // places is chosen by name, next to the other options for the next
     // thing placed.
-    this.panelEl.appendChild(group(
+    // The size a wall/crate press puts down belongs HERE, under the
+    // brushes, rather than with the options for the next thing placed: it
+    // is a property of the brush in hand, and this group is one row of
+    // buttons in a band with room for three. Where it used to sit it was
+    // the widest thing in its group, and the counts readout at the end of
+    // the panel was being cut off to pay for it (tests/smoke measures
+    // exactly that).
+    this.brushGroup = group(
       'BRUSH',
       row(...[...tileBrushes(), BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
-    ));
+    );
+    this.panelEl.appendChild(this.brushGroup);
 
     // Options that apply to the NEXT placed ball/crate: initial direction
     // (round balls only use the X one; hex balls use both) and a
@@ -315,10 +323,13 @@ export class Editor {
     // work out which -- the Drops dropdown in particular sat there, fully
     // usable, over a Wall brush that silently threw the answer away.
     this.dirRow = row(this.dirXBtn, this.dirYBtn);
-    this.dropRow = row(labelled('Drops ', this.powerupSelect));
-    this.pieceRow = row(labelled('Block ', this.pieceSelect));
+    this.dropField = labelled('Drops ', this.powerupSelect);
+    this.dropRow = row(this.dropField);
     this.ballRow = row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect);
-    this.nextGroup = group('NEXT PLACED', this.dirRow, this.dropRow, this.pieceRow, this.ballRow);
+    this.nextGroup = group('NEXT PLACED', this.dirRow, this.dropRow, this.ballRow);
+    // Second row of BRUSH, built after the picker exists.
+    this.pieceField = labelled('Size ', this.pieceSelect);
+    this.brushGroup.appendChild(row(this.pieceField));
     this.panelEl.appendChild(this.nextGroup);
     this.updateOptionLabels();
 
@@ -415,9 +426,14 @@ export class Editor {
     this.setBrush(this.brush);
   }
 
+  // The arrow IS the label: these sit in NEXT PLACED beside the ball
+  // pickers, where a horizontal and a vertical arrow can only mean one
+  // thing, and each still carries the full sentence as its tooltip. The
+  // "Dir X:"/"Dir Y:" prefixes cost fifty pixels of a band that has none
+  // to give -- the counts readout beside them was being cut off for it.
   updateOptionLabels() {
-    if (this.dirXBtn) this.dirXBtn.textContent = `Dir X: ${this.dirX > 0 ? '→' : '←'}`;
-    if (this.dirYBtn) this.dirYBtn.textContent = `Dir Y: ${this.dirY < 0 ? '↑' : '↓'}`;
+    if (this.dirXBtn) this.dirXBtn.textContent = `X ${this.dirX > 0 ? '→' : '←'}`;
+    if (this.dirYBtn) this.dirYBtn.textContent = `Y ${this.dirY < 0 ? '↑' : '↓'}`;
   }
 
   // Updates both the editor's own saved field and the live GameScene
@@ -494,8 +510,10 @@ export class Editor {
 
     show(this.dirRow, isBall);
     show(this.dirYBtn, isBall && !getBallElement(this.ballShape, this.ballSize).hasGravity);
-    show(this.dropRow, isBall || (breakable && singlePiece));
-    show(this.pieceRow, isTile);
+    // The two share a row, so each is shown on its own rather than the
+    // row being shown for both (see buildPanel).
+    show(this.dropField, isBall || (breakable && singlePiece));
+    show(this.pieceField, isTile);
     show(this.ballRow, isBall);
   }
 
@@ -1055,12 +1073,16 @@ export class Editor {
     // The start counts like everything else here: 1 when this level places
     // one, 0 when it has none and the player starts where the default puts
     // them (see LevelManager's playerSpawn).
-    // Single-spaced, and that is not fussiness: this readout gets
-    // whatever width the controls leave it (see style.css), and at the
-    // default display size the double spaces were the last eight pixels
-    // between "Ladders 0 Start 0" and "Ladders 0 Start..".
-    this.statusEl.textContent = `Blocks ${this.blocks.size} Balls ${this.balls.size}\n`
-      + `Ladders ${this.ladders.size} Start ${this.playerStart ? 1 : 0}`;
+    // One count per line, not two to a line. This readout gets whatever
+    // width the controls leave it (see style.css) and must not be cut
+    // off (tests/smoke measures exactly that), so it is written as the
+    // narrowest thing that still says everything: the longest line is
+    // then one label instead of two, which is half the width for the
+    // same four numbers -- and the band has the height to spare.
+    this.statusEl.textContent = `Blocks ${this.blocks.size}\n`
+      + `Balls ${this.balls.size}\n`
+      + `Ladders ${this.ladders.size}\n`
+      + `Start ${this.playerStart ? 1 : 0}`;
   }
 
   showStatusMessage(text, durationMs = 3000) {

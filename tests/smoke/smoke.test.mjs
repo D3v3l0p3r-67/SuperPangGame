@@ -122,6 +122,44 @@ test('the player walks, shoots, and pops what it hits', async () => {
   assert.equal(drainErrors(), '');
 });
 
+// Every weapon marks stopping on something it cannot break. The machine
+// gun always did; the beams did not, and the difference was invisible in
+// any file -- it is one sprite, alive for two frames of a 14fps
+// animation, which is exactly the kind of thing only a running game can
+// answer. Note what this does NOT do: screenshot it. A screenshot round
+// trip takes longer than the puff lives, so the picture comes back empty
+// however well the game is working. Reading the display list is both
+// faster and the actual question.
+test('every weapon leaves a mark where it stops on what it cannot break', async () => {
+  const LEVEL = {
+    id: 1,
+    name: 'Impact',
+    timeLimitSec: 90,
+    background: 'default',
+    obstacles: [{ type: 'platform', x: 384, y: 200, w: 64, h: 16 }],
+    balls: [{ shape: 'round', size: 1, x: 100, y: 60, vx: -100 }],
+    playerStart: { x: 408, y: 400 },
+  };
+
+  for (const weapon of ['harpoon', 'grapple', 'machinegun']) {
+    await game.scene((s, level) => { s.startCustomLevel(level); }, LEVEL);
+    await game.page.waitForFunction(
+      () => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 },
+    );
+    // Straight up from under the block, with the shot lock cleared so the
+    // shot goes the instant it is asked for.
+    await game.scene((s, w) => { s.setWeapon(w); s.player.shotLock = 0; s.tryFire(); }, weapon);
+
+    let puffs = 0;
+    for (let i = 0; i < 60 && !puffs; i++) {
+      await game.frames(1);
+      puffs = await game.scene((s) => s.children.list.filter((c) => c.texture?.key === 'bullet-hit').length);
+    }
+    assert.ok(puffs > 0, `${weapon}: nothing marked the block it stopped on`);
+  }
+  assert.equal(drainErrors(), '');
+});
+
 test('losing a life sends the ghost up and restarts the level', async () => {
   // Its own run, and its own clean slate for it. A hit leaves the player
   // invulnerable for PLAYER_CONFIG.invulnMs, so a ball that happened to

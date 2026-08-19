@@ -1466,7 +1466,7 @@ height, container query units for everything inside), so it scales with
 the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
 
-**NEXT PLACED**'s **Block** picker is how big a piece a wall or crate
+The **Size** picker under the brushes is how big a piece a wall or crate
 press puts down: `16x16`, `16x64` or `16x96` (pillars), `64x16` or
 `96x16` (beams). Nothing
 new reaches the level format here -- an obstacle has always been
@@ -1499,10 +1499,20 @@ an empty NEXT PLACED and **LEVEL**, **FILE**, **GO** and **COUNT** stay
 exactly where they were (`.invisible`, not `.hidden`). Collapsing the
 group instead slid every group after it sideways on each change of brush,
 in a panel whose positions the hand learns.
-A wall has no drop, a crate has no direction or size, a round ball's
+The same goes for the **Size** picker under the brushes, which is blank
+for a brush that places no blocks. A wall has no drop, a round ball's
 vertical direction is decided by gravity rather than by the panel, and a
 piece bigger than one block cannot carry a drop, so with `16x64` selected
-that row goes away too. The rules are not a second opinion about what is
+the Drops picker goes blank too.
+
+The panel is a fixed band as wide as the canvas and 83px tall, and it is
+FULL: `tests/smoke` measures both, and the counts readout at the end has
+exactly the width the controls leave it. That is why the piece size sits
+under the brushes (one row of buttons in a group with room for three)
+rather than in NEXT PLACED, why the counts are one per line, and why the
+direction buttons are `X →` / `Y ↑` rather than `Dir X: →`. Each of those
+was a group growing past the band the moment something new was added to
+it. The rules are not a second opinion about what is
 sensible: `updateNextPlaced()` asks the same questions the placement code
 answers (`placeBall` reads the directions, `placeBlock` takes a drop only
 from a one-block breakable crate, `computeBallVelocity` ignores `dirY`
@@ -1864,7 +1874,16 @@ dimensions:
   inside only, so it read as a band that happened to stop rather than as
   one raised object around the playfield; the difference is visible the
   moment you paint wall over it in the editor and watch the border gain an
-  edge it did not have. The two horizontal lines used to run the full
+  edge it did not have. **A wall built against the frame is one surface
+  with it**: neither side of that join is drawn, so a column meeting the
+  side wall reads as part of the frame rather than as a slab pushed up
+  against it. That is why the frame's four INNER lines are drawn with the
+  obstacles (`Obstacle.js`'s `drawFrameEdges`) rather than once with the
+  border -- where they run depends on what has been built, so each side is
+  drawn as the segments left over once the blocks lying against it are
+  taken out. Only the frame's own material joins it (compared by texture,
+  not by type: what makes two surfaces continuous to look at is what they
+  are made of), so a crate on the floor keeps its whole outline. The two horizontal lines used to run the full
   width of the canvas, which took them straight across both side walls --
   cutting each one in two at exactly the height where the frame turns a
   corner, so it read as four bands butted together, which is the opposite

@@ -30,7 +30,7 @@ import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js
 import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
 import * as storage from './storage.js';
 import {
-  obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
+  obstacleTextureKey, FRAME_TILE_TEXTURE, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
@@ -344,7 +344,7 @@ export class GameScene extends Phaser.Scene {
   // of the playfield.
   drawBorder() {
     const t = BORDER_THICKNESS;
-    const wallTexture = obstacleTextureKey('wall');
+    const wallTexture = obstacleTextureKey(FRAME_TILE_TEXTURE);
     const strips = [
       this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
       this.add.tileSprite(0, 0, t, GROUND_Y, wallTexture),
@@ -374,15 +374,13 @@ export class GameScene extends Phaser.Scene {
     // the walls now (one pixel INTO them, so the corners close rather
     // than leaving a gap where the horizontal and the vertical nearly
     // meet).
+    // The four INNER faces are not drawn here: a wall built against the
+    // frame is one surface with it, so where that line runs depends on
+    // what has been built and it is redrawn with the obstacles instead
+    // (see Obstacle.js's drawFrameEdges).
     const edges = this.add.graphics().setDepth(0.6);
-    edges.lineStyle(1, dark, 1);
-    edges.lineBetween(t - 1, t - 0.5, VIRTUAL_W - t + 1, t - 0.5);  // under the ceiling
-    edges.lineBetween(t - 0.5, t - 1, t - 0.5, GROUND_Y);           // right of the left wall
-    edges.lineStyle(1, light, 1);
-    edges.lineBetween(VIRTUAL_W - t + 0.5, t - 1, VIRTUAL_W - t + 0.5, GROUND_Y + 1); // left of the right wall
-    edges.lineBetween(t - 1, GROUND_Y + 0.5, VIRTUAL_W - t + 1, GROUND_Y + 0.5);      // top of the floor
 
-    // ...and the same treatment on the frame's OUTER faces, which is what
+    // The frame's OUTER faces, which is what
     // makes it read as one raised object rather than as a band that
     // happens to stop. It is the rule every obstacle already follows (see
     // Obstacle.js's drawObstacleEdges): light where a shape faces up or
