@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-a850595ae914",
+  "version": "super-pang-c2d55d702004",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "78dd1fafbf04d14a",
@@ -12,8 +12,8 @@
     "js/DisplayZoom.js": "efe22fd0c8319f39",
     "js/ElementsScene.js": "c401a480eb14b9be",
     "js/GameConfig.js": "b19d14147a93adfe",
-    "js/GameScene.js": "b51d8debc6db7805",
-    "js/Hud.js": "ccf3c2bbe2df0a5b",
+    "js/GameScene.js": "9e677e0d37aa9af5",
+    "js/Hud.js": "fd24dcbe113d17dd",
     "js/Ladder.js": "8fd2f305da14ce9e",
     "js/LevelClearCard.js": "20f0d1f9c1599dbd",
     "js/LevelIntro.js": "20796804696fcf53",

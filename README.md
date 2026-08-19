@@ -726,6 +726,16 @@ seam between the canvas and the page behind it.
   together than 0.6s, which is what stops a held key from emptying a late
   wave, whose own interval is already down to 1.3s, onto the field in one
   clump. See `GameScene.updatePanicSpawner`.
+- **Panic Mode's wave counter does not stop at the end of its table.**
+  `levels/panic.json` lists 100 waves and the last one repeats forever --
+  the table ends at what a player can survive, not at what beats them --
+  but the COUNTER goes on climbing, so a run that outlasts the table
+  still has a next milestone and a progress bar moving towards it.
+  Freezing it left the HUD dead for the whole rest of the run: the level
+  number stuck, and the bar (pops against a target already passed)
+  pinned at 100%. The HUD's LEVEL row holds three digits for the same
+  reason -- with two, wave 100 was drawn as "10", and a long run looked
+  like it had gone nowhere.
 - The campaign uses what the engine has rather than only walls and balls:
   **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name

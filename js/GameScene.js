@@ -1289,11 +1289,19 @@ export class GameScene extends Phaser.Scene {
   // wave's popTarget) advances to the next, harder wave -- see panicWave/
   // updatePanicSpawner. Skill-driven on purpose (pop faster, face harder
   // waves sooner) rather than a blind timer.
+  //
+  // The counter is NOT stopped by the end of the wave table. It used to
+  // be, and outlasting all 100 waves left the mode with nothing left to
+  // show: the level number froze, and the progress bar -- pop count over
+  // a target it had already passed -- sat pinned at 100% for the whole
+  // rest of the run. Difficulty does plateau there (panicWave clamps to
+  // the last entry, which is the design: the table ends at what a player
+  // can survive, not at what beats them), but the run goes on having a
+  // next milestone and a bar that moves towards it.
   advancePanicProgress() {
     this.panicPopCount += 1;
     const wave = this.panicWave;
-    const waves = this.currentLevelDef.panicSpawn.waves;
-    if (wave && this.panicPopCount >= wave.popTarget && this.panicWaveIndex + 1 < waves.length) {
+    if (wave && this.panicPopCount >= wave.popTarget) {
       this.panicWaveIndex += 1;
       this.panicPopCount = 0;
     }
