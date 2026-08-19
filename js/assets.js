@@ -253,7 +253,19 @@ export const BULLET_HIT_TEXTURE_KEY = 'bullet-hit';
 export const BULLET_HIT_TEXTURE_PATH = 'assets/weapons/bullet_hit.webp';
 export const BULLET_HIT_FRAMES = 2;
 export const BULLET_HIT_SIZE = 16;
+
+// The beams leave a different mark: half again as wide and grey, dust off
+// the block rather than a spark (see tools/impact_puffs.py). One thick
+// shaft arriving in one place is not four darts striking in a scatter,
+// and wearing the same small spark it looked like a stray bullet had gone
+// off -- while the machine gun's own sparks are on screen, telling them
+// apart at a glance is the whole job of this picture.
+export const BEAM_HIT_TEXTURE_KEY = 'beam-hit';
+export const BEAM_HIT_TEXTURE_PATH = 'assets/weapons/beam_hit.webp';
+export const BEAM_HIT_FRAMES = 2;
+export const BEAM_HIT_SIZE = 24;
 export const BULLET_HIT_ANIM_KEY = 'bullet-hit-splash';
+export const BEAM_HIT_ANIM_KEY = 'beam-hit-puff';
 
 // Loading screen: the splash shown while BootScene loads everything else,
 // plus a "%" glyph for the progress readout (the intro font has no percent

@@ -1,4 +1,7 @@
-import { WEAPON_SHOTS_KEY, WEAPON_SHOTS_FRAME, SHOT_BEAM_WIDTH, weaponShotFrame } from './assets.js';
+import {
+  WEAPON_SHOTS_KEY, WEAPON_SHOTS_FRAME, SHOT_BEAM_WIDTH, weaponShotFrame,
+  BEAM_HIT_TEXTURE_KEY, BEAM_HIT_ANIM_KEY,
+} from './assets.js';
 import { BORDER_THICKNESS } from './constants.js';
 
 // The shot is a BEAM, not a travelling bullet: its foot stays planted at
@@ -119,6 +122,12 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     return { x: this.beamX, y: this.footY - this.length };
   }
 
+  // What it leaves where it stops -- the beams' own, bigger and grey (see
+  // Bullet.js's for the other half of the pair).
+  get impact() {
+    return { textureKey: BEAM_HIT_TEXTURE_KEY, animKey: BEAM_HIT_ANIM_KEY };
+  }
+
   // True once the beam has caught hold of something and stopped climbing.
   get isAnchored() {
     return this.phase !== 'flying';
@@ -177,7 +186,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     // then dies there (the harpoon) or catches hold (the grapple) -- it
     // only ever fires once per shot, because the next frame either finds
     // the beam gone or finds it anchored and returns above.
-    this.scene.playShotImpact(this.beamX, this.footY - this.maxLength);
+    this.scene.playShotImpact(this.beamX, this.footY - this.maxLength, this.impact);
     return this.anchorAt(this.footY - this.maxLength);
   }
 

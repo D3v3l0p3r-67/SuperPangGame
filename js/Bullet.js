@@ -1,4 +1,4 @@
-import { BULLET_TEXTURE_KEY, BULLET_SIZE } from './assets.js';
+import { BULLET_TEXTURE_KEY, BULLET_SIZE, BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY } from './assets.js';
 import { VIRTUAL_W, BORDER_THICKNESS } from './constants.js';
 
 // The machine gun's shot: a short dart that actually travels, unlike the
@@ -32,6 +32,14 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
     // their group with them.
     this.volleyId = volleyId;
     this.setDepth(3.5); // behind the player, above balls -- same as the beam
+  }
+
+  // What it leaves where it stops (see GameScene.playShotImpact). Asked
+  // of the shot rather than looked up from its weapon, because the shot
+  // is the thing that stopped: a dart strikes in a spark, a beam puts a
+  // cloud of dust off the block.
+  get impact() {
+    return { textureKey: BULLET_HIT_TEXTURE_KEY, animKey: BULLET_HIT_ANIM_KEY };
   }
 
   // A bullet never catches hold of anything; it just stops. Answering the
@@ -73,6 +81,7 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
       this.scene.playShotImpact(
         Math.max(BORDER_THICKNESS, Math.min(VIRTUAL_W - BORDER_THICKNESS, tip.x)),
         Math.max(BORDER_THICKNESS, tip.y),
+        this.impact,
       );
       return false;
     }

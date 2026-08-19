@@ -309,7 +309,15 @@ any can be tried without editing a file.
 Every one of them **puffs where it stops** on something it cannot break --
 the ceiling, a side wall, an indestructible block (`GameScene
 .playShotImpact`, from the beam's head or the dart's tip, never past the
-underside of what stopped it). Only the bullets used to, on the theory
+underside of what stopped it). **The beams leave their own mark**: half
+again as wide and grey, dust off the block rather than a spark
+(`tools/impact_puffs.py`). One thick shaft arriving in one place is not
+four darts striking in a scatter, and wearing the same small teal spark
+it read as a stray bullet going off -- while the machine gun's own sparks
+are still on screen, telling the two apart at a glance is the whole job of
+the picture. Which mark a shot leaves is asked of the SHOT (`Bullet`'s and
+`Projectile`'s `impact`), not looked up from its weapon: the shot is the
+thing that stopped. Only the bullets used to, on the theory
 that a beam ENDS at the ceiling by design while a dart visibly strikes
 it -- which read, in the hand, as the beam weapons quietly vanishing
 into the frame. A grapple gets it at the moment it catches hold too: that
@@ -1062,7 +1070,10 @@ tools/               Scripts run by hand, never by the game:
                       app_icons.py draws the app icons,
                       powerup_icons.py draws every power-up's pickup
                       disc, and the three weapons' HUD icons with them
-                      (see "Icons say it in pictures"), and
+                      (see "Icons say it in pictures"),
+                      impact_puffs.py draws the grey cloud a beam leaves
+                      where it stops (the bullet's own spark is hand-drawn
+                      and is not written by it), and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing

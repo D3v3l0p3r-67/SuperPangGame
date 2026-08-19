@@ -141,7 +141,9 @@ test('every weapon leaves a mark where it stops on what it cannot break', async 
     playerStart: { x: 408, y: 400 },
   };
 
-  for (const weapon of ['harpoon', 'grapple', 'machinegun']) {
+  // ...and each leaves ITS OWN mark: the beams a grey cloud, the machine
+  // gun its teal spark (see the weapons table in the README).
+  for (const [weapon, texture] of [['harpoon', 'beam-hit'], ['grapple', 'beam-hit'], ['machinegun', 'bullet-hit']]) {
     await game.scene((s, level) => { s.startCustomLevel(level); }, LEVEL);
     await game.page.waitForFunction(
       () => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 },
@@ -150,12 +152,15 @@ test('every weapon leaves a mark where it stops on what it cannot break', async 
     // shot goes the instant it is asked for.
     await game.scene((s, w) => { s.setWeapon(w); s.player.shotLock = 0; s.tryFire(); }, weapon);
 
-    let puffs = 0;
-    for (let i = 0; i < 60 && !puffs; i++) {
+    let marks = [];
+    for (let i = 0; i < 60 && !marks.length; i++) {
       await game.frames(1);
-      puffs = await game.scene((s) => s.children.list.filter((c) => c.texture?.key === 'bullet-hit').length);
+      marks = await game.scene((s) => s.children.list
+        .filter((c) => ['bullet-hit', 'beam-hit'].includes(c.texture?.key))
+        .map((c) => c.texture.key));
     }
-    assert.ok(puffs > 0, `${weapon}: nothing marked the block it stopped on`);
+    assert.ok(marks.length > 0, `${weapon}: nothing marked the block it stopped on`);
+    assert.deepEqual([...new Set(marks)], [texture], `${weapon}: marked it with the wrong thing`);
   }
   assert.equal(drainErrors(), '');
 });

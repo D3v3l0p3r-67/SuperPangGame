@@ -35,7 +35,6 @@ import {
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
   PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_ANIM_KEY,
-  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -1318,10 +1317,10 @@ export class GameScene extends Phaser.Scene {
   // ceiling is the same event, which is why it looked like less of one.
   // (The artwork is still named for the bullet it was drawn for; what it
   // draws is a puff, and nothing about it was bullet-shaped.)
-  playShotImpact(x, y) {
-    const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
+  playShotImpact(x, y, impact) {
+    const sprite = this.add.sprite(x, y, impact.textureKey);
     sprite.setDepth(6);
-    sprite.play(BULLET_HIT_ANIM_KEY);
+    sprite.play(impact.animKey);
     sprite.once('animationcomplete', () => sprite.destroy());
   }
 
@@ -1473,7 +1472,7 @@ export class GameScene extends Phaser.Scene {
       // catch hold, so that catching hold is marked too -- it is the same
       // contact either way.
       const point = projGO.tip ?? projGO.head;
-      this.playShotImpact(point.x, Math.max(obstacleGO.body.bottom, point.y));
+      this.playShotImpact(point.x, Math.max(obstacleGO.body.bottom, point.y), projGO.impact);
       if (projGO.anchorAt(obstacleGO.body.bottom)) return;
     }
     projGO.destroy();
