@@ -304,7 +304,17 @@ any can be tried without editing a file.
 | kind | beam | beam | volley of darts |
 | speed | 440 px/s | 400 px/s | 520 px/s |
 | in the air at once | 1 shot | 1 shot | 3 volleys (12 darts) |
-| on reaching the ceiling | ends | anchors for 4s | splashes and stops |
+| on reaching the ceiling | ends | anchors for 4s | stops |
+
+Every one of them **puffs where it stops** on something it cannot break --
+the ceiling, a side wall, an indestructible block (`GameScene
+.playShotImpact`, from the beam's head or the dart's tip, never past the
+underside of what stopped it). Only the bullets used to, on the theory
+that a beam ENDS at the ceiling by design while a dart visibly strikes
+it -- which read, in the hand, as the beam weapons quietly vanishing
+into the frame. A grapple gets it at the moment it catches hold too: that
+is the same contact, and the one shot in the game where something is
+being grabbed rather than bounced off.
 
 The **grapple** is the reason the beam has phases. Topping out doesn't end
 it: it catches hold for `ceilingStickSec` (4s), staying lethal

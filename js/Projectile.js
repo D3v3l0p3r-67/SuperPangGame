@@ -110,6 +110,15 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.setLength(this.length);
   }
 
+  // Where the climbing end of the beam is right now: what reaches the
+  // ceiling, and so where an impact belongs (see GameScene's
+  // playShotImpact). The sprite is positioned by its head, but only after
+  // setLength has run -- this works it out from the foot instead, which
+  // is fixed for the beam's whole life.
+  get head() {
+    return { x: this.beamX, y: this.footY - this.length };
+  }
+
   // True once the beam has caught hold of something and stopped climbing.
   get isAnchored() {
     return this.phase !== 'flying';
@@ -162,6 +171,13 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.setLength(this.maxLength);
+    // Reaching the ceiling is a shot stopping on something it cannot
+    // break, which is exactly the event the machine gun's bullets have
+    // always marked with a puff. A beam gets the same one now, whether it
+    // then dies there (the harpoon) or catches hold (the grapple) -- it
+    // only ever fires once per shot, because the next frame either finds
+    // the beam gone or finds it anchored and returns above.
+    this.scene.playShotImpact(this.beamX, this.footY - this.maxLength);
     return this.anchorAt(this.footY - this.maxLength);
   }
 

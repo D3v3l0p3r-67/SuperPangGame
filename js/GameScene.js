@@ -1314,11 +1314,13 @@ export class GameScene extends Phaser.Scene {
     this.player.playShotAnim();
   }
 
-  // The splash a bullet leaves where it stops on something it cannot break
-  // -- the ceiling, a side wall, or an indestructible obstacle. The beam
-  // weapons have no equivalent: a beam ENDS at the ceiling by design, while
-  // a bullet visibly strikes it.
-  playBulletImpact(x, y) {
+  // The splash a shot leaves where it stops on something it cannot break
+  // -- the ceiling, a side wall, or an indestructible obstacle. Every
+  // weapon gets it: the bullets always did, and a beam ending at the
+  // ceiling is the same event, which is why it looked like less of one.
+  // (The artwork is still named for the bullet it was drawn for; what it
+  // draws is a puff, and nothing about it was bullet-shaped.)
+  playShotImpact(x, y) {
     const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
     sprite.setDepth(6);
     sprite.play(BULLET_HIT_ANIM_KEY);
@@ -1466,12 +1468,15 @@ export class GameScene extends Phaser.Scene {
     // to hang from, not something to waste the shot on. Destructible
     // blocks still take the hit and stop the shot, so the grapple can't be
     // used to dodge breaking them open.
-    if (!obstacleGO.def.destructible && projGO.anchorAt(obstacleGO.body.bottom)) return;
-    // A bullet can't catch hold, so an unbreakable block simply stops it --
-    // and that stop gets the same splash the ceiling and side walls give.
-    if (!obstacleGO.def.destructible && projGO.volleyId !== undefined) {
-      const tip = projGO.tip;
-      this.playBulletImpact(tip.x, Math.max(obstacleGO.body.bottom, tip.y));
+    if (!obstacleGO.def.destructible) {
+      // Where the shot actually stopped: a bullet's tip or a beam's head,
+      // and never past the block's underside, which is as far as either
+      // of them got. Played before the grapple is given its chance to
+      // catch hold, so that catching hold is marked too -- it is the same
+      // contact either way.
+      const point = projGO.tip ?? projGO.head;
+      this.playShotImpact(point.x, Math.max(obstacleGO.body.bottom, point.y));
+      if (projGO.anchorAt(obstacleGO.body.bottom)) return;
     }
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;

@@ -70,7 +70,7 @@ export class Bullet extends Phaser.Physics.Arcade.Sprite {
   updateBeam() {
     const tip = this.tip;
     if (tip.y <= BORDER_THICKNESS || tip.x <= BORDER_THICKNESS || tip.x >= VIRTUAL_W - BORDER_THICKNESS) {
-      this.scene.playBulletImpact(
+      this.scene.playShotImpact(
         Math.max(BORDER_THICKNESS, Math.min(VIRTUAL_W - BORDER_THICKNESS, tip.x)),
         Math.max(BORDER_THICKNESS, tip.y),
       );
