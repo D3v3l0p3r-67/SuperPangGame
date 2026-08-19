@@ -60,6 +60,14 @@ const HIT_FREEZE_SEC = 2;
 // with a bigger size cannot turn the loop into an endless one.
 const MAX_SHATTER_PASSES = 6;
 
+// How fast a Panic Mode ball creeps while it is still coming through the
+// ceiling (px/s), when the level does not say (panic.json's
+// panicSpawn.ceilingSpeedPx). Slow on purpose: it is the one warning the
+// player gets about where the next ball is arriving, and at this speed
+// even the biggest takes a few seconds to squeeze out -- long enough to
+// walk under it, or to shoot it before it is loose.
+const PANIC_CEILING_SPEED = 16;
+
 // The gap between those passes. Long enough that each one is a separate
 // event to watch -- the field halving, again, and again -- and short
 // enough that the whole charge is over in about a second and a half,
@@ -1112,19 +1120,18 @@ export class GameScene extends Phaser.Scene {
       // with world-bounds collision off, so they visibly slide out from
       // under/through the border instead of just appearing already fully
       // below it -- restored to normal once the whole ball has cleared it.
+      // Out from under the ceiling, all of it: it stops creeping and
+      // becomes an ordinary ball in the same instant -- drawn in front of
+      // the border again, held by the world bounds again, given its
+      // normal sideways drift, and handed its vertical motion back (its
+      // own gravity picks up from the 16px/s it was already doing, so
+      // nothing jumps).
       if (ball.emergeY !== undefined && ball.body.y >= ball.emergeY) {
         ball.setDepth(3);
         ball.body.setCollideWorldBounds(true);
         ball.emergeY = undefined;
-      }
-      // Pinned to vx=0 and a controlled constant descent (see
-      // spawnPanicBall) so it visibly falls straight down first; the
-      // instant it reaches the shared release height, give it normal
-      // drift and hand its vertical motion back to normal ball behavior.
-      if (ball.dropReleaseY !== undefined && ball.body.y >= ball.dropReleaseY) {
         ball.activateDrift();
         ball.resumeNormalFall();
-        ball.dropReleaseY = undefined;
       }
     }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
@@ -1190,16 +1197,17 @@ export class GameScene extends Phaser.Scene {
   // through the border as it falls, rather than just appearing already
   // mostly exposed.
   //
-  // Becoming "active" (normal drift + normal falling, see resumeNormalFall)
-  // happens at a fixed HEIGHT shared by every size (releaseHeightPx below
-  // the border, measured to the ball's own center) but after a size-scaled
-  // TIME (releaseDelayBaseSec + (size-1)*releaseDelayStepSec) -- every
-  // round size shares the same gravityAccel (see elements/round-ball-*
-  // .json), so hitting two independent targets (same end height, different
-  // elapsed time) means the descent speed has to be deliberately overridden
-  // rather than left to each ball's own gravity: gravity is switched off
-  // for the descent and vy is set to exactly travelDistance/delaySec,
-  // restored to normal (resumeNormalFall) only once release fires.
+  // While ANY of it is still in the ceiling it creeps: gravity off, a
+  // constant `ceilingSpeedPx` (16px/s) downward, which is slow enough to
+  // watch and to shoot at, and continuous rather than a wait followed by
+  // a jump. A ball squeezing out of the ceiling is the one moment in
+  // Panic Mode that says where the next threat is coming from, so it is
+  // worth the second it takes -- and a bigger ball takes proportionally
+  // longer, because there is more of it to come through.
+  //
+  // The instant the whole ball has cleared the border it is an ordinary
+  // ball: normal drift, normal fall (see updatePlaying's emergeY check),
+  // its own gravity taking it from the 16px/s it was already doing.
   spawnPanicBall(wave, spawn) {
     const entries = wave.shapes;
     const totalWeight = entries.reduce((sum, e) => sum + (e.weight ?? 1), 0);
@@ -1214,18 +1222,7 @@ export class GameScene extends Phaser.Scene {
     const bt = BORDER_THICKNESS;
     const x = Phaser.Math.Between(bt + el.radius, VIRTUAL_W - bt - el.radius);
     const y = bt - el.radius;
-    const bodyY = y - el.radius; // Arcade's circle-body top-left == center - radius
-
-    const releaseHeightPx = spawn.releaseHeightPx ?? 48;
-    const delaySec = (spawn.releaseDelayBaseSec ?? 1) + (el.size - 1) * (spawn.releaseDelayStepSec ?? 0.5);
-    // Distance from THIS ball's own bodyY to the shared release height
-    // (measured by ball CENTER, bt + releaseHeightPx, so it's identical
-    // across sizes) -- working in bodyY terms throughout keeps this
-    // consistent with the >= comparison in updatePlaying's release check.
-    const travelPx = releaseHeightPx + el.radius;
-    const vy = travelPx / delaySec;
-
-    const ball = new Ball(this, choice.shape, choice.size, x, y, 0, vy);
+    const ball = new Ball(this, choice.shape, choice.size, x, y, 0, spawn.ceilingSpeedPx ?? PANIC_CEILING_SPEED);
     // Gravity would otherwise accelerate the descent, missing both the
     // fixed height and the fixed time -- overridden with a constant
     // velocity for the whole pre-release descent instead (see above).
@@ -1236,7 +1233,6 @@ export class GameScene extends Phaser.Scene {
     ball.body.setCollideWorldBounds(false);
     ball.setDepth(0.4); // below the ceiling border's own depth (0.5) while emerging
     ball.emergeY = bt; // body.y (top edge) reaching this means the whole ball has cleared the border
-    ball.dropReleaseY = bodyY + travelPx;
     this.balls.add(ball);
   }
 

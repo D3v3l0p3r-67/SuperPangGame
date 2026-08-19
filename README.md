@@ -702,6 +702,17 @@ seam between the canvas and the page behind it.
   smallest-size balls (4 heading left, 4 right, each bouncing off a wall
   before its path can ever reach the player) for a gentle but active first
   look at movement, shooting, and ball physics.
+- **In Panic Mode a ball comes through the ceiling at 16px/s.** It spawns
+  entirely inside the border strip and creeps down at that fixed speed --
+  gravity off, drawn behind the border, so what is visible is the part
+  that has squeezed out -- until the whole of it has cleared. Then, in one
+  instant, it is an ordinary ball: its own drift, its own gravity picking
+  up from the 16px/s it was already doing, so nothing jumps. That crawl is
+  the only warning the player gets about where the next threat is
+  arriving, which is why it is worth a second of the clock; and a bigger
+  ball takes proportionally longer, because there is more of it to come
+  through (a size 1 takes a second, a size 5 three). The speed is
+  `panicSpawn.ceilingSpeedPx` in `levels/panic.json`.
 - The campaign uses what the engine has rather than only walls and balls:
   **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name

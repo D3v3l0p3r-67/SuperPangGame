@@ -7,9 +7,7 @@
   "balls": [],
   "panicSpawn": {
     "initialDelaySec": 1.5,
-    "releaseHeightPx": 100,
-    "releaseDelayBaseSec": 1.0,
-    "releaseDelayStepSec": 0.5,
+    "ceilingSpeedPx": 16,
     "waves": [
       {
         "popTarget": 6,
