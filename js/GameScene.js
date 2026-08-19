@@ -371,6 +371,22 @@ export class GameScene extends Phaser.Scene {
     edges.lineStyle(1, light, 1);
     edges.lineBetween(VIRTUAL_W - t + 0.5, t, VIRTUAL_W - t + 0.5, GROUND_Y); // left of the right wall
     edges.lineBetween(0, GROUND_Y + 0.5, VIRTUAL_W, GROUND_Y + 0.5);          // top of the floor
+
+    // ...and the same treatment on the frame's OUTER faces, which is what
+    // makes it read as one raised object rather than as a band that
+    // happens to stop. It is the rule every obstacle already follows (see
+    // Obstacle.js's drawObstacleEdges): light where a shape faces up or
+    // left, dark where it faces down or right, around the whole of it.
+    // The frame used to be the one thing in the playfield lit on the
+    // inside only -- which is exactly the difference you could see by
+    // painting wall over it in the editor and watching the border gain an
+    // edge it did not have.
+    edges.lineStyle(1, light, 1);
+    edges.lineBetween(0, 0.5, VIRTUAL_W, 0.5);                      // the top of the frame
+    edges.lineBetween(0.5, 0, 0.5, PLAYFIELD_H);                    // its left side
+    edges.lineStyle(1, dark, 1);
+    edges.lineBetween(VIRTUAL_W - 0.5, 0, VIRTUAL_W - 0.5, PLAYFIELD_H);      // its right side
+    edges.lineBetween(0, PLAYFIELD_H - 0.5, VIRTUAL_W, PLAYFIELD_H - 0.5);    // and its bottom
   }
 
   get currentLevelDef() {
