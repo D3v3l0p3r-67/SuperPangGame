@@ -321,7 +321,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     for (const o of this.scene.obstacles.getChildren()) {
       const ob = o.body;
       if (ob.right <= left || ob.x >= right) continue;
-      if (ob.y >= surface) continue;                        // lower than what we have
+      // Strictly lower, so a block built into the floor (its top exactly
+      // on the ground line, see Obstacle.js) counts as the surface there
+      // instead of being tied with the plain ground and losing -- which
+      // is what makes an icy floor slippery. Anything genuinely higher
+      // still wins over both.
+      if (ob.y > surface) continue;                         // lower than what we have
       if (ob.y < feetY - PLAYER_STEP_UP_PX - STEP_EPSILON) continue; // too high to step onto
       if (!this.canStandOn(ob.y)) continue;                 // no headroom -- it's a wall
       surface = ob.y;

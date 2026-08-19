@@ -1,4 +1,4 @@
-import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
+import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, PLAYFIELD_H, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey, powerupTextureKey } from './assets.js';
@@ -129,8 +129,12 @@ function snapObstacleOrigin(x, y) {
   // Which row up from the ground the pointer is in: 1 is the row resting
   // on the ground, counting upward. ceil, so a pointer anywhere inside a
   // row picks that row rather than the one below it.
+  //
+  // Row 0 is the FLOOR itself -- the strip of frame below the ground line,
+  // which the pointer only ever reaches while painting a floor material
+  // (see onPointer, which is what allows the pointer down there at all).
   const maxRows = Math.floor((GROUND_Y - bt) / grid);
-  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), 1), maxRows);
+  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), 0), maxRows);
 
   return { x: Math.min(Math.max(gx, bt), maxX), y: GROUND_Y - rows * grid };
 }
@@ -692,6 +696,20 @@ export class Editor {
     return OBSTACLE_TYPE_KEYS.includes(this.brush);
   }
 
+  // Whether the selected brush may be used on the FLOOR -- the strip of
+  // frame below the ground line, which nothing could be painted on before
+  // and which is what makes a level's own floor icy rather than only the
+  // blocks standing on it.
+  //
+  // Only what cannot be broken, and the eraser. The frame is the one part
+  // of a level the player can never open up: a crate built into the floor
+  // would leave a hole in it that the ground underneath goes on being
+  // solid through, which is a picture that lies about what is there.
+  floorBrush() {
+    if (this.brush === 'erase') return true;
+    return this.isTileBrush() && !OBSTACLE_TYPES[this.brush].destructible;
+  }
+
   // Low-level placement (grid cell already known) shared by the live
   // pointer brush and loadDef() -- a wall/crate block always fully
   // occupies its cell, so placing one evicts any ball sitting there.
@@ -762,7 +780,7 @@ export class Editor {
   // obstacle's own element rather than by testing for 'crate', so a
   // second breakable type carries drops without a change here.
   placeBlock(x, y, type) {
-    const piece = obstaclePiece(this.selectedPiece);
+    const piece = this.pieceAt(y);
     // A drop belongs on a ONE-BLOCK crate: on a bigger piece the tag goes
     // onto every block it becomes and bursts one power-up per block (see
     // js/obstaclePieces.js and the rule in tests/levels.test.mjs).
@@ -782,9 +800,23 @@ export class Editor {
   // them wide or tall -- so it is pulled back in at the right and bottom
   // edges rather than being placed half outside (the same thing setLadder
   // does for a ladder, which is six cells tall).
+  // The piece a press at this height actually puts down. The selected one
+  // everywhere except in the floor strip, where it is one row deep
+  // whatever is selected: the floor is exactly one block thick, and a
+  // pillar painted into it would hang under the level. Its WIDTH still
+  // counts -- a 96x16 run of ice laid in one press is the point of having
+  // the wider pieces at all.
+  pieceAt(y) {
+    const piece = obstaclePiece(this.selectedPiece);
+    return y >= GROUND_Y ? { ...piece, rows: 1 } : piece;
+  }
+
   pieceOrigin(x, y, piece) {
     const maxX = VIRTUAL_W - BORDER_THICKNESS - piece.cols * OBSTACLE_BLOCK_SIZE;
-    const maxY = GROUND_Y - piece.rows * OBSTACLE_BLOCK_SIZE;
+    // In the floor strip a piece is one row deep no matter which one is
+    // selected: the floor is exactly one block thick, and a pillar driven
+    // into it would be a pillar hanging under the level.
+    const maxY = y >= GROUND_Y ? GROUND_Y : GROUND_Y - piece.rows * OBSTACLE_BLOCK_SIZE;
     return { x: Math.min(x, maxX), y: Math.min(y, maxY) };
   }
 
@@ -886,7 +918,11 @@ export class Editor {
     // the ground itself is the inner face there and the whole bottom row
     // is inside the playfield. Subtracting the border thickness here as
     // well was the other half of why nothing could be placed on the floor.
-    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > GROUND_Y) return;
+    // The floor strip below the ground line is reachable too, but only
+    // for what may be built there (see floorBrush) -- everywhere else the
+    // frame is out of bounds exactly as it was.
+    const maxY = this.floorBrush() ? PLAYFIELD_H : GROUND_Y;
+    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > maxY) return;
 
     const snapped = snapObstacleOrigin(x, y);
     this.hoverCell = snapped;
@@ -945,7 +981,7 @@ export class Editor {
     // A tile brush outlines the whole PIECE it would put down, not the one
     // cell under the cursor: a 64x16 beam placed from a 16x16 cursor is a
     // guess about where its other three cells go.
-    const piece = this.isTileBrush() ? obstaclePiece(this.selectedPiece) : { cols: 1, rows: 1 };
+    const piece = this.isTileBrush() ? this.pieceAt(this.hoverCell.y) : { cols: 1, rows: 1 };
     const origin = this.isTileBrush() ? this.pieceOrigin(this.hoverCell.x, this.hoverCell.y, piece) : this.hoverCell;
     this.cursorGraphics.strokeRect(
       origin.x, origin.y,

@@ -1,4 +1,5 @@
 import { OBSTACLE_TYPES } from './elements.js';
+import { GROUND_Y } from './constants.js';
 import { obstacleTextureKey } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -57,6 +58,17 @@ export class Obstacle extends Phaser.GameObjects.TileSprite {
     // one piece there is decided when the level is saved (see
     // js/obstaclePieces.js) and read back here on the way in.
     this.pieceId = pieceId;
+
+    // A block built into the FLOOR -- the frame strip below the ground
+    // line, which the editor can now paint (see editor.js's floorBrush).
+    // It is there to be stood on and looked at, not to be collided with:
+    // the world bounds already stop everything dead at the ground line,
+    // one pixel above this block's own top edge, so leaving its body live
+    // would have every ball resolving two collisions at the same instant
+    // on every bounce along the floor. Player.support reads its geometry
+    // directly rather than through a collision, which is what lets an icy
+    // floor still be slippery underfoot with nothing colliding at all.
+    if (y >= GROUND_Y) this.body.checkCollision.none = true;
   }
 
   // Returns true if this hit destroyed the obstacle.

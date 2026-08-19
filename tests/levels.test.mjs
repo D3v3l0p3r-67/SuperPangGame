@@ -18,7 +18,7 @@ const LEVELS = levelFiles();
 const EL = elements();
 const BALL_KEY = (shape, size) => `${shape}-${size}`;
 const BALL_SIZES = new Map(EL.balls.map((el) => [BALL_KEY(el.shape, el.size), el]));
-const OBSTACLE_TYPES = new Set(EL.obstacles.map((el) => el.type));
+const OBSTACLE_TYPES = new Map(EL.obstacles.map((el) => [el.type, el]));
 const LADDER_TYPES = new Map(EL.ladders.map((el) => [el.type, el]));
 const POWERUP_TYPES = new Set(EL.powerups.map((el) => el.type));
 
@@ -76,8 +76,20 @@ test('obstacles are on the 16px grid and inside the playfield', () => {
       for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) {
         assert.ok(x >= BORDER_THICKNESS && x + OBSTACLE_BLOCK_SIZE <= VIRTUAL_W - BORDER_THICKNESS,
           `${where}: block (${x}, ${y}) crosses a side wall`);
-        assert.ok(y >= BORDER_THICKNESS && y + OBSTACLE_BLOCK_SIZE <= GROUND_Y,
+        // The floor strip is the one part of the frame a level may build
+        // in: a block whose top is exactly the ground line IS that
+        // level's floor there (an icy stretch of it, usually -- see
+        // elements/obstacle-icy-wall.json and Player.support). It may
+        // only ever be one block deep, and only of something that cannot
+        // be broken -- checked below -- since nothing may open a hole in
+        // the frame.
+        const inFloor = y === GROUND_Y;
+        assert.ok(y >= BORDER_THICKNESS && (inFloor || y + OBSTACLE_BLOCK_SIZE <= GROUND_Y),
           `${where}: block (${x}, ${y}) crosses the ceiling or floor`);
+        if (inFloor) {
+          assert.equal(OBSTACLE_TYPES.get(o.type).destructible, false,
+            `${where}: the floor is part of the frame, and nothing that can be shot open belongs in it`);
+        }
       }
       if (o.powerup !== undefined) {
         assert.ok(POWERUP_TYPES.has(o.powerup), `${where}: unknown powerup "${o.powerup}"`);
