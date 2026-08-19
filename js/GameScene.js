@@ -2,6 +2,7 @@ import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS
 import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
   TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
+  SHOT_SHAKE_SEC,
 } from './config.js';
 import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, POWERUP_TYPES, getBallElement } from './elements.js';
 import { Player } from './Player.js';
@@ -1260,7 +1261,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const activeCount = this.projectiles.countActive(true);
-    if (activeCount >= this.weaponState.maxActiveShots) return;
+    if (activeCount >= this.weaponState.maxActiveShots) {
+      // Nothing can be fired -- but a grapple hanging from the ceiling is
+      // what is usually holding the slot, and a player pressing again is
+      // asking for it back. Each press shakes it loose a little sooner
+      // (see Projectile.shakeLoose and config.js's SHOT_SHAKE_SEC), which
+      // is the difference between a weapon that is busy and a button that
+      // does nothing.
+      for (const proj of this.projectiles.getChildren()) {
+        if (proj.active && proj.shakeLoose?.(SHOT_SHAKE_SEC)) {
+          this.audio.play('weaponhold');
+          break;
+        }
+      }
+      return;
+    }
     // The beam spans the player: its foot is planted at their FEET (not
     // at the ground line -- standing on a platform or holding a ladder,
     // those are different heights, and anchoring to the ground would

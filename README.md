@@ -329,6 +329,18 @@ into the frame. A grapple gets it at the moment it catches hold too: that
 is the same contact, and the one shot in the game where something is
 being grabbed rather than bounced off.
 
+**Pressing fire while a grapple hangs brings it down sooner.** It holds
+the player's only shot for its whole four seconds, and a press in the
+meantime used to do nothing at all -- which reads as a broken button
+rather than a busy weapon. Each refused press now takes `SHOT_SHAKE_SEC`
+(0.25s) off what is left of the hang, out of a `SHOT_SHAKE_MAX_SEC`
+(1.5s) budget that belongs to that one beam and does not refill: six
+presses reach the cap, and the cap is what stops a rattled trigger from
+turning the grapple into an ordinary harpoon. Putting a barrier up still
+costs most of what it costs. The beam switches to its "letting go" frame
+the moment the shortened clock reaches the warning, so the press is
+answered on screen as well as in the timer.
+
 The **grapple** is the reason the beam has phases. Topping out doesn't end
 it: it catches hold for `ceilingStickSec` (4s), staying lethal
 along its full ground-to-ceiling length the whole time, which makes it a

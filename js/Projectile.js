@@ -3,6 +3,7 @@ import {
   BEAM_HIT_TEXTURE_KEY, BEAM_HIT_ANIM_KEY,
 } from './assets.js';
 import { BORDER_THICKNESS } from './constants.js';
+import { SHOT_SHAKE_MAX_SEC } from './config.js';
 
 // The shot is a BEAM, not a travelling bullet: its foot stays planted at
 // the height the player fired from and its head climbs upward (at the
@@ -76,6 +77,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.releaseWarnSec = releaseWarnSec;
     this.phase = 'flying';
     this.stickLeft = 0;
+    // How much of its hang this beam can still be shaken out of (see
+    // shakeLoose). Spent, not renewed: it is a budget for the ONE beam,
+    // so holding the trigger down does not simply cancel the weapon.
+    this.shakeLeft = SHOT_SHAKE_MAX_SEC;
     // Behind the player (depth 4), so the shot reads as coming from
     // behind the character rather than being painted across it -- but
     // still above the balls (3) and obstacles (1-2) it travels past.
@@ -161,6 +166,26 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.setLength(Math.max(0, Math.min(this.footY - headY, this.maxLength)));
     this.stickLeft = this.stickSec;
     this.setPhase(this.stickSec <= this.releaseWarnSec ? 'releasing' : 'stuck');
+    return true;
+  }
+
+  // Rattling the trigger while this beam is hanging brings it down
+  // sooner: `seconds` off what is left of its stick, out of a budget that
+  // does not refill. Nothing happens to a beam that is still climbing --
+  // that press was refused because the slot is full, and a shot in
+  // flight is about to free the slot on its own anyway.
+  //
+  // Returns whether it actually took anything off, so the caller can say
+  // so (a press that changes nothing should not sound like one that did).
+  shakeLoose(seconds) {
+    if (!this.isAnchored || this.shakeLeft <= 0) return false;
+    const cut = Math.min(seconds, this.shakeLeft, this.stickLeft);
+    if (cut <= 0) return false;
+    this.shakeLeft -= cut;
+    this.stickLeft -= cut;
+    // The "letting go" frame is the warning, and it has to appear as soon
+    // as the shortened clock is inside it rather than at the next tick.
+    if (this.stickLeft <= this.releaseWarnSec) this.setPhase('releasing');
     return true;
   }
 

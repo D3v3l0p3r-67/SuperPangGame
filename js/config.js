@@ -101,6 +101,18 @@ export const WEAPON_TYPES = {
 // frame rate from this number, so the pose and the pause end together.
 export const SHOT_LOCK_SEC = 0.15;
 
+// A grapple hanging from the ceiling holds the player's only shot for its
+// whole four seconds, and pressing fire in the meantime did nothing at
+// all -- which reads as the game ignoring the button rather than as the
+// weapon being busy. Each refused press now shakes the beam loose a
+// little sooner: SHOT_SHAKE_SEC off its remaining stick, up to
+// SHOT_SHAKE_MAX_SEC over the life of that one beam. Six presses reach
+// the cap, and the cap is what stops a rattled trigger from turning the
+// grapple into an ordinary harpoon -- putting a barrier up still costs
+// most of what it costs.
+export const SHOT_SHAKE_SEC = 0.25;
+export const SHOT_SHAKE_MAX_SEC = 1.5;
+
 // How high a ledge the player can walk straight up, without jumping (it
 // cannot jump at all). One obstacle block: anything taller is a wall to
 // stop at, a stack of these is a staircase to climb. See Player.js's
