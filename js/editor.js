@@ -15,14 +15,18 @@ import * as storage from './storage.js';
 import { saveLevelFile } from './levelFile.js';
 import { OBSTACLE_PIECES, obstaclePiece, mergeBlocks } from './obstaclePieces.js';
 
-// Split into the two brushes that TILE (painted cell by cell while the
-// pointer is dragged) and the two that don't, because the panel row below
-// puts the whole-element brushes -- ladders, the player's start -- between
+// The brushes that TILE -- painted cell by cell while the pointer is
+// dragged -- as against the ones that place a whole thing per click
+// (ladders, the player's start), which the panel row below puts after
 // them.
-const TILE_BRUSHES = [
-  { id: 'platform', label: 'Wall' },
-  { id: 'crate', label: 'Crate' },
-];
+//
+// Built from the obstacle registry rather than written out, so a new
+// elements/obstacle-*.json is a new brush with no change here: that is
+// how the icy wall arrived, and it is how the next material will. The
+// brush id IS the obstacle type, which is what the level file stores.
+function tileBrushes() {
+  return OBSTACLE_TYPE_KEYS.map((type) => ({ id: type, label: OBSTACLE_TYPES[type].label }));
+}
 const START_BRUSH = { id: 'start', label: 'Start' };
 // One brush for every ball, whatever kind and size -- which the two
 // pickers beside it choose (see buildPanel). The brush itself still
@@ -231,7 +235,7 @@ export class Editor {
     // thing placed.
     this.panelEl.appendChild(group(
       'BRUSH',
-      row(...[...TILE_BRUSHES, BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
+      row(...[...tileBrushes(), BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
     ));
 
     // Options that apply to the NEXT placed ball/crate: initial direction
@@ -685,7 +689,7 @@ export class Editor {
   // applies to -- balls, ladders, the start and the eraser each place
   // their own thing.
   isTileBrush() {
-    return TILE_BRUSHES.some((brush) => brush.id === this.brush);
+    return OBSTACLE_TYPE_KEYS.includes(this.brush);
   }
 
   // Low-level placement (grid cell already known) shared by the live

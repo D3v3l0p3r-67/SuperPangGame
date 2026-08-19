@@ -700,10 +700,24 @@ seam between the canvas and the page behind it.
   all -- barely bouncing and moving slowly is entirely a matter of its
   numbers. The campaign introduces them one at a time: green from level
   11, purple from 16, blue from 26, and never a level made only of one.
-- Obstacles: indestructible platforms and shootable crates, built from
+- Obstacles: indestructible walls, shootable crates and **icy walls**,
+  built from
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
-  every side with proper anti-tunneling collision; a multi-block crate
-  loses only the block that's actually shot.
+  every side with proper anti-tunneling collision; a breakable obstacle
+  goes down as one piece.
+- **Ice is a surface, not an obstacle type with a special case.** The icy
+  wall is a wall that cannot be shot, like any other -- what it changes is
+  underfoot: its element carries `grip: 0.12`, and on anything below full
+  grip the player's speed EASES towards what the keys are asking for
+  instead of becoming it (`Player.slideSpeed`). Letting go leaves them
+  gliding on, and turning round means travelling the wrong way for a
+  moment first, which is what makes a ledge of ice a thing to judge rather
+  than a thing to walk across. The easing is exponential, so it closes the
+  same fraction of the gap per unit of TIME and one slow frame cannot put
+  the player somewhere two fast ones would not. Every other surface
+  defaults to `grip: 1` and sets the speed outright, exactly as the game
+  always did -- ice costs the old surfaces nothing, not even a branch they
+  reach.
 - The **LEVEL EDITOR** places obstacles on rows counted up from the
   ground, so the bottom row rests on the floor and a stack of them is a
   staircase the player can climb. The interior is a whole number of rows
@@ -1217,7 +1231,12 @@ false` shapes this is instead a spin spritesheet, see below.
 ```
 `hitPoints: null` means indestructible (infinite hit points, like
 `obstacle-platform.json`). `tileTexture` names an
-`assets/obstacles/<name>.webp` file (8x8, see "Swapping graphics").
+`assets/obstacles/<name>.webp` file (16x16, see "Swapping graphics").
+`grip` is optional and defaults to 1, which is solid footing; below it the
+surface is slippery underfoot (`obstacle-icy-wall.json` is 0.12 -- see
+"Ice is a surface" above). An obstacle type gets its own editor brush
+automatically, from `OBSTACLE_TYPE_KEYS` and labelled by its own `label`
+-- adding a material is one file.
 
 A `"category": "ladder"` element instead names a `texture` and its own
 `width`/`height` (whole obstacle blocks -- the editor snaps to them and

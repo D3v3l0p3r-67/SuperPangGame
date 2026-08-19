@@ -217,6 +217,15 @@ export function registerElement(el, harpoon) {
       // existed still gets an edge rather than a white one.
       edgeLight: el.edgeLight ?? el.color,
       edgeDark: el.edgeDark ?? el.color,
+      // How well the player's feet hold on this material, 1 being every
+      // surface the game had before this existed: they go exactly as
+      // fast as the key is held and stop the frame it is let go. Below 1
+      // the footing is slippery -- the icy wall is 0.12 -- and Player.js
+      // eases towards the speed being asked for instead of taking it
+      // (see its slide()). Defaulted rather than required, so an
+      // obstacle written before ice existed still behaves as it always
+      // did.
+      grip: el.grip ?? 1,
     };
     OBSTACLE_TYPE_KEYS.push(el.type);
   } else if (el.category === 'ladder') {

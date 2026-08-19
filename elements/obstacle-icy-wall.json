@@ -1,0 +1,13 @@
+{
+  "id": "obstacle-icy-wall",
+  "category": "obstacle",
+  "type": "icy_wall",
+  "label": "Icy Wall",
+  "destructible": false,
+  "hitPoints": null,
+  "color": "#8cc4de",
+  "tileTexture": "ice",
+  "edgeLight": "#e2f6ff",
+  "edgeDark": "#2d6a8c",
+  "grip": 0.12
+}

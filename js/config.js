@@ -17,6 +17,16 @@ export const PLAYER_CONFIG = {
   speed: 180,
   startLives: 3,
   invulnMs: 1500,
+  // How quickly the feet get what they are asking for on a surface that
+  // is not solid footing (an obstacle whose element gives it a `grip`
+  // below 1 -- the icy wall, see elements/obstacle-icy-wall.json). Per
+  // second, multiplied by that grip: at the ice's 0.12 this works out at
+  // 2.4, i.e. about four tenths of a second to lose or gain most of a
+  // speed, which is long enough to slide past what you were aiming for
+  // and short enough not to feel broken. Surfaces at full grip never
+  // reach this at all -- they set the speed outright, exactly as every
+  // surface in the game did before ice existed.
+  slideResponsePerSec: 20,
 };
 
 // Every weapon fires the same way -- one shot per press, a beam whose foot

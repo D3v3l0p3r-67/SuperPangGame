@@ -306,18 +306,57 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // to yet -- which is how the top of a ladder decides whether there is
   // anywhere to step off onto.
   supportSurface(feetY = this.feetY) {
+    return this.support(feetY).surface;
+  }
+
+  // The same question, with the block itself as well as its height: what
+  // the player is standing ON, not just how high it is. `obstacle` is
+  // null when that is the ground, which has no element behind it and so
+  // is always solid footing.
+  support(feetY = this.feetY) {
     const left = this.body.x;
     const right = this.body.right;
-    let best = GROUND_Y;
+    let surface = GROUND_Y;
+    let obstacle = null;
     for (const o of this.scene.obstacles.getChildren()) {
       const ob = o.body;
       if (ob.right <= left || ob.x >= right) continue;
-      if (ob.y >= best) continue;                          // lower than what we have
+      if (ob.y >= surface) continue;                        // lower than what we have
       if (ob.y < feetY - PLAYER_STEP_UP_PX - STEP_EPSILON) continue; // too high to step onto
       if (!this.canStandOn(ob.y)) continue;                 // no headroom -- it's a wall
-      best = ob.y;
+      surface = ob.y;
+      obstacle = o;
     }
-    return best;
+    return { surface, obstacle };
+  }
+
+  // How well the feet hold where they are: 1 on the ground and on every
+  // ordinary obstacle, less on a slippery one (see elements.js's `grip`).
+  get groundGrip() {
+    return this.support().obstacle?.def.grip ?? 1;
+  }
+
+  // The horizontal speed to be travelling at this frame, given the speed
+  // being ASKED for.
+  //
+  // On solid footing that is simply the speed asked for -- the player
+  // moves the frame the key goes down and stops the frame it comes up,
+  // which is what this game has always done and what its jumps between
+  // blocks are measured against.
+  //
+  // On ice the same request is a request: the speed eases towards it
+  // instead of becoming it, so letting go leaves the player gliding on
+  // and turning round takes a moment of travelling the wrong way first.
+  // Exponential rather than a fixed acceleration, because that is what
+  // makes it independent of the frame rate -- the same fraction of the
+  // remaining difference is closed per unit of TIME, so a slow frame and
+  // two fast ones leave the player in the same place.
+  slideSpeed(target, dt) {
+    const grip = this.groundGrip;
+    if (grip >= 1 || dt <= 0) return target;
+    const rate = PLAYER_CONFIG.slideResponsePerSec * grip;
+    const current = this.body.velocity.x;
+    return current + (target - current) * (1 - Math.exp(-rate * dt));
   }
 
   // Keeps the feet on that surface: up instantly, down at a fall speed.
@@ -549,7 +588,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.isMoving = vx !== 0;
     if (vx !== 0) this.facing = vx;
 
-    this.body.setVelocityX(vx * PLAYER_CONFIG.speed * this.speedMultiplier);
+    // What the keys are asking for, and then what the ground allows --
+    // the two are the same everywhere except on ice (see slideSpeed).
+    this.body.setVelocityX(this.slideSpeed(vx * PLAYER_CONFIG.speed * this.speedMultiplier, dt));
 
     this.updateInvulnerability(dt);
 
