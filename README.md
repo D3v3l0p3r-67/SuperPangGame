@@ -543,10 +543,9 @@ ball off the field entirely is the whole tree beneath it:
 | shots to clear it away | 1 | 3 | 7 | 15 | 31 |
 | seconds to squeeze through the ceiling | 1.0 | 2.0 | 3.0 | 4.0 | 6.0 |
 
-At a working average of two seconds a shot -- lining it up, the flight,
-the miss you sometimes have to redo -- a size-5 ball is **a minute** of
-one player's entire attention. The old table dropped those every 1.9
-seconds. Measured as a fraction of what a player can shoot, wave 1 asked
+At `shotTimeSec` -- one second a shot, the flight plus the aiming and the
+occasional miss -- a size-5 ball is **half a minute** of one player's
+entire attention. The old table dropped those every 1.9 seconds. Measured as a fraction of what a player can shoot, wave 1 asked
 for 128%, wave 25 for 383%, and wave 50 for 2100%. The field could only
 grow, whoever was holding the keyboard.
 
@@ -641,7 +640,7 @@ That makes `minBeat` the mode's one safety number, because it is where
 every wave eventually lives -- so **the check is made at the floor beat,
 not at the beat a wave was written at**. Passing as authored and failing
 three cycles later would not be passing. The shipped set runs 0.22 to
-0.75 pressure on its first time round, and settles at about 0.85 across
+0.60 pressure on its first time round, and settles at about 0.85 across
 the whole set once the beat is at the floor -- so the first pass is a
 difficulty curve, and every pass after it runs uniformly at the edge.
 
@@ -651,8 +650,19 @@ understanding before touching it: halving it while doubling the dots in
 every pattern is a no-op on the game. What the floor really sets is the
 resolution the patterns are written at, and how much room the tempo has
 to tighten over a run. What decides how fast balls may actually arrive is
-`shotTimeSec` -- the working average of two seconds a shot -- and that is
-a claim about the player, not a preference.
+`shotTimeSec`, and that is a claim about the player rather than a
+preference. It is one second: the harpoon's own flight over the full
+height of the playfield is 0.98s, plus 0.15s of shot lock, so one second
+assumes shots that connect around mid-height with no wasted movement --
+an expert's rate, not an average one. Halving it from two was what let
+every pattern be re-laid at twice the density.
+
+And once rests are skippable there is a second knob, easy to miss:
+**`skipRestUnderSec` is what the mode actually settles at.** The field is
+driven to about that much outstanding work and held there, so it, not the
+patterns, is what decides how crowded the screen is in the steady state.
+Simulated runs sit at a 3.3s peak backlog against a 2.5s threshold. The
+patterns only govern what happens while the player is behind it.
 
 ```
 node tools/panic_waves.mjs

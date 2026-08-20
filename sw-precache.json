@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-724ef7361ad2",
+  "version": "super-pang-08b17a48d55b",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "78dd1fafbf04d14a",
@@ -294,7 +294,7 @@
     "levels/level_48.json": "f6e434f62a08cf63",
     "levels/level_49.json": "4e6923b3b4e4d921",
     "levels/level_50.json": "f77d44fb5ab2f8ce",
-    "levels/panic.json": "2506ebd1533beaee",
+    "levels/panic.json": "26bf08c377b142e8",
     "levels/regions.json": "a0079cc070631f55",
     "elements/heavy-ball-1.json": "85d4a5a29e03b5c1",
     "elements/heavy-ball-2.json": "7f53b9364112270c",
