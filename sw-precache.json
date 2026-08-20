@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-10719d48fc90",
+  "version": "super-pang-5ed97f3d3e84",
   "files": {
     "index.html": "81271539a93c3171",
     "style.css": "78dd1fafbf04d14a",
@@ -12,7 +12,7 @@
     "js/DisplayZoom.js": "efe22fd0c8319f39",
     "js/ElementsScene.js": "c401a480eb14b9be",
     "js/GameConfig.js": "b19d14147a93adfe",
-    "js/GameScene.js": "43a88d6c44052779",
+    "js/GameScene.js": "0197bba46abdbdac",
     "js/Hud.js": "9e994f3b7796b5fd",
     "js/Ladder.js": "8fd2f305da14ce9e",
     "js/LevelClearCard.js": "20f0d1f9c1599dbd",
@@ -33,7 +33,7 @@
     "js/constants.js": "da319cddaadc3f04",
     "js/debug.js": "5182ae740dd76966",
     "js/editor.js": "bdc220854958c796",
-    "js/elements.js": "cc4689b83bead9af",
+    "js/elements.js": "6246d84153aa68fa",
     "js/input.js": "2c25ef1904917b4c",
     "js/introText.js": "70df2293e09f66d3",
     "js/keys.js": "5245c1c004446fb4",
@@ -294,7 +294,7 @@
     "levels/level_48.json": "f6e434f62a08cf63",
     "levels/level_49.json": "4e6923b3b4e4d921",
     "levels/level_50.json": "f77d44fb5ab2f8ce",
-    "levels/panic.json": "12c7babf1b95f85d",
+    "levels/panic.json": "87a1a0080d4e8812",
     "levels/regions.json": "a0079cc070631f55",
     "elements/heavy-ball-1.json": "85d4a5a29e03b5c1",
     "elements/heavy-ball-2.json": "7f53b9364112270c",

@@ -9,7 +9,7 @@
 // shooting than there is time to do it in can only ever grow.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readJSON, readText } from './helpers.mjs';
+import { readJSON, readText, elements } from './helpers.mjs';
 import {
   checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, waveAt, bumpFor,
   shotsToClear, emergeSec, ballWork,
@@ -249,4 +249,39 @@ test('no cycle turns a wave into something nobody would sit through', () => {
         `wave ${i + 1} on cycle ${cycle} lasts ${Math.round(w.beat * beats)}s`);
     }
   }
+});
+
+test('Panic Mode is red balls only', () => {
+  // One shape, so the difficulty ramp has to be carried by size and
+  // density -- there is no weaving or hunting variant to lean on.
+  assert.deepEqual(Object.values(SPAWN.shapeCode), ['round']);
+  for (const wave of SPAWN.waves) {
+    for (const step of steps(wave)) {
+      if (step.kind === 'ball') assert.equal(step.shape, 'round', `"${wave.spawn}" is not all round`);
+    }
+  }
+});
+
+test('the harpoon there carries a second shot for the whole run', () => {
+  const level = readJSON('levels/panic.json');
+  assert.equal(level.weapon, 'harpoon');
+  assert.ok(level.weaponBonusShots >= 1, 'Panic Mode is played with a rapid harpoon');
+  assert.match(readText('js/GameScene.js'), /weaponBonusShots/,
+    'nothing reads weaponBonusShots, so the level would quietly get the plain harpoon');
+});
+
+test('no other weapon can fall out of a ball there', () => {
+  // Excluded by KIND, not by name, so a fourth weapon power-up is ruled
+  // out the day it is added rather than the day someone remembers.
+  const level = readJSON('levels/panic.json');
+  assert.ok(level.excludePowerupKinds?.includes('give_weapon'));
+  const weapons = elements().powerups.filter((el) => el.kind === 'give_weapon');
+  assert.ok(weapons.length >= 2, 'there should be weapon power-ups for this to exclude');
+  // And everything else still drops: the mode is meant to hand out
+  // shields, clocks and dynamite as usual.
+  const rest = elements().powerups.filter((el) => !level.excludePowerupKinds.includes(el.kind));
+  assert.ok(rest.length >= 6, `only ${rest.length} power-ups would be left to drop`);
+  const scene = readText('js/GameScene.js');
+  assert.match(scene, /excludePowerupKinds/, 'nothing reads the exclusion');
+  assert.match(scene, /dropPowerupTypes\(\)/, 'the drop roll has to go through the filtered pool');
 });

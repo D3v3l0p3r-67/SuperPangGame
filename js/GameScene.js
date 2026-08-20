@@ -461,6 +461,12 @@ export class GameScene extends Phaser.Scene {
     if (!WEAPON_TYPES[type]) return;
     this.weaponType = type;
     this.weaponState = createWeaponState(type);
+    // A level may hand out extra shots for its whole length rather than
+    // for a power-up's twelve seconds (Panic Mode's harpoon carries one:
+    // see levels/panic.json's weaponBonusShots). Applied before the timed
+    // effects so a rapid_shot picked up on top of it still wins -- its
+    // own apply() reads baseMaxActiveShots and overwrites this.
+    this.weaponState.maxActiveShots += this.currentLevelDef?.weaponBonusShots ?? 0;
     for (const active of this.effects.active.keys()) POWERUP_TYPES[active].apply(this);
   }
 
@@ -658,6 +664,14 @@ export class GameScene extends Phaser.Scene {
     this.player.reset(playerSpawn(def) || DEFAULT_PLAYER_SPAWN);
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
+    // Extra shots the LEVEL grants, for its whole length rather than for
+    // a power-up's twelve seconds -- Panic Mode's harpoon carries one
+    // (levels/panic.json's weaponBonusShots), which is what makes it the
+    // rapid harpoon the mode is built around. Applied here as well as in
+    // setWeapon because loading a level does not go through it, and
+    // reading `def` rather than currentLevelDef because loadLevelData may
+    // not have published it yet.
+    this.weaponState.maxActiveShots += def.weaponBonusShots ?? 0;
     // A campaign level takes its look and its music from the continent
     // it is played on (see js/regions.js), not from its own file -- that's
     // what makes five levels in a row feel like one place. The look also
@@ -1491,13 +1505,34 @@ export class GameScene extends Phaser.Scene {
 
     // A ball the level editor tagged with a powerup guarantees that drop
     // (bypassing the random roll below) -- see Ball.js's forcedPowerup.
+    const pool = this.dropPowerupTypes();
     const dropType = forcedPowerup
-      || (rollDrop && Math.random() < POWERUP_DROP_CHANCE
-        ? POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)] : null);
+      || (rollDrop && pool.length && Math.random() < POWERUP_DROP_CHANCE
+        ? pool[Math.floor(Math.random() * pool.length)] : null);
     if (dropType) {
       const bonus = new Bonus(this, dropType, ball.x, ball.y);
       this.powerups.add(bonus);
     }
+  }
+
+  // What a popped ball may drop here. Every power-up there is, minus any
+  // whose KIND the level rules out -- `excludePowerupKinds` in the level
+  // file. Panic Mode rules out `give_weapon`: the mode is built around
+  // one weapon, and a machine gun falling out of a ball would quietly
+  // rewrite the arithmetic the whole thing is balanced on (see
+  // js/panicWaves.js).
+  //
+  // By kind rather than by name so it stays right when a weapon is added.
+  // Cached per level because a pop is a common event and this answer only
+  // changes when the level does.
+  dropPowerupTypes() {
+    const exclude = this.currentLevelDef?.excludePowerupKinds;
+    if (!exclude?.length) return POWERUP_TYPE_KEYS;
+    if (this.dropPoolFor !== this.currentLevelDef) {
+      this.dropPoolFor = this.currentLevelDef;
+      this.dropPool = POWERUP_TYPE_KEYS.filter((type) => !exclude.includes(POWERUP_TYPES[type].kind));
+    }
+    return this.dropPool;
   }
 
   // The dynamite (see elements.js's shatter_balls): every ball on the

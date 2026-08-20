@@ -250,6 +250,10 @@ export function registerElement(el, harpoon) {
     const params = el.params || {};
     POWERUP_TYPES[el.type] = {
       label: el.label,
+      // Kept as well as used, so a level can rule out a CLASS of power-up
+      // -- "no other weapons" is `give_weapon`, and stays right when a
+      // fourth weapon is added (see GameScene.dropPowerupTypes).
+      kind: el.kind,
       color: el.color,
       durationMs: el.durationMs,
       instant: el.instant,

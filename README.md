@@ -549,6 +549,28 @@ entire attention. The old table dropped those every 1.9 seconds. Measured as a f
 for 128%, wave 25 for 383%, and wave 50 for 2100%. The field could only
 grow, whoever was holding the keyboard.
 
+### What Panic Mode is played with
+
+Red balls only -- the plain round bouncer, no weaving or hunting
+variants. One shape means the ramp inside a cycle has to be carried by
+size and density alone, which is why the patterns thin out and grow
+rather than swapping in a different kind of threat.
+
+The weapon is the harpoon with a **second shot in the air**, for the
+whole run rather than for a power-up's twelve seconds --
+`weaponBonusShots` in the level file, applied wherever the weapon is set.
+It is also what makes `shotTimeSec: 1` defensible: with one shot at a
+time the player must wait out a miss, which over the full height of the
+playfield is 0.98s of flight plus 0.15s of shot lock, so a second shot in
+the air is roughly what turns a second per shot from an expert's rate
+into an ordinary one.
+
+Every power-up drops there **except other weapons**. A machine gun
+falling out of a ball would quietly rewrite the arithmetic the mode is
+balanced on. They are ruled out by KIND -- `excludePowerupKinds:
+["give_weapon"]` -- so a fourth weapon is excluded the day it is added
+rather than the day someone remembers.
+
 ### A wave is a rhythm
 
 Each wave in `levels/panic.json` is a beat length and a pattern, and it

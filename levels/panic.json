@@ -3,6 +3,10 @@
   "name": "Panic Mode",
   "background": "default",
   "weapon": "harpoon",
+  "weaponBonusShots": 1,
+  "excludePowerupKinds": [
+    "give_weapon"
+  ],
   "obstacles": [],
   "balls": [],
   "panicSpawn": {
@@ -11,20 +15,12 @@
     "holdMaxSec": 8,
     "skipRestUnderSec": 2.5,
     "shapeCode": {
-      "r": "round",
-      "x": "hex",
-      "w": "wave",
-      "h": "hunter",
-      "v": "heavy"
+      "r": "round"
     },
     "tuning": {
       "shotTimeSec": 1,
       "shapeEffort": {
-        "round": 1,
-        "hex": 1.1,
-        "heavy": 1.15,
-        "hunter": 1.2,
-        "wave": 1.3
+        "round": 1
       },
       "maxPressure": 0.9
     },
@@ -54,7 +50,7 @@
       },
       {
         "beat": 1.42,
-        "spawn": "x1 . . r1 . . r2 . . . x1 . . r1 . . . |"
+        "spawn": "r1 . . . r2 . . . r1 . . . r2 . . . r1 . . . . |"
       },
       {
         "beat": 2,
@@ -62,23 +58,23 @@
       },
       {
         "beat": 1.28,
-        "spawn": "w1 . . r1 . . r2 . . . w1 . . r1 . . . . |"
+        "spawn": "r2 . . . r1 . . . r1 . . . r2 . . . r1 . . . r1 . . . |"
       },
       {
         "beat": 1.13,
-        "spawn": "r1 . . x1 . . w1 . . r2 . . . r1 . . r1 . . . |"
+        "spawn": "r1 . . . r2 . . . r2 . . . r1 . . . r1 . . . r2 . . . . . . . |"
       },
       {
         "beat": 0.99,
-        "spawn": "h1 . . r1 . . h1 . . r2 . . . r1 . . r1 . . . |"
+        "spawn": "r2 . . . r2 . . . r1 . . . r2 . . . r1 . . . r1 . . . . . . . |"
       },
       {
         "beat": 0.84,
-        "spawn": "v1 . . r1 . . w1 . . h1 . . r2 . . . r1 . . r1 . . . |"
+        "spawn": "r3 . . . . . r1 . . . . . r2 . . . . . r1 . . . . . r2 . . . . . r1 . . . . . . . |"
       },
       {
         "beat": 0.7,
-        "spawn": "r1 . . h1 . . w1 . . x2 . . . h1 . . r1 . . w1 . . r1 . . . . |"
+        "spawn": "r2 . . . . . r3 . . . . . r1 . . . . . r2 . . . . . r2 . . . . . r1 . . . . . r1 . . . . . . . . |"
       },
       {
         "beat": 2,
