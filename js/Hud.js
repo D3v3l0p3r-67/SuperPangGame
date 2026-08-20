@@ -142,8 +142,8 @@ export class Hud {
 
     // Panic Mode has no time limit (see loadLevel/currentLevelDef) -- it
     // shares the TIME row's slot with a small bar instead, showing the
-    // current wave's completion (balls popped / popTarget, see
-    // GameScene.panicProgressPct) rather than leaving the slot empty.
+    // current wave's completion (how far through its written pattern,
+    // see GameScene.panicProgressPct) rather than leaving the slot empty.
     this.panicBarMaxW = 60;
     const PANIC_BAR_H = 6;
     this.panicBarBg = scene.add.rectangle(RIGHT_X, ROW1_Y + 4, this.panicBarMaxW, PANIC_BAR_H, 0x000000).setOrigin(0, 0).setStrokeStyle(1, ACCENT);

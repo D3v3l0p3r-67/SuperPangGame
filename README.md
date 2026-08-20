@@ -530,9 +530,9 @@ drop sits on a single breakable block.
 
 ## Panic Mode is arithmetic
 
-Panic Mode's wave table used to be written by hand, and it was not hard,
-it was unwinnable. Not late on -- from wave 1, which is why nobody caught
-it: every row looked reasonable on its own.
+Panic Mode's waves used to be written by hand, and they were not hard,
+they were unwinnable. Not late on -- from wave 1, which is why nobody
+caught it: every row looked reasonable on its own.
 
 The thing a hand-written row cannot see is what a ball actually costs.
 Every hit replaces one ball with two of the next size down, so taking a
@@ -541,6 +541,7 @@ ball off the field entirely is the whole tree beneath it:
 | size | 1 | 2 | 3 | 4 | 5 |
 | --- | --- | --- | --- | --- | --- |
 | shots to clear it away | 1 | 3 | 7 | 15 | 31 |
+| seconds to squeeze through the ceiling | 1.0 | 2.0 | 3.0 | 4.0 | 6.0 |
 
 At a working average of two seconds a shot -- lining it up, the flight,
 the miss you sometimes have to redo -- a size-5 ball is **a minute** of
@@ -549,43 +550,86 @@ seconds. Measured as a fraction of what a player can shoot, wave 1 asked
 for 128%, wave 25 for 383%, and wave 50 for 2100%. The field could only
 grow, whoever was holding the keyboard.
 
-So the interval is no longer authored. `levels/panic.json` carries a
-`panicSpawn.tuning` block, and `node tools/panic_waves.mjs` derives the
-100 waves from it:
+### A wave is a rhythm
 
-```
-cost(size)        = 2^size - 1                     shots, from the split rule
-work(shape, size) = cost * shotTimeSec * effort[shape]
-waveWork          = weighted mean of work over the wave's own mix
-pressure(wave)    = waveWork / intervalSec
+Each wave in `levels/panic.json` is a beat length and a pattern, and it
+reads as what it does:
+
+```json
+{ "beat": 2.8, "spawn": "r1 x1 . w1 . r2 . r1 . r1 . |" }
 ```
 
-`pressure` is the share of the player's shooting time the spawner claims.
+| token | means | takes |
+| --- | --- | --- |
+| `r1` | drop a **r**ound ball of size 1 | one beat |
+| `.` | drop nothing | one beat |
+| `\|8` | **hold** while the field still has balls, up to 8s | 0 to 8s |
+
+Ball tokens and rests both take exactly one beat. That is what makes a
+pattern a grid you can read down a column of, and it is why `.` has
+exactly one meaning wherever it appears -- a symbol whose meaning
+depended on where it sat could not be read at all.
+
+The letters are `shapeCode` in the same file: `r`ound, he`x`, `w`ave,
+`h`unter, hea`v`y.
+
+**A hold is not a beat.** It is a condition: zero time on a field that is
+already clear, and it never counts towards the wave's length. Its cap
+matters -- a field nobody can clear would otherwise stop the mode dead.
+One token replaced three separate mechanisms: the every-N-waves rest, its
+maximum, and a `clearFirst` flag. A breather is now just a wave whose
+pattern is a single hold, and a wave that must not start until the
+previous one is cleaned up simply begins with one.
+
+**A beat starts when the ball is released, not when it is fully out.** If
+it started at full emergence, a pattern's real length would depend on
+which balls were in it -- the written duration would lie, and the check
+below would lose its denominator. So the seconds a ball spends squeezing
+through the ceiling run *inside* the beat, which also means a beat
+shorter than that emergence makes the ceiling extrude a stream rather
+than drop things. The checker warns about it.
+
+### What it costs, and why that is checkable
+
+```
+work     = Σ (2^size - 1) x shotTimeSec x effort[shape]
+pressure = work / (beat x beats in the pattern)
+```
+
+`pressure` is the share of the player's shooting time the ceiling claims.
 At 1.0 they must land every shot, forever, and never move; the slack
-below 1.0 is everything left over for dodging, missing and walking
-somewhere. `maxPressure` (0.9) is therefore exactly "the point past which
-the field can no longer be cleared", and **the generator refuses to write
-a table that crosses it** -- naming the wave, its mix, and by how much.
-The shipped curve runs 0.40 at wave 1 to 0.88 at wave 100.
+below 1.0 is everything left for dodging, missing and walking somewhere.
+`maxPressure` (0.9) is therefore exactly "the point past which the field
+can no longer be cleared".
 
-What is authored is the part somebody can have an opinion about: the
-interval ramp (5s down to 2.6s), the pop targets, the per-shape effort
-multipliers (a weaving ball is the same one shot, harder to land), and
-`stages` -- which balls turn up from which wave.
+Holds are left out of that denominator on purpose, and so is emergence
+time. Both can only ever give the player more time, so counting them
+would make the check optimistic -- and a check you only pass because the
+player was struggling is not a check.
 
-One consequence is worth stating because it is not intuitive: **interval
-and ball size cannot both grow.** Bigger balls MUST arrive less often to
-stay clearable. Since the mode wants the opposite, the mixes get *smaller*
-as the run goes on, and the escalation is carried by frequency and
-evasiveness instead. Sizes 4 and 5 never appear at all -- one of them
-would monopolise half a minute -- and the finale is a stream of size-1
-hunters and weavers every 2.6 seconds, which is a harder thing to survive
-than a size-5 ball every 5, and unlike it, a thing that can be survived.
+### Twelve waves, not a hundred
 
-`tests/panic.test.mjs` recomputes the table from the tuning (so a
-forgotten regeneration fails, same contract as `sw-precache.json`),
-re-runs every playability check over the shipped file, and pins the split
-rule itself.
+The authored set is twelve. The mode is endless, so the set repeats, and
+each cycle tightens every beat by `loop.beatScale` until it reaches
+`loop.minBeat` and stays there.
+
+That makes `minBeat` the mode's one safety number, because it is where
+every wave eventually lives -- so **the check is made at the floor beat,
+not at the beat a wave was written at**. Passing as authored and failing
+three cycles later would not be passing. The shipped set runs 0.22 to
+0.72 pressure on its first time round, and 0.34 to 0.86 once it has
+settled at the floor.
+
+```
+node tools/panic_waves.mjs
+```
+
+prints every wave's length, cost and both pressures, warns about
+emergence and about patterns that do not end on a hold, and exits
+non-zero if anything is unclearable. The model itself is
+`js/panicWaves.js` -- shared by the game, the tool and the tests, so what
+is checked and what is played cannot come apart.
+`tests/panic.test.mjs` re-runs all of it over the shipped file.
 
 ## Level transitions
 
@@ -785,30 +829,23 @@ seam between the canvas and the page behind it.
   together than 0.6s, which is what stops a held key from emptying a late
   wave, whose own interval is at its shortest, onto the field in one
   clump. See `GameScene.updatePanicSpawner`.
-- **Panic Mode is arithmetic, and its table is generated from it.** See
-  the section of that name below -- the short version is that a ball of
-  size N takes 2^N - 1 shots to clear away entirely, so how often balls
-  may arrive is a calculation, not a taste.
-- **Every tenth wave the ceiling stops until the field is clear.** The
-  spawner is deliberately allowed to claim most of the player's shooting
-  time, so whatever was missed during one wave is still bouncing during
-  the next; without a pause a run only ever accumulates and ends in a
-  mess that was never clearable. The breather ends the moment the last
-  ball goes -- there is nothing to wait for once it has happened -- or
-  after `restMaxSec`, so a field nobody can finish cannot stop the mode
-  dead. Holding down drains it early, for a player who would rather not
-  sit through it. `restEveryWaves` / `restMaxSec` in `levels/panic.json`;
-  see `GameScene.updatePanicRest`.
-- **Panic Mode's wave counter does not stop at the end of its table.**
-  `levels/panic.json` lists 100 waves and the last one repeats forever --
-  the table ends at what a player can survive, not at what beats them --
-  but the COUNTER goes on climbing, so a run that outlasts the table
-  still has a next milestone and a progress bar moving towards it.
-  Freezing it left the HUD dead for the whole rest of the run: the level
-  number stuck, and the bar (pops against a target already passed)
-  pinned at 100%. The HUD's LEVEL row holds three digits for the same
-  reason -- with two, wave 100 was drawn as "10", and a long run looked
-  like it had gone nowhere.
+- **Panic Mode is arithmetic.** See the section of that name above -- the
+  short version is that a ball of size N takes 2^N - 1 shots to clear
+  away entirely, so how often balls may arrive is a calculation, not a
+  taste.
+- **A wave is a written rhythm, and it ends when the rhythm does.** A
+  beat length and a pattern of tokens -- a ball, a rest, or a hold that
+  waits for the field to clear. Progress used to be gated on balls
+  popped, so shooting well brought the harder waves sooner; that went to
+  the down key, which runs the beat at four times its speed for as long
+  as it is held (see `GameScene.updatePanicSpawner`).
+- **Panic Mode's wave counter does not stop at the end of its set.** The
+  twelve authored waves repeat, a little faster each cycle, and the
+  counter goes on climbing -- so a long run always has a next milestone
+  and a progress bar moving towards it. Freezing it left the HUD dead for
+  the whole rest of the run. The HUD's LEVEL row holds three digits for
+  the same reason: with two, wave 100 was drawn as "10", and a long run
+  looked like it had gone nowhere.
 - The campaign uses what the engine has rather than only walls and balls:
   **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name
@@ -1198,10 +1235,10 @@ tools/               Scripts run by hand, never by the game:
                       impact_puffs.py draws the grey cloud a beam leaves
                       where it stops (the bullet's own spark is hand-drawn
                       and is not written by it),
-                      panic_waves.mjs derives Panic Mode's wave table
-                      from its tuning block and refuses to write one that
-                      cannot be cleared (see "Panic Mode is arithmetic"),
-                      and
+                      panic_waves.mjs checks Panic Mode's wave patterns
+                      and prints what they cost, exiting non-zero on one
+                      that cannot be cleared (see "Panic Mode is
+                      arithmetic"), and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing

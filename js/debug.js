@@ -241,8 +241,8 @@ export class Debug {
   // dropping wave 70's balls onto wave 3's leftovers would not be wave
   // 70. The index is set AFTER it, because beginRun deliberately zeroes
   // it (a fresh run starts at the beginning) -- and loadLevel, which it
-  // calls, is what clears panicPopCount, the spawn clock and any
-  // breather, so nothing here has to.
+  // calls, is what rewinds the pattern to its first step and clears any
+  // hold, so nothing here has to.
   jumpToPanicWave(n) {
     this.scene.startPanicMode();
     this.scene.panicWaveIndex = n - 1;
@@ -340,8 +340,8 @@ export class Debug {
     // how often balls are due, and the breather while one is running.
     const wave = g.panicWave;
     const where = g.isPanicMode
-      ? [`W${g.panicWaveIndex + 1}`, `pop ${g.panicPopCount}/${wave?.popTarget ?? '-'}`,
-        `ev${wave?.intervalSec ?? '-'}`, ...(g.panicRestLeft > 0 ? [`rest${g.panicRestLeft.toFixed(1)}`] : [])]
+      ? [`W${g.panicWaveIndex + 1}`, `step ${Math.max(0, g.panicStep) + 1}/${wave?.steps.length ?? '-'}`,
+        `beat${wave?.beat.toFixed(1) ?? '-'}`, ...(g.panicHoldLeft > 0 ? [`hold${g.panicHoldLeft.toFixed(1)}`] : [])]
       : [`L${g.levelIndex + 1}/${LEVELS.length}`, `t${g.remainingLevelTime}`];
     this.textEl.textContent = [
       g.state,

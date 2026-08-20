@@ -29,6 +29,7 @@ import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
+import { waveAt } from './panicWaves.js';
 import * as storage from './storage.js';
 import {
   obstacleTextureKey, FRAME_TILE_TEXTURE, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
@@ -199,8 +200,8 @@ export class GameScene extends Phaser.Scene {
     // the same fifty levels -- see ui.js's renderLevelSelect.
     this.levelSelectMode = 'play';
     this.panicWaveIndex = 0;
-    this.panicPopCount = 0;
-    this.panicRestLeft = 0;
+    this.panicStep = -1;
+    this.panicHoldLeft = 0;
     this.weaponType = 'harpoon';
     this.volleyCounter = 0; // see fireVolley -- ids only need to be distinct
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
@@ -524,7 +525,7 @@ export class GameScene extends Phaser.Scene {
     // restart after losing a life (restartLevel(), which calls loadLevel()
     // directly rather than through here) deliberately leaves this alone,
     // so the run picks back up on whatever wave it was on (see loadLevel's
-    // own panicPopCount/panicSpawnAt reset for what DOES restart on a hit).
+    // own panicStep/panicStepEndsAt reset for what DOES restart on a hit).
     this.panicWaveIndex = 0;
     this.effects.reset(this);
     // The run-start fanfare used to play straight over the countdown's own
@@ -669,20 +670,24 @@ export class GameScene extends Phaser.Scene {
       : (def.background || DEFAULT_BACKGROUND)));
     this.effects.reset(this);
     this.levelTimer = 0;
-    // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
-    // panicSpawnAt is the levelTimer value at which the next ceiling-drop
-    // ball is due; panicPopCount tracks progress within the CURRENT wave.
-    // Both reset on every load, including a post-hit restart, so a life
-    // lost restarts the wave you were actually on ("that level's balls
-    // start falling again") rather than dumping progress. panicWaveIndex
-    // itself is deliberately NOT touched here -- see beginRun().
-    this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
-    this.panicSpawnedAt = 0;
-    this.panicPopCount = 0;
-    // A breather in progress does not survive a life being lost -- the
-    // field is cleared by the restart anyway, which is everything the
-    // pause was there to allow.
-    this.panicRestLeft = 0;
+    // Panic Mode only (see updatePanicSpawner/panicWave) -- the run
+    // restarts the CURRENT wave's pattern from its first step. All of it
+    // resets on every load, including a post-hit restart, so a life lost
+    // replays the wave you were actually on ("that level's balls start
+    // falling again") rather than dumping progress. panicWaveIndex itself
+    // is deliberately NOT touched here -- see beginRun().
+    //
+    // panicStep is -1 because nothing has been entered yet: the first
+    // nextPanicStep() makes it 0, and initialDelaySec is how long the run
+    // waits before that happens.
+    this.panicStep = -1;
+    this.panicStepStartedAt = 0;
+    this.panicStepEndsAt = def.panicSpawn?.initialDelaySec ?? 0;
+    this.panicWaveCache = null;
+    // A hold in progress does not survive a life being lost -- the field
+    // is cleared by the restart anyway, which is everything the pause was
+    // there to allow.
+    this.panicHoldLeft = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
     // A key still held from before this level started (e.g. mashed
@@ -1187,83 +1192,100 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // Panic Mode's active wave: PANIC_LEVEL.panicSpawn.waves (levels/
-  // panic.json) is a list of { popTarget, intervalSec, shapes } entries --
-  // progress is driven by balls actually popped (panicPopCount, see
-  // popBall/advancePanicProgress), not a timer, so a sharper player faces
-  // harder waves sooner instead of everyone escalating in lockstep. The
-  // last wave repeats forever once the run outlasts the whole table.
+  // Panic Mode's active wave, whatever number the run has reached: a
+  // beat length and a list of steps, resolved from the authored set by
+  // js/panicWaves.js (which also decides what the set does once the run
+  // outlasts it -- it repeats, a little faster each time round).
+  //
+  // Cached because it parses a pattern string, and this is read every
+  // frame. The wave index is the whole cache key: nothing else about a
+  // wave can change while it is the one being played.
   get panicWave() {
-    const waves = this.currentLevelDef?.panicSpawn?.waves;
-    if (!waves || !waves.length) return null;
-    return waves[Math.min(this.panicWaveIndex, waves.length - 1)];
+    const spawn = this.currentLevelDef?.panicSpawn;
+    if (!spawn?.waves?.length) return null;
+    if (this.panicWaveCache?.index !== this.panicWaveIndex) {
+      this.panicWaveCache = { index: this.panicWaveIndex, ...waveAt(this.panicWaveIndex, spawn) };
+    }
+    return this.panicWaveCache;
   }
 
-  // 0-100 completion of the CURRENT wave, for the HUD's progress bar (see
-  // Hud.js) -- caps at 100 on the final wave instead of ever exceeding it.
+  // 0-100 through the current wave's pattern, for the HUD's progress bar
+  // (see Hud.js). How far through the PATTERN, not how many balls have
+  // been popped: a wave is a written rhythm now, and it is over when the
+  // rhythm is over.
   get panicProgressPct() {
     const wave = this.panicWave;
-    if (!wave || !wave.popTarget) return 0;
-    return Math.min(100, Math.floor(100 * this.panicPopCount / wave.popTarget));
+    if (!wave || !wave.steps.length) return 0;
+    return Math.min(100, Math.floor(100 * Math.max(0, this.panicStep) / wave.steps.length));
   }
 
-  // Ball spawn timing only -- still time-driven (panicSpawnAt vs
-  // levelTimer) since spawn CADENCE is about keeping the pressure steady,
-  // unlike wave difficulty which is skill-gated (see panicWave above).
+  // One step of the current wave's pattern per beat.
   //
   // `hurry` is the down key held, which in Panic Mode means nothing else:
   // there is no ladder to climb down (levels/panic.json has no obstacles
-  // at all), so the key was simply dead. What a player waiting out the
-  // interval actually wants is the next ball -- an empty field is not a
-  // rest, it is a wave that isn't advancing and a clock that is -- and
-  // holding down now asks for it, running the wait at PANIC_HURRY_RATE
-  // times its normal speed for as long as it is held.
+  // at all), so the key was simply dead. What a player waiting out a rest
+  // actually wants is the next ball -- an empty field is not a rest, it
+  // is a wave that isn't advancing and a clock that is -- and holding
+  // down now asks for it, running the beat at PANIC_HURRY_RATE times its
+  // normal speed for as long as it is held.
   //
-  // It is deliberately unconditional rather than only offered when the
-  // field is thin: calling the next ball early is a bet, and the player
-  // takes it knowing what is already in the air. What it cannot do is
-  // empty a whole wave onto the field at once -- PANIC_HURRY_MIN_GAP is
-  // how close together two balls may arrive however hard the key is
-  // held, which matters at the late waves where the ordinary interval is
-  // at its shortest.
+  // It is also how a sharp player still outruns the pattern. Progress
+  // used to be gated on balls popped, so shooting well brought the harder
+  // waves sooner; a written rhythm cannot do that on its own, and this is
+  // where that went. What it cannot do is empty a whole wave onto the
+  // field at once -- PANIC_HURRY_MIN_GAP is how close together two steps
+  // may land however hard the key is held.
   updatePanicSpawner(dt, hurry) {
     const wave = this.panicWave;
     if (!wave) return;
-    if (this.panicRestLeft > 0) { this.updatePanicRest(dt, hurry, wave); return; }
+    if (this.panicHoldLeft > 0) { this.updatePanicHold(dt, hurry); return; }
     if (hurry) {
-      // Only ever pulls the next ball EARLIER, and never past the floor:
-      // the wait passes at the hurried rate (dt of it per frame anyway,
-      // plus the extra), so holding down for the whole interval is what
-      // costs the whole discount.
-      this.panicSpawnAt = Math.max(this.panicSpawnedAt + PANIC_HURRY_MIN_GAP,
-        this.panicSpawnAt - dt * (PANIC_HURRY_RATE - 1));
+      this.panicStepEndsAt = Math.max(this.panicStepStartedAt + PANIC_HURRY_MIN_GAP,
+        this.panicStepEndsAt - dt * (PANIC_HURRY_RATE - 1));
     }
-    if (this.levelTimer < this.panicSpawnAt) return;
-    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn);
-    this.panicSpawnedAt = this.levelTimer;
-    this.panicSpawnAt = this.levelTimer + wave.intervalSec;
+    if (this.levelTimer >= this.panicStepEndsAt) this.nextPanicStep();
   }
 
-  // The breather every `restEveryWaves` waves: the ceiling stops sending
-  // anything down, so what is on the field is all there is and it can
-  // actually be finished. It ends the moment the field IS clear -- that
-  // is the whole point of it, and there is nothing to wait for once it
-  // has happened -- or after `restMaxSec`, whichever comes first, because
-  // a field nobody can finish would otherwise stop the mode dead.
+  // A hold step (`|` in a pattern): the ceiling stops sending anything
+  // down, so what is on the field is all there is and it can actually be
+  // finished.
   //
-  // Holding down drains it at the same rate it hurries an ordinary wait
-  // (see above): a player who does not want the pause should not have to
-  // sit through it.
-  updatePanicRest(dt, hurry, wave) {
-    this.panicRestLeft -= dt * (hurry ? PANIC_HURRY_RATE : 1);
-    if (this.panicRestLeft > 0 && this.balls.countActive(true) > 0) return;
-    this.panicRestLeft = 0;
-    // A full interval before the next wave starts arriving, counted from
-    // now rather than from whenever the last ball happened to fall: the
-    // rest is the reward, and following it immediately with a ball would
-    // take the reward back.
-    this.panicSpawnAt = this.levelTimer + wave.intervalSec;
-    this.panicSpawnedAt = this.levelTimer;
+  // It ends the moment the field IS clear -- that is the whole point of
+  // it, and there is nothing to wait for once it has happened -- or after
+  // the step's own cap, whichever comes first, because a field nobody can
+  // finish would otherwise stop the mode dead. Holding down drains it at
+  // the same rate it hurries a beat: a player who does not want the pause
+  // should not have to sit through it.
+  updatePanicHold(dt, hurry) {
+    this.panicHoldLeft -= dt * (hurry ? PANIC_HURRY_RATE : 1);
+    if (this.panicHoldLeft > 0 && this.balls.countActive(true) > 0) return;
+    this.panicHoldLeft = 0;
+    this.nextPanicStep();
+  }
+
+  // Onto the next step, and onto the next WAVE when the pattern is spent
+  // -- which is what ends a wave now. The counter is not stopped by the
+  // end of the authored set (see panicWaves.js's waveAt): a run that
+  // outlasts it still has a next milestone and a bar moving towards it.
+  nextPanicStep() {
+    this.panicStep += 1;
+    if (this.panicStep >= this.panicWave.steps.length) {
+      this.panicWaveIndex += 1;
+      this.panicStep = 0;
+    }
+    const wave = this.panicWave;
+    const step = wave.steps[this.panicStep];
+    this.panicStepStartedAt = this.levelTimer;
+    if (step.kind === 'hold') {
+      // Not a beat: a hold takes no time at all on a field that is
+      // already clear, and never counts towards the wave's length (which
+      // is why the pressure check leaves it out -- see panicWaves.js).
+      this.panicHoldLeft = step.maxSec;
+      this.panicStepEndsAt = Infinity;
+      return;
+    }
+    if (step.kind === 'ball') this.spawnPanicBall(step, this.currentLevelDef.panicSpawn);
+    this.panicStepEndsAt = this.levelTimer + wave.beat;
   }
 
   // Picks one (shape, size) from the wave's weighted `shapes` list and
@@ -1285,16 +1307,7 @@ export class GameScene extends Phaser.Scene {
   // The instant the whole ball has cleared the border it is an ordinary
   // ball: normal drift, normal fall (see updatePlaying's emergeY check),
   // its own gravity taking it from the 16px/s it was already doing.
-  spawnPanicBall(wave, spawn) {
-    const entries = wave.shapes;
-    const totalWeight = entries.reduce((sum, e) => sum + (e.weight ?? 1), 0);
-    let roll = Math.random() * totalWeight;
-    let choice = entries[entries.length - 1];
-    for (const e of entries) {
-      roll -= e.weight ?? 1;
-      if (roll <= 0) { choice = e; break; }
-    }
-
+  spawnPanicBall(choice, spawn) {
     const el = getBallElement(choice.shape, choice.size);
     const bt = BORDER_THICKNESS;
     const x = Phaser.Math.Between(bt + el.radius, VIRTUAL_W - bt - el.radius);
@@ -1311,38 +1324,6 @@ export class GameScene extends Phaser.Scene {
     ball.setDepth(0.4); // below the ceiling border's own depth (0.5) while emerging
     ball.emergeY = bt; // body.y (top edge) reaching this means the whole ball has cleared the border
     this.balls.add(ball);
-  }
-
-  // Panic Mode's own "level" progress: popping enough balls (the active
-  // wave's popTarget) advances to the next, harder wave -- see panicWave/
-  // updatePanicSpawner. Skill-driven on purpose (pop faster, face harder
-  // waves sooner) rather than a blind timer.
-  //
-  // The counter is NOT stopped by the end of the wave table. It used to
-  // be, and outlasting all 100 waves left the mode with nothing left to
-  // show: the level number froze, and the progress bar -- pop count over
-  // a target it had already passed -- sat pinned at 100% for the whole
-  // rest of the run. Difficulty does plateau there (panicWave clamps to
-  // the last entry, which is the design: the table ends at what a player
-  // can survive, not at what beats them), but the run goes on having a
-  // next milestone and a bar that moves towards it.
-  advancePanicProgress() {
-    this.panicPopCount += 1;
-    const wave = this.panicWave;
-    if (!wave || this.panicPopCount < wave.popTarget) return;
-    this.panicWaveIndex += 1;
-    this.panicPopCount = 0;
-    // Every so many waves, the ceiling stops for a moment (see
-    // updatePanicRest). Without it the field only ever accumulates: the
-    // spawner is deliberately allowed to claim most of the player's
-    // shooting time, so whatever was missed during one wave is still
-    // there during the next, and a run ends in a mess that was never
-    // actually clearable. The pause is the mode's one chance to get back
-    // to an empty screen.
-    const spawn = this.currentLevelDef.panicSpawn;
-    if (spawn.restEveryWaves && this.panicWaveIndex % spawn.restEveryWaves === 0) {
-      this.panicRestLeft = spawn.restMaxSec ?? 0;
-    }
   }
 
   tryFire() {
@@ -1458,7 +1439,6 @@ export class GameScene extends Phaser.Scene {
   popBall(ball, { quiet = false, rollDrop = true } = {}) {
     const awarded = Math.round(ball.points * this.scoreMultiplier);
     this.score += awarded;
-    if (this.isPanicMode) this.advancePanicProgress();
     if (!quiet) this.audio.play('balldestroy');
     this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
     this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color, ball.radius));

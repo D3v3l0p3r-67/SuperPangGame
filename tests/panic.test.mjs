@@ -10,75 +10,118 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readJSON, readText } from './helpers.mjs';
-import { buildWaves, checkWaves, waveWork, shotsToClear, ballElements } from '../tools/panic_waves.mjs';
+import {
+  checkWaves, parsePattern, patternBeats, waveWork, waveAt, beatFor, shotsToClear, emergeSec,
+} from '../js/panicWaves.js';
+import { ballElements } from '../tools/panic_waves.mjs';
 
 const SPAWN = readJSON('levels/panic.json').panicSpawn;
-const TUNING = SPAWN.tuning;
+const BALL = ballElements();
+const steps = (wave) => parsePattern(wave.spawn, SPAWN.shapeCode, SPAWN.holdMaxSec);
 
 test('a ball costs what the split rule says it costs', () => {
   // Every hit turns one ball into two of the next size down, so clearing
   // a size-N ball away entirely is the whole tree: 2^N - 1 shots. This is
-  // the number the whole table is derived from, so it is worth pinning
+  // the number every wave's cost is built from, so it is worth pinning
   // rather than trusting the formula to stay right.
   assert.deepEqual([1, 2, 3, 4, 5].map(shotsToClear), [1, 3, 7, 15, 31]);
 });
 
-test('the wave table is what the tuning says it is', () => {
-  // Same contract as sw-precache.json: the file is generated, so the
-  // check is that somebody reran the generator. Without this, editing
-  // the tuning would silently change nothing at all.
-  assert.deepEqual(SPAWN.waves, buildWaves(TUNING),
-    'levels/panic.json\'s waves are stale -- rerun node tools/panic_waves.mjs');
+test('a pattern says what it does', () => {
+  const parsed = parsePattern('r1 . x2 |6 |', { r: 'round', x: 'hex' }, 8);
+  assert.deepEqual(parsed, [
+    { kind: 'ball', shape: 'round', size: 1 },
+    { kind: 'rest' },
+    { kind: 'ball', shape: 'hex', size: 2 },
+    { kind: 'hold', maxSec: 6 },
+    { kind: 'hold', maxSec: 8 }, // no number: the file's own default
+  ]);
+  // A hold is a condition, not a beat, and never counts towards length.
+  assert.equal(patternBeats(parsed), 3);
+  // A typo has to fail loudly. Silently skipping an unreadable token
+  // would be a wave quietly getting easier, which nobody would notice.
+  assert.throws(() => parsePattern('r1 q9', { r: 'round' }, 8), /no shape is coded "q"/);
+  assert.throws(() => parsePattern('r1 nonsense', { r: 'round' }, 8), /not a ball/);
 });
 
-test('every wave can actually be cleared', () => {
-  // pressure = the share of the player's shooting time the spawner
-  // claims. At 1.0 they would have to land every shot, forever, and
-  // never move; over 1.0 the field grows no matter how well they play.
-  // checkWaves also rejects a wave that arrives slower than the one
-  // before it, and any (shape, size) with no element behind it.
-  assert.deepEqual(checkWaves(SPAWN.waves, TUNING, ballElements()), []);
-  assert.ok(TUNING.maxPressure < 1,
-    'a limit of 1 or more is a mode that cannot be cleared by definition');
+test('every wave can be cleared, at the tempo it ends up at', () => {
+  const { problems, warnings } = checkWaves(SPAWN, BALL);
+  assert.deepEqual(problems, []);
+  assert.deepEqual(warnings, []);
+});
+
+test('the check is made against the floor beat, not the authored one', () => {
+  // The set repeats faster each time round, so every wave eventually runs
+  // at loop.minBeat -- passing at the beat a wave was written at and
+  // failing three cycles later would not be passing. This is the property
+  // that makes minBeat the mode's one safety number.
+  const worst = SPAWN.waves
+    .map((wave) => {
+      const parsed = steps(wave);
+      const beats = patternBeats(parsed);
+      return beats ? waveWork(parsed, SPAWN.tuning) / (SPAWN.loop.minBeat * beats) : 0;
+    })
+    .reduce((max, p) => Math.max(max, p), 0);
+  assert.ok(worst <= SPAWN.tuning.maxPressure, `hardest wave presses ${worst.toFixed(2)}`);
+  // And it is worth reaching: a floor nothing comes close to would mean
+  // the mode never actually gets hard.
+  assert.ok(worst > SPAWN.tuning.maxPressure * 0.9,
+    `the hardest wave only reaches ${worst.toFixed(2)} of a ${SPAWN.tuning.maxPressure} limit`);
 });
 
 test('the difficulty ramp actually ramps', () => {
-  const pressure = (wave) => waveWork(wave.shapes, TUNING) / wave.intervalSec;
-  const first = SPAWN.waves[0];
-  const last = SPAWN.waves[SPAWN.waves.length - 1];
-  assert.ok(pressure(last) > pressure(first) * 1.5,
-    `the last wave presses ${pressure(last).toFixed(2)} against the first's ${pressure(first).toFixed(2)}`
-    + ' -- that is not a difficulty curve');
-  // And it starts somewhere a player can breathe: the opening wave used
-  // to demand 128% of what anyone could shoot.
-  assert.ok(pressure(first) <= 0.5,
-    `the opening wave already claims ${(pressure(first) * 100).toFixed(0)}% of the player's shooting time`);
+  const pressure = (wave) => {
+    const parsed = steps(wave);
+    const beats = patternBeats(parsed);
+    return beats ? waveWork(parsed, SPAWN.tuning) / (wave.beat * beats) : null;
+  };
+  const played = SPAWN.waves.map(pressure).filter((p) => p !== null);
+  assert.ok(played[played.length - 1] > played[0] * 2,
+    `last wave ${played[played.length - 1].toFixed(2)} against first ${played[0].toFixed(2)}`);
+  // And it starts somewhere a player can breathe: the opening wave of the
+  // table this replaced demanded 128% of what anyone could shoot.
+  assert.ok(played[0] <= 0.35, `the opening wave claims ${(played[0] * 100).toFixed(0)}% already`);
 });
 
-test('balls keep arriving sooner, down to a floor that is still clearable', () => {
-  const intervals = SPAWN.waves.map((w) => w.intervalSec);
-  assert.equal(intervals[0], TUNING.startIntervalSec);
-  assert.equal(intervals[intervals.length - 1], TUNING.endIntervalSec);
-  assert.ok(TUNING.endIntervalSec < TUNING.startIntervalSec, 'the interval has to shrink');
-  // The floor is not a number somebody liked the look of: the last wave
-  // has to stay under maxPressure like every other, which is what
-  // "as fast as it can go and still be survivable" means. checkWaves
-  // above is what enforces it; this is the statement of intent.
-  const last = SPAWN.waves[SPAWN.waves.length - 1];
-  assert.ok(waveWork(last.shapes, TUNING) / last.intervalSec <= TUNING.maxPressure);
-  // Holding down shortens the wait (GameScene.updatePanicSpawner), and
-  // cannot bring two balls closer than PANIC_HURRY_MIN_GAP -- a floor
-  // below that would make the key do nothing on the late waves.
-  const floor = Number(readText('js/GameScene.js').match(/const PANIC_HURRY_MIN_GAP = ([\d.]+);/)[1]);
-  assert.ok(TUNING.endIntervalSec > floor,
-    `the shortest interval (${TUNING.endIntervalSec}s) is at or under the ${floor}s hurry floor`);
+test('a beat is long enough for the ball to get through the ceiling', () => {
+  // A ball creeps through the border at ceilingSpeedPx and has to travel
+  // its own diameter before any of it is loose. A beat shorter than that
+  // means the next ball starts through before the last one is out -- the
+  // ceiling extruding a stream rather than dropping things. checkWaves
+  // warns about it; this is the statement that the shipped set is clear
+  // of it even at the floor beat.
+  for (const wave of SPAWN.waves) {
+    for (const step of steps(wave)) {
+      if (step.kind !== 'ball') continue;
+      const el = BALL(step.shape, step.size);
+      assert.ok(el, `no ${step.shape} ball of size ${step.size}`);
+      assert.ok(emergeSec(el.radius, SPAWN.ceilingSpeedPx) <= SPAWN.loop.minBeat,
+        `${step.shape} ${step.size} needs ${emergeSec(el.radius, SPAWN.ceilingSpeedPx)}s`
+        + ` to emerge, past the ${SPAWN.loop.minBeat}s floor beat`);
+    }
+  }
 });
 
-test('the field is given a chance to be emptied, and not forever', () => {
-  assert.ok(SPAWN.restEveryWaves >= 1, 'panic.json needs restEveryWaves');
-  assert.ok(SPAWN.restMaxSec > 0, 'a breather with no ceiling would stop the mode on a field nobody can clear');
+test('the run never runs out of waves', () => {
+  // The counter does not stop at the end of the authored set, so waveAt
+  // has to answer for any number at all -- and answer faster each time
+  // round, down to the floor.
+  const n = SPAWN.waves.length;
+  assert.equal(waveAt(0, SPAWN).cycle, 0);
+  assert.equal(waveAt(n, SPAWN).cycle, 1);
+  assert.deepEqual(waveAt(n * 7 + 2, SPAWN).steps, waveAt(2, SPAWN).steps);
+  assert.ok(waveAt(n, SPAWN).beat < waveAt(0, SPAWN).beat, 'a later cycle has to be faster');
+  assert.equal(beatFor(3, 999, SPAWN.loop), SPAWN.loop.minBeat, 'and has to stop at the floor');
+});
+
+test('the game walks the pattern, and nothing still counts pops', () => {
   const scene = readText('js/GameScene.js');
-  assert.match(scene, /panicRestLeft/, 'GameScene has to actually hold the breather');
-  assert.match(scene, /restEveryWaves/, 'nothing reads restEveryWaves');
-  assert.match(scene, /restMaxSec/, 'nothing reads restMaxSec');
+  assert.match(scene, /waveAt\(this\.panicWaveIndex, spawn\)/, 'GameScene must resolve waves through the model');
+  assert.match(scene, /nextPanicStep\(\)/, 'and step through the pattern');
+  assert.match(scene, /panicHoldLeft/, 'and hold where a pattern says to');
+  // popTarget/intervalSec/restEveryWaves were the old model's, and a
+  // leftover reader would silently read undefined.
+  for (const gone of ['popTarget', 'intervalSec', 'panicPopCount', 'restEveryWaves', 'panicRestLeft']) {
+    assert.doesNotMatch(scene, new RegExp(gone), `GameScene still mentions ${gone}`);
+  }
 });
