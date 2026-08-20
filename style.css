@@ -254,35 +254,18 @@ body {
 }
 
 
-/* The two halves of the options screen -- SOUND and DISPLAY -- side by
-   side when there is room and stacked when there is not. Side by side is
-   what keeps this screen off the scroll on a phone in landscape, where it
-   was already close (see the erase-confirmation note below, which exists
-   for the same reason). */
-#settings-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1cqmin 4cqmin;
-  margin-top: 1cqmin;
-}
-
+/* One screen's worth of settings -- the controls under SOUND or under
+   DISPLAY. Options itself is now a list of buttons like every other menu,
+   so there is nothing left to lay out there. */
 .settings-group {
   display: flex;
   flex-direction: column;
   gap: 1cqmin;
   align-items: center;
+  margin-top: 1cqmin;
 }
 
-/* Heading and the controls under it read as one block: the gap above a
-   group has to be bigger than the gaps inside it, or the grouping is
-   invisible and the headings just look like more rows. */
-.settings-group h3 {
-  margin: 0 0 0.4cqmin;
-}
-
-#settings-row label {
+.settings-group label {
   display: flex;
   align-items: center;
   gap: 8px;

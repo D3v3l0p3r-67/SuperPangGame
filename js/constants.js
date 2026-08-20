@@ -92,6 +92,10 @@ export const GAME_STATES = Object.freeze({
   MENU: 'MENU',
   OPTIONS: 'OPTIONS',
   KEY_CONFIG: 'KEY_CONFIG',
+  // Options is a list of doors now rather than a page of settings: SOUND
+  // and DISPLAY are screens of their own, same as CONTROLS already was.
+  SOUND: 'SOUND',
+  DISPLAY: 'DISPLAY',
   LEVEL_SELECT: 'LEVEL_SELECT',
   EDITOR: 'EDITOR',
   LEVEL_INTRO: 'LEVEL_INTRO',

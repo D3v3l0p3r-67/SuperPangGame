@@ -59,30 +59,8 @@
 
     <div id="screen-options" class="screen hidden">
       <h2 id="options-title"></h2>
-      <!-- Two groups, because the settings split cleanly in two and an
-           undifferentiated column of five controls did not say so: what
-           the game SOUNDS like, and what it LOOKS like. Fullscreen moved
-           in beside the size buttons -- both answer "how big is this
-           thing on my screen". -->
-      <div id="settings-row">
-        <div class="settings-group">
-          <h3 id="sound-heading"></h3>
-          <label><input type="checkbox" id="chk-mute"><span id="chk-mute-label"></span></label>
-          <label><span id="rng-sfx-label"></span><input type="range" id="rng-sfx" min="0" max="1" step="0.05"></label>
-          <label><span id="rng-music-label"></span><input type="range" id="rng-music" min="0" max="1" step="0.05"></label>
-        </div>
-        <div class="settings-group">
-          <h3 id="display-heading"></h3>
-          <div id="zoom-row">
-            <span id="zoom-label"></span>
-            <button id="btn-zoom-half" class="menu-btn zoom-btn"></button>
-            <button id="btn-zoom-1x" class="menu-btn zoom-btn"></button>
-            <button id="btn-zoom-2x" class="menu-btn zoom-btn"></button>
-            <button id="btn-zoom-fit" class="menu-btn zoom-btn"></button>
-          </div>
-          <button id="btn-options-fullscreen" class="menu-btn"></button>
-        </div>
-      </div>
+      <button id="btn-sound" class="menu-btn"></button>
+      <button id="btn-display" class="menu-btn"></button>
       <button id="btn-controls" class="menu-btn"></button>
       <!-- Erasing is irreversible, so it asks first: pressing ERASE
            PROGRESS reveals this row rather than doing anything, and
@@ -95,6 +73,31 @@
       </div>
       <p id="erase-done" class="hint hidden"></p>
       <button id="btn-close-options" class="menu-btn"></button>
+    </div>
+
+    <div id="screen-sound" class="screen hidden">
+      <h2 id="sound-title"></h2>
+      <div class="settings-group">
+        <label><input type="checkbox" id="chk-mute"><span id="chk-mute-label"></span></label>
+        <label><span id="rng-sfx-label"></span><input type="range" id="rng-sfx" min="0" max="1" step="0.05"></label>
+        <label><span id="rng-music-label"></span><input type="range" id="rng-music" min="0" max="1" step="0.05"></label>
+      </div>
+      <button id="btn-close-sound" class="menu-btn"></button>
+    </div>
+
+    <div id="screen-display" class="screen hidden">
+      <h2 id="display-title"></h2>
+      <div class="settings-group">
+        <div id="zoom-row">
+          <span id="zoom-label"></span>
+          <button id="btn-zoom-half" class="menu-btn zoom-btn"></button>
+          <button id="btn-zoom-1x" class="menu-btn zoom-btn"></button>
+          <button id="btn-zoom-2x" class="menu-btn zoom-btn"></button>
+          <button id="btn-zoom-fit" class="menu-btn zoom-btn"></button>
+        </div>
+        <button id="btn-options-fullscreen" class="menu-btn"></button>
+      </div>
+      <button id="btn-close-display" class="menu-btn"></button>
     </div>
 
     <div id="screen-keys" class="screen hidden">

@@ -939,6 +939,18 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.OPTIONS;
   }
 
+  // The two halves of the settings, each on a screen of its own -- what
+  // the game sounds like, and what it looks like. Options is a list of
+  // doors rather than a page of controls, which is what CONTROLS already
+  // was and what kept that screen readable.
+  showSound() {
+    this.state = GAME_STATES.SOUND;
+  }
+
+  showDisplay() {
+    this.state = GAME_STATES.DISPLAY;
+  }
+
   // Rebinding the game's keys, on a screen of its own rather than in the
   // options list: six actions with two keys each is a table, not a row of
   // settings (see ui.js's renderKeyList).

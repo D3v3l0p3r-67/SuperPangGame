@@ -6,17 +6,18 @@ import { isMobileDevice } from './input.js';
 import { initInstall, promptInstall, lockLandscape } from './pwa.js';
 import { ACTIONS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
 
-// zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
-// bindEvents/updateZoomButtons below).
-// zoom value -> the settings-row button that selects it. Keyed by the
-// value as a STRING, because one of them is not a number (see
-// constants.js's ZOOM_FIT) and object keys are strings regardless.
+// zoom value -> the DISPLAY screen button that selects it (see
+// ELEMENT_IDS/bindEvents/updateZoomButtons below). Keyed by the value as
+// a STRING, because one of them is not a number (see constants.js's
+// ZOOM_FIT) and object keys are strings regardless.
 const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x', [ZOOM_FIT]: 'btn-zoom-fit' };
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
   [GAME_STATES.OPTIONS]: 'screen-options',
   [GAME_STATES.KEY_CONFIG]: 'screen-keys',
+  [GAME_STATES.SOUND]: 'screen-sound',
+  [GAME_STATES.DISPLAY]: 'screen-display',
   [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
@@ -27,8 +28,10 @@ const SCREEN_IDS = {
 
 const ELEMENT_IDS = [
   'screen-menu', 'game-title-line1', 'game-title-line2',
-  'screen-options', 'options-title', 'sound-heading', 'display-heading',
+  'screen-options', 'options-title', 'btn-sound', 'btn-display',
+  'screen-sound', 'sound-title', 'btn-close-sound',
   'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'screen-display', 'display-title', 'btn-close-display',
   'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x', 'btn-zoom-fit',
   'screen-keys', 'keys-title', 'keys-list', 'keys-hint', 'btn-keys-reset', 'btn-close-keys',
   'screen-level-select', 'level-select-title', 'level-select-list',
@@ -54,8 +57,12 @@ const STATIC_LABELS = [
   ['game-title-line1', 'BALLOON', 'h1', COLORS.accent],
   ['game-title-line2', 'BUSTER', 'h1', COLORS.accent],
   ['options-title', 'OPTIONS', 'h2', COLORS.accent],
-  ['sound-heading', 'SOUND', 'button', COLORS.accent],
-  ['display-heading', 'DISPLAY', 'button', COLORS.accent],
+  ['btn-sound', 'SOUND', 'button', COLORS.text],
+  ['btn-display', 'DISPLAY', 'button', COLORS.text],
+  ['sound-title', 'SOUND', 'h2', COLORS.accent],
+  ['display-title', 'DISPLAY', 'h2', COLORS.accent],
+  ['btn-close-sound', 'BACK', 'button', COLORS.text],
+  ['btn-close-display', 'BACK', 'button', COLORS.text],
   ['chk-mute-label', 'MUTE', 'body', COLORS.text],
   ['rng-sfx-label', 'SFX', 'body', COLORS.text],
   ['rng-music-label', 'MUSIC', 'body', COLORS.text],
@@ -151,7 +158,7 @@ export class UI {
     this.setupPixelLabels();
   }
 
-  // Every static heading/button/settings-row label goes through the same
+  // Every static heading/button/settings label goes through the same
   // bitmap font the HUD/level-intro screen use (see PixelText.js), so
   // this menu chrome actually looks like it belongs to the same game --
   // only the live-editable initials input stays plain CSS text.
@@ -262,6 +269,12 @@ export class UI {
     // nothing to follow) -- see DisplayZoom.watchViewport.
     watchViewport();
 
+    // Options is a list of doors; each one goes back to it rather than to
+    // the main menu, so BACK always means "up one level".
+    this.el['btn-sound'].addEventListener('click', () => this.game.showSound());
+    this.el['btn-display'].addEventListener('click', () => this.game.showDisplay());
+    this.el['btn-close-sound'].addEventListener('click', () => this.game.showOptions());
+    this.el['btn-close-display'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-controls'].addEventListener('click', () => this.game.showKeyConfig());
     this.el['btn-close-keys'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-keys-reset'].addEventListener('click', () => {
