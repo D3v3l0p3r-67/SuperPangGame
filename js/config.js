@@ -160,3 +160,16 @@ export const LEVEL_TRANSITION = 'push';
 // that plays on the change). With the route in levels/regions.json this is
 // what decides how far into a run each new place turns up.
 export const LEVELS_PER_REGION = 5;
+
+// What plays behind the menus, so opening the game is not silence.
+//
+// One of the two generic tracks rather than a new one: every campaign
+// level takes its continent's music (see js/regions.js) and Panic Mode
+// takes music02, which leaves music01 playing almost nowhere. Change this
+// name to change what the menus sound like -- nothing else needs to know.
+//
+// It cannot start before the player has touched something: a browser will
+// not let a page make noise until it has been interacted with, so the
+// very first moment of the very first visit is silent whatever this says
+// (see ui.js's syncMenuMusic, which starts it on that first press).
+export const MENU_MUSIC = 'music01';

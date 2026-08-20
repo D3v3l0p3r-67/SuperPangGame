@@ -40,9 +40,15 @@ export class AudioManager {
   // Browsers refuse to start audio before a user gesture -- called from
   // the same click handlers that already used to call this pre-Phaser
   // Sound-Manager rewrite, so no call site needed to change.
+  // Returns whether it actually had to WAKE something. A caller that
+  // started a track while the context was asleep needs to know: that
+  // track exists and reports itself playing, but never made a sound, so
+  // resuming is not enough on its own (see ui.js's armAudioUnlock).
   resumeContext() {
     const ctx = this.sound.context;
-    if (ctx && ctx.state === 'suspended') ctx.resume();
+    if (!ctx || ctx.state !== 'suspended') return false;
+    ctx.resume();
+    return true;
   }
 
   _categoryVolume(category) {

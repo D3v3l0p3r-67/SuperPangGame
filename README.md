@@ -947,6 +947,23 @@ so it scales in lockstep without any separate logic. At 2x the canvas can
 be larger than the browser window -- the page scrolls rather than
 clipping it.
 
+**The menus have their own music**, so opening the game is not silence.
+`MENU_MUSIC` in `config.js` names the track -- `music01`, one of the two
+generic ones, which every campaign level and Panic Mode between them had
+left playing almost nowhere. It plays behind every screen in front of a
+run, including the ones reached from Options, and stops the moment one
+starts. Walking between menus does not restart it: `playMusic` is a no-op
+for the track it is already on.
+
+What it cannot do is start before the player has touched something. A
+browser will not let a page make noise until it has been interacted with,
+so the first moment of a first visit is silent whatever this says --
+`ui.js`'s `armAudioUnlock` starts the tune on the first press anywhere.
+It has to *restart* it rather than merely resume, because a track begun
+while the audio context was asleep exists and reports itself playing
+while never having made a sound; `resumeContext()` returns whether it had
+to wake anything, which is how the difference is known.
+
 **A screen's buttons share one width, and BACK sits back.** A column
 where every button shrinks to its own label reads as ragged rather than
 as a menu, so the ones that are a stack of peers -- direct children of a

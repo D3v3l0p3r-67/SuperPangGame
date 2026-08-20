@@ -1,5 +1,5 @@
 {
-  "version": "super-pang-2af39ef858d1",
+  "version": "super-pang-5b43d4d0c424",
   "files": {
     "index.html": "bf86093da80e4c72",
     "style.css": "cd7637e2a412065a",
@@ -27,9 +27,9 @@
     "js/WorldMapInterlude.js": "7a46a45be91a5075",
     "js/animations.js": "2b99819dd4099b75",
     "js/assets.js": "dd8de8989ac81ea9",
-    "js/audio.js": "233468c6dd155344",
+    "js/audio.js": "0b27b68b44cb5b2a",
     "js/colors.js": "b83ab370160dcca4",
-    "js/config.js": "9cc8ab0974cca772",
+    "js/config.js": "c25a9c3d7b3fc4db",
     "js/constants.js": "a0673ce1f3f1a160",
     "js/debug.js": "5182ae740dd76966",
     "js/editor.js": "bdc220854958c796",
@@ -45,7 +45,7 @@
     "js/pwa.js": "c9bcc0fcafec48ce",
     "js/regions.js": "c84b25728db85625",
     "js/storage.js": "d1329b89497e7485",
-    "js/ui.js": "1869645b4ca28e4e",
+    "js/ui.js": "0f6bd6cf11b9bd0f",
     "js/vendor/PHASER_LICENSE.md": "c3123cd25de4eccf",
     "js/vendor/phaser.min.js": "c79a3e8cf9f5d0f8",
     "js/weapons.js": "ebbb6989372cfaa1",

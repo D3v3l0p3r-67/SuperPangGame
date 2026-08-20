@@ -1,5 +1,6 @@
 import { GAME_STATES, COLORS, ZOOM_FIT } from './constants.js';
 import { LEVELS } from './LevelManager.js';
+import { MENU_MUSIC } from './config.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
@@ -12,6 +13,16 @@ import { ACTIONS, getBindings, setBinding, keyLabel, captureNextKey } from './ke
 // a STRING, because one of them is not a number (see constants.js's
 // ZOOM_FIT) and object keys are strings regardless.
 const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x', [ZOOM_FIT]: 'btn-zoom-fit' };
+
+// The screens the menu music plays behind: everything in front of a run,
+// including the ones reached from Options. Deliberately not the screens a
+// run ends on -- GAME_OVER and VICTORY have their own cues, and a menu
+// tune cutting in over them would step on the moment.
+const MUSIC_STATES = new Set([
+  GAME_STATES.MENU, GAME_STATES.PLAY, GAME_STATES.LEVEL_SELECT,
+  GAME_STATES.OPTIONS, GAME_STATES.SOUND, GAME_STATES.DISPLAY,
+  GAME_STATES.KEY_CONFIG, GAME_STATES.ERASE, GAME_STATES.HIGH_SCORE_TABLE,
+]);
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
@@ -174,6 +185,7 @@ export class UI {
     document.addEventListener('keydown', () => this.audio.resumeContext(), { once: true, capture: true });
 
     this.bindEvents();
+    this.armAudioUnlock();
     this.bindMenuSfx();
     this.applySettingsToControls();
     this.setupPixelLabels();
@@ -482,6 +494,47 @@ export class UI {
     }
   }
 
+  // The menu's own music: started on any screen in front of a run, left
+  // alone while it is already playing (playMusic is a no-op for the track
+  // it is already on, so walking between menus does not restart the tune),
+  // and stopped the moment a run begins.
+  //
+  // Only ever stops music it started. A level's own track is playing by
+  // the time PLAYING is reached, and stopping "whatever is playing" here
+  // would cut it off.
+  // A browser will not let a page make noise before it has been touched,
+  // so the first moment of a first visit is silent whatever the menu
+  // wants. This is how it stops being silent: the first press anywhere
+  // wakes the audio and starts the tune.
+  //
+  // Not a one-shot listener, because the context can be put back to sleep
+  // (a backgrounded tab), and not conditional on the state either -- a
+  // press during a run wakes it just the same, and syncMenuMusic decides
+  // whether that means the menu tune or nothing.
+  armAudioUnlock() {
+    const unlock = () => {
+      if (!this.audio.resumeContext()) return;
+      // It was asleep, so anything "playing" was silent -- started again
+      // rather than merely un-paused.
+      if (this.audio.musicName === MENU_MUSIC) this.audio.stopMusic();
+      this.syncMenuMusic(this.game.state);
+    };
+    for (const type of ['pointerdown', 'keydown']) {
+      window.addEventListener(type, unlock, { capture: true });
+    }
+  }
+
+  syncMenuMusic(state) {
+    if (MUSIC_STATES.has(state)) {
+      // Asked every time rather than once: the context can be suspended
+      // again (a backgrounded tab), and this is the cheap way back.
+      this.audio.resumeContext();
+      this.audio.playMusic(MENU_MUSIC);
+    } else if (this.audio.musicName === MENU_MUSIC) {
+      this.audio.stopMusic();
+    }
+  }
+
   // The level editor is shown to someone logged into the admin tool and
   // to nobody else. That is not a guess at who "should" have it: the
   // admin session is the only thing that lets an edited level be SAVED
@@ -514,6 +567,7 @@ export class UI {
   }
 
   setScreen(state) {
+    this.syncMenuMusic(state);
     if (state === GAME_STATES.MENU) {
       this.revealEditorForAdmins();
       this.revealQuitWhenInstalled();
