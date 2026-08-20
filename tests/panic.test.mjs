@@ -305,7 +305,14 @@ test('its pause screen offers two things and nothing else', () => {
   // between, so Restart, Back to editor and Fullscreen are each either
   // meaningless there or a way to lose the run by misclicking.
   const ui = readText('js/ui.js');
-  const paused = ui.slice(ui.indexOf("if (state === GAME_STATES.PAUSED)"), ui.indexOf('GAME_STATES.GAME_OVER'));
+  // From the branch to the next one. Searched FORWARD from the branch,
+  // because GAME_STATES.GAME_OVER also appears in the screen-id map near
+  // the top of the file and a plain indexOf finds that one instead --
+  // slicing to it silently gave an empty string, which matched nothing
+  // and passed nothing.
+  const from = ui.indexOf('if (state === GAME_STATES.PAUSED)');
+  const paused = ui.slice(from, ui.indexOf('GAME_STATES.GAME_OVER', from));
+  assert.ok(from > 0 && paused.length > 200, 'could not find the pause branch to check');
   assert.match(paused, /const bare = this\.game\.isPanicMode/, 'the pause screen has to know it is Panic Mode');
   for (const id of ['btn-pause-restart', 'btn-pause-editor', 'btn-fullscreen-pause']) {
     assert.match(paused, new RegExp(`'${id}'[\\s\\S]{0,120}bare`),
