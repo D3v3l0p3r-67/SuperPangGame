@@ -233,12 +233,24 @@ every push.
 | Fullscreen | Options -> DISPLAY | Same |
 
 The main menu is three buttons: **START GAME**, **HIGH SCORES**,
-**OPTIONS**. START GAME opens a screen with the three ways to play and a
-line under each saying what it is -- CAMPAIGN (50 levels across eight
-continents), PANIC MODE (endless; the ceiling never stops) and SINGLE
-LEVEL (replay anything unlocked). Three buttons on the front named them
-but did not explain them, and "PANIC MODE" tells a first-time player
-nothing.
+**OPTIONS**. START GAME opens a screen with the three ways to play, each
+a **card** carrying its name and, inside the same button, a line saying
+what it is -- CAMPAIGN (50 levels across eight continents), PANIC MODE
+(endless; the ceiling never stops) and SINGLE LEVEL (replay anything
+unlocked). Three buttons on the front named them but did not explain
+them, and "PANIC MODE" tells a first-time player nothing. The description
+goes *inside* the button rather than loose underneath it because two
+stray lines per choice read as a list of settings; enclosed, they read as
+three things to choose between, and the whole card lights up together on
+hover.
+
+**QUIT GAME** appears only when the game is running as an installed app.
+A browser tab may not close itself -- `window.close()` is ignored for
+anything the page did not open -- so in a tab it would be a button that
+does nothing. Even installed, whether the browser honours it is the
+browser's business, so if the window is still there a moment later the
+screen says to close it by hand rather than leaving the button looking
+broken.
 
 **LEVEL EDITOR** appears there only for a browser logged into the admin
 tool. That is not a guess at who ought to have it: the admin session is
@@ -934,6 +946,15 @@ directly to `VIRTUAL_W/VIRTUAL_H` times the resolved scale;
 so it scales in lockstep without any separate logic. At 2x the canvas can
 be larger than the browser window -- the page scrolls rather than
 clipping it.
+
+**Menus are centred on the frame, not on the canvas.** The canvas is 500
+tall and the last 84 of that is the HUD strip (`constants.js`'s
+`VIRTUAL_H`/`HUD_H`), so a screen centred in the whole thing sits 42px
+below the middle of the playfield -- visibly low, with all the leftover
+room piled above the title. `.screen` pads its bottom by the HUD's full
+height, which moves the centre up by half of it: exactly the 42. In `cqh`
+rather than a percentage, because percentage padding resolves against the
+container's WIDTH.
 
 Wherever the game's own background is black (the HUD strip, the page
 around/outside the canvas at any zoom level) it's the exact same color

@@ -3,7 +3,7 @@ import { LEVELS } from './LevelManager.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
-import { initInstall, promptInstall, lockLandscape } from './pwa.js';
+import { initInstall, promptInstall, lockLandscape, isStandalone } from './pwa.js';
 import { fileSaving } from './levelFile.js';
 import { ACTIONS, getBindings, setBinding, keyLabel, captureNextKey } from './keys.js';
 
@@ -46,8 +46,10 @@ const ELEMENT_IDS = [
   'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
   'screen-play', 'play-title', 'btn-play', 'btn-close-play',
-  'btn-start', 'start-hint', 'btn-start-panic', 'start-panic-hint',
-  'btn-start-level', 'start-level-hint',
+  'btn-start', 'start-name', 'start-hint',
+  'btn-start-panic', 'start-panic-name', 'start-panic-hint',
+  'btn-start-level', 'start-level-name', 'start-level-hint',
+  'btn-quit-game', 'quit-hint',
   'btn-editor', 'btn-highscores', 'btn-options',
   'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select',
   'btn-erase', 'erase-warning', 'btn-erase-yes', 'erase-done',
@@ -103,15 +105,17 @@ const STATIC_LABELS = [
   // is uppercase, digits and "!", ":" and "." (see assets.js's
   // INTRO_FONT_CHARS), so these are written in full stops rather than
   // commas or dashes.
-  ['btn-start', 'CAMPAIGN', 'button', COLORS.text],
+  ['start-name', 'CAMPAIGN', 'button', COLORS.text],
   ['start-hint', '50 LEVELS ACROSS EIGHT CONTINENTS.', 'body', COLORS.text],
-  ['btn-start-panic', 'PANIC MODE', 'button', COLORS.text],
+  ['start-panic-name', 'PANIC MODE', 'button', COLORS.text],
   ['start-panic-hint', 'ENDLESS. THE CEILING NEVER STOPS.', 'body', COLORS.text],
-  ['btn-start-level', 'SINGLE LEVEL', 'button', COLORS.text],
+  ['start-level-name', 'SINGLE LEVEL', 'button', COLORS.text],
   ['start-level-hint', 'REPLAY ANY LEVEL YOU HAVE UNLOCKED.', 'body', COLORS.text],
   ['btn-editor', 'LEVEL EDITOR', 'button', COLORS.text],
   ['btn-highscores', 'HIGH SCORES', 'button', COLORS.text],
   ['btn-options', 'OPTIONS', 'button', COLORS.text],
+  ['btn-quit-game', 'QUIT GAME', 'button', COLORS.text],
+  ['quit-hint', 'CLOSE THIS WINDOW YOURSELF.', 'body', COLORS.text],
   ['btn-options-fullscreen', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-erase', 'ERASE PROGRESS', 'button', COLORS.text],
   // Every glyph here has to be one the bitmap font can draw -- uppercase,
@@ -222,6 +226,13 @@ export class UI {
 
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
     this.el['btn-close-highscores'].addEventListener('click', () => this.game.goToMenu());
+
+    this.el['btn-quit-game'].addEventListener('click', () => {
+      window.close();
+      // Still here? Then the browser declined, and the player needs to be
+      // told rather than left pressing a dead button.
+      setTimeout(() => this.el['quit-hint'].classList.remove('hidden'), 400);
+    });
 
     this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
@@ -481,6 +492,20 @@ export class UI {
   // button stays hidden until it answers -- so a player who is not an
   // admin never sees it flash. On a static host (GitHub Pages, no PHP)
   // the probe is one 404 and the answer is no.
+  // QUIT GAME only where quitting is a thing that can happen. A browser
+  // tab may not close itself -- window.close() is ignored for anything
+  // the page did not open -- so in a tab this would be a button that does
+  // nothing, which is worse than no button. Installed, it usually works.
+  //
+  // "Usually" is why the hint exists: even standalone, whether close() is
+  // honoured is the browser's business, and a button that silently fails
+  // is the thing being avoided. If the window is still here a moment
+  // later, say so rather than leaving the player pressing it again.
+  revealQuitWhenInstalled() {
+    if (!isStandalone()) return;
+    this.el['btn-quit-game'].classList.remove('hidden');
+  }
+
   async revealEditorForAdmins() {
     if (this.editorProbed) return;
     this.editorProbed = true;
@@ -489,7 +514,11 @@ export class UI {
   }
 
   setScreen(state) {
-    if (state === GAME_STATES.MENU) this.revealEditorForAdmins();
+    if (state === GAME_STATES.MENU) {
+      this.revealEditorForAdmins();
+      this.revealQuitWhenInstalled();
+      this.el['quit-hint'].classList.add('hidden');
+    }
     for (const id of Object.values(SCREEN_IDS)) this.el[id].classList.add('hidden');
     const id = SCREEN_IDS[state];
     if (!id) return;

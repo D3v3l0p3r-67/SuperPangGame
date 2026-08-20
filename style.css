@@ -186,7 +186,16 @@ body {
   gap: 1.4cqmin;
   background: rgba(5, 4, 10, 0.88);
   text-align: center;
-  padding: 4cqmin 3cqmin;
+  /* The extra bottom padding is what centres a menu on the FRAME rather
+     than on the canvas. The canvas is 500 tall but the last 84 of that is
+     the HUD strip (constants.js's VIRTUAL_H/HUD_H), so centring in the
+     whole thing put every screen 42px below the middle of the playfield
+     -- visibly low, with the room left over piled above the title.
+     Padding the bottom by the HUD's full height moves the centre up by
+     half of it, which is exactly the 42. In cqh because the canvas is
+     scaled (see DisplayZoom.js) and percentages would resolve against
+     its WIDTH. */
+  padding: 4cqmin 3cqmin calc(4cqmin + 16.8cqh);
   /* Only ever scrolls when a screen genuinely does not fit -- a phone in
      landscape is barely 390 CSS px tall with the menu on it. Centred as
      before whenever it does. */
@@ -272,19 +281,30 @@ body {
   justify-content: center;
 }
 
-/* A way to play and what it is: the description belongs to the button
-   above it, so the gap inside a choice has to be smaller than the gap
-   between two of them or the lines attach themselves to the wrong
-   button. */
-.menu-choice {
-  display: flex;
+/* A way to play, as one card rather than a button with a caption loose
+   underneath it. Two loose lines per choice read as a list of settings;
+   put inside the thing you press, they read as three things to choose
+   between -- and the whole card lights up together on hover, so what is
+   about to be picked is never in doubt. */
+.menu-card {
   flex-direction: column;
-  align-items: center;
-  margin-bottom: 1.2cqmin;
+  gap: 0.6cqmin;
+  padding: 1.6cqmin 3cqmin;
+  min-width: min(58cqw, 420px);
 }
 
-.menu-choice .hint {
-  margin-top: 0.4cqmin;
+/* Dimmer and smaller than the name above it: the name is what is being
+   chosen, the line under it is only there to say what that means. */
+.card-hint {
+  opacity: 0.7;
+  transform: scale(0.8);
+}
+
+/* Pixel text is a canvas (see PixelText.js), and the only one in the UI
+   drawn at a fraction of its natural size is this one -- so it is the
+   only one that would be resampled smooth, in among glyphs that are not. */
+.card-hint canvas {
+  image-rendering: pixelated;
 }
 
 /* What an erase would cost, on the screen that asks. Not the dimmed

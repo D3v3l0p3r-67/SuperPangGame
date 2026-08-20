@@ -47,6 +47,11 @@
            place an edited level can actually be saved (see
            js/levelFile.js). Revealed by ui.js once that has answered. -->
       <button id="btn-editor" class="menu-btn hidden"></button>
+      <!-- Only when running as an installed app: a browser tab is not
+           allowed to close itself, so in one this would be a button that
+           does nothing (see ui.js's revealQuitWhenInstalled). -->
+      <button id="btn-quit-game" class="menu-btn hidden"></button>
+      <p id="quit-hint" class="hint hidden"></p>
       <!-- Both start hidden and are revealed by js/pwa.js's rules: the
            button only once the browser has offered an install prompt, the
            iOS line only on an iPhone/iPad that is not already running the
@@ -60,18 +65,18 @@
          tells a first-time player nothing at all. -->
     <div id="screen-play" class="screen hidden">
       <h2 id="play-title"></h2>
-      <div class="menu-choice">
-        <button id="btn-start" class="menu-btn"></button>
-        <p id="start-hint" class="hint"></p>
-      </div>
-      <div class="menu-choice">
-        <button id="btn-start-panic" class="menu-btn"></button>
-        <p id="start-panic-hint" class="hint"></p>
-      </div>
-      <div class="menu-choice">
-        <button id="btn-start-level" class="menu-btn"></button>
-        <p id="start-level-hint" class="hint"></p>
-      </div>
+      <button id="btn-start" class="menu-btn menu-card">
+        <span id="start-name"></span>
+        <span id="start-hint" class="card-hint"></span>
+      </button>
+      <button id="btn-start-panic" class="menu-btn menu-card">
+        <span id="start-panic-name"></span>
+        <span id="start-panic-hint" class="card-hint"></span>
+      </button>
+      <button id="btn-start-level" class="menu-btn menu-card">
+        <span id="start-level-name"></span>
+        <span id="start-level-hint" class="card-hint"></span>
+      </button>
       <button id="btn-close-play" class="menu-btn"></button>
     </div>
 
