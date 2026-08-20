@@ -5,7 +5,8 @@
   "weapon": "harpoon",
   "weaponBonusShots": 1,
   "excludePowerupKinds": [
-    "give_weapon"
+    "give_weapon",
+    "weapon_max_shots"
   ],
   "obstacles": [],
   "balls": [],

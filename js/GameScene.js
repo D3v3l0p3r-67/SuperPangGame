@@ -470,8 +470,16 @@ export class GameScene extends Phaser.Scene {
     for (const active of this.effects.active.keys()) POWERUP_TYPES[active].apply(this);
   }
 
+  // What "no power-up running" means for this weapon ON THIS LEVEL. The
+  // level's own bonus belongs in here, not just in the initial state:
+  // weapon_max_shots sets maxActiveShots from this and puts it back here
+  // when it expires (see elements.js), so leaving the bonus out meant a
+  // rapid_shot picked up in Panic Mode did nothing at all for twelve
+  // seconds and then confiscated the harpoon's second shot for the rest
+  // of the run. Measured before the fix: 2 shots, 2 during, 1 after.
   get baseMaxActiveShots() {
-    return WEAPON_TYPES[this.weaponType].baseMaxActiveShots;
+    return WEAPON_TYPES[this.weaponType].baseMaxActiveShots
+      + (this.currentLevelDef?.weaponBonusShots ?? 0);
   }
 
   get weaponLabel() {

@@ -270,6 +270,20 @@ test('the harpoon there carries a second shot for the whole run', () => {
     'nothing reads weaponBonusShots, so the level would quietly get the plain harpoon');
 });
 
+test('nothing that touches the weapon drops there', () => {
+  // rapid_shot is excluded because the harpoon already carries its extra
+  // shot. Before that, picking one up did nothing for twelve seconds and
+  // then took the level's bonus away for the rest of the run -- which is
+  // fixed underneath (baseMaxActiveShots counts the level's bonus, so
+  // apply and revert both land on the right number), so this is now a
+  // design choice rather than a workaround.
+  const level = readJSON('levels/panic.json');
+  assert.ok(level.excludePowerupKinds?.includes('weapon_max_shots'));
+  assert.match(readText('js/GameScene.js'),
+    /baseMaxActiveShots[\s\S]{0,400}weaponBonusShots/,
+    'baseMaxActiveShots must count the level bonus, or reverting a weapon power-up steals it');
+});
+
 test('no other weapon can fall out of a ball there', () => {
   // Excluded by KIND, not by name, so a fourth weapon power-up is ruled
   // out the day it is added rather than the day someone remembers.

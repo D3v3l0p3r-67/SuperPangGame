@@ -565,11 +565,21 @@ playfield is 0.98s of flight plus 0.15s of shot lock, so a second shot in
 the air is roughly what turns a second per shot from an expert's rate
 into an ordinary one.
 
-Every power-up drops there **except other weapons**. A machine gun
-falling out of a ball would quietly rewrite the arithmetic the mode is
-balanced on. They are ruled out by KIND -- `excludePowerupKinds:
-["give_weapon"]` -- so a fourth weapon is excluded the day it is added
-rather than the day someone remembers.
+Every power-up drops there **except the ones that touch the weapon**. A
+machine gun falling out of a ball would quietly rewrite the arithmetic
+the mode is balanced on, and rapid shot is an extra shot the harpoon
+already carries. Both are ruled out by KIND --
+`excludePowerupKinds: ["give_weapon", "weapon_max_shots"]` -- so a fourth
+weapon is excluded the day it is added rather than the day someone
+remembers.
+
+A level granting `weaponBonusShots` has to count it in
+`baseMaxActiveShots` too, and not only in the state it starts with:
+`weapon_max_shots` sets the shot count FROM that number and puts it back
+there when it expires. Leaving the bonus out meant a rapid shot picked up
+in Panic Mode did nothing for twelve seconds and then confiscated the
+harpoon's second shot for the rest of the run -- 2 shots, 2 during, 1
+after. It is 2, 3, 2 now.
 
 ### A wave is a rhythm
 
