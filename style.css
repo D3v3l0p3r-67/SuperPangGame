@@ -252,6 +252,44 @@ body {
   cursor: pointer;
 }
 
+/* One width per screen, for the buttons that are a stack of peers --
+   direct children of a screen, or of a settings group. A column of
+   buttons that each shrink to their own label reads as ragged rather than
+   as a menu, and the eye has nothing to run down.
+
+   Deliberately NOT every .menu-btn: the size picker is a row of four
+   (0.5X/1X/2X/FIT), the level list is a grid of fifty, and the key
+   bindings are a table -- all of them nested, all of them wrong at a
+   menu's width. */
+.screen > .menu-btn,
+.settings-group > .menu-btn {
+  width: var(--menu-w, min(46cqw, 300px));
+}
+
+/* The play screen's cards hold a sentence, so its column is wider -- and
+   its BACK matches the cards rather than the other screens. */
+#screen-play {
+  --menu-w: min(58cqw, 420px);
+}
+
+/* Going back is not a choice anyone came to this screen to make, so it
+   does not compete with the ones they did. Every one of them is named
+   btn-close-* (BACK on five screens, CANCEL on the erase screen), which
+   is what lets this be one rule rather than a list to keep up to date.
+   It brightens to a normal button on hover, so it never looks disabled. */
+.screen > [id^="btn-close-"] {
+  background: transparent;
+  border-color: var(--panel);
+  opacity: 0.7;
+}
+
+.screen > [id^="btn-close-"]:hover,
+.screen > [id^="btn-close-"]:focus-visible {
+  background: var(--panel-border);
+  border-color: var(--panel-border);
+  opacity: 1;
+}
+
 .menu-btn:hover,
 .menu-btn:focus-visible {
   background: var(--panel-border);
@@ -290,7 +328,6 @@ body {
   flex-direction: column;
   gap: 0.6cqmin;
   padding: 1.6cqmin 3cqmin;
-  min-width: min(58cqw, 420px);
 }
 
 /* Dimmer and smaller than the name above it: the name is what is being

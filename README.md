@@ -947,6 +947,22 @@ so it scales in lockstep without any separate logic. At 2x the canvas can
 be larger than the browser window -- the page scrolls rather than
 clipping it.
 
+**A screen's buttons share one width, and BACK sits back.** A column
+where every button shrinks to its own label reads as ragged rather than
+as a menu, so the ones that are a stack of peers -- direct children of a
+screen or of a settings group -- take a per-screen width: 300px normally,
+420px on the play screen whose cards hold a sentence. Deliberately not
+every `.menu-btn`: the size picker is a row of four, the level list a
+grid of fifty, the key bindings a table, and all three are wrong at a
+menu's width.
+
+Going back is not a choice anyone came to a screen to make, so it does
+not compete with the ones they did: transparent, dimmer, brightening to a
+normal button on hover so it never looks disabled. Every one of them is
+named `btn-close-*` -- BACK on five screens, CANCEL on the erase screen
+-- which is what lets that be one CSS rule instead of a list to keep up
+to date.
+
 **Menus are centred on the frame, not on the canvas.** The canvas is 500
 tall and the last 84 of that is the HUD strip (`constants.js`'s
 `VIRTUAL_H`/`HUD_H`), so a screen centred in the whole thing sits 42px
