@@ -19,6 +19,23 @@
 //   .      wait one beat, dropping nothing
 //   |8     HOLD here while the field still has balls on it, up to 8s
 //
+// A PATTERN IS THE SLOWEST THE WAVE CAN GO
+//
+// Waiting on an empty field is the least interesting thing this mode can
+// ask of anyone, so it does not: a rest is skipped, and a hold released,
+// once the field holds less than `skipRestUnderSec` of shooting -- the
+// same measure the patterns themselves are costed in, so "nearly clear"
+// means one straggler rather than a ball count.
+//
+// That is a rule about the FIELD, not about where a token sits, which is
+// what keeps the notation readable: `.` still means the same thing
+// everywhere, and what a pattern describes is the wave at its slowest.
+//
+// It cannot run away with itself either, and the reason is worth
+// stating: skipping is only possible while the player is ahead, and it
+// stops the instant they are not. A wave cannot compress itself into
+// something its player was not already clearing.
+//
 // Ball tokens and rests both take exactly one beat -- that is what makes
 // the pattern a grid you can read down a column of. A hold is not a beat
 // at all: it is a condition, it takes zero time on a field that is
@@ -90,13 +107,27 @@ export function parsePattern(spawn, shapeCode, holdMaxSec) {
 // The steps that take a beat each. A hold is not one of them.
 export const patternBeats = (steps) => steps.filter((s) => s.kind !== 'hold').length;
 
+// Seconds of shooting one ball is worth: its whole split tree, at the
+// working average, weighted by how hard that shape is to actually hit.
+// The game measures the LIVE field with this too (see
+// GameScene.fieldWork), which is what lets it tell "nearly clear" from
+// "there is still a size-2 up there".
+export function ballWork(shape, size, tuning) {
+  return shotsToClear(size) * tuning.shotTimeSec * (tuning.shapeEffort[shape] ?? 1);
+}
+
 // Seconds of shooting the whole pattern asks for.
 export function waveWork(steps, tuning) {
-  return steps.reduce((sum, step) => {
-    if (step.kind !== 'ball') return sum;
-    return sum + shotsToClear(step.size) * tuning.shotTimeSec * (tuning.shapeEffort[step.shape] ?? 1);
-  }, 0);
+  return steps.reduce((sum, step) => (
+    step.kind === 'ball' ? sum + ballWork(step.shape, step.size, tuning) : sum
+  ), 0);
 }
+
+// The beats a pattern would take if every rest it can skip WERE skipped
+// -- see the note on skipping in checkWaves. Ball steps always take
+// their beat; rests only take one when there is something left to rest
+// for.
+export const patternBallSteps = (steps) => steps.filter((s) => s.kind === 'ball').length;
 
 // The beat an authored wave runs at on its `cycle`-th time round.
 //

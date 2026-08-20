@@ -29,7 +29,7 @@ import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
-import { waveAt } from './panicWaves.js';
+import { waveAt, ballWork } from './panicWaves.js';
 import * as storage from './storage.js';
 import {
   obstacleTextureKey, FRAME_TILE_TEXTURE, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
@@ -1239,6 +1239,22 @@ export class GameScene extends Phaser.Scene {
     const wave = this.panicWave;
     if (!wave) return;
     if (this.panicHoldLeft > 0) { this.updatePanicHold(dt, hurry); return; }
+    // Nothing left to rest FOR: a rest waits out its beat only while the
+    // field still has something on it worth waiting for. Standing on an
+    // empty screen watching a clock is the least interesting thing this
+    // mode can ask of anyone, and the pattern is written as the wave at
+    // its SLOWEST, not as a promise about the clock.
+    //
+    // It cannot run away with itself: skipping is only possible while the
+    // player is ahead, and the moment they are not the rests come back.
+    // A wave cannot compress itself into something its player was not
+    // already clearing. The floor is the same one the down key gets, so
+    // a skip can never drop two balls on top of each other either.
+    if (wave.steps[this.panicStep]?.kind === 'rest' && this.panicFieldIsClear()
+      && this.levelTimer >= this.panicStepStartedAt + PANIC_HURRY_MIN_GAP) {
+      this.nextPanicStep();
+      return;
+    }
     if (hurry) {
       this.panicStepEndsAt = Math.max(this.panicStepStartedAt + PANIC_HURRY_MIN_GAP,
         this.panicStepEndsAt - dt * (PANIC_HURRY_RATE - 1));
@@ -1258,9 +1274,30 @@ export class GameScene extends Phaser.Scene {
   // should not have to sit through it.
   updatePanicHold(dt, hurry) {
     this.panicHoldLeft -= dt * (hurry ? PANIC_HURRY_RATE : 1);
-    if (this.panicHoldLeft > 0 && this.balls.countActive(true) > 0) return;
+    if (this.panicHoldLeft > 0 && !this.panicFieldIsClear()) return;
     this.panicHoldLeft = 0;
     this.nextPanicStep();
+  }
+
+  // Whether the field is clear ENOUGH to stop waiting on it -- what both
+  // a rest and a hold ask before they take any time.
+  //
+  // Measured in the seconds of shooting still owed rather than in balls,
+  // because a ball is not a unit of anything: one size-2 is three shots
+  // and a whole split tree, one size-1 is a straggler to walk under. It
+  // is the same measure the patterns are costed in (see panicWaves.js's
+  // ballWork), so "nearly clear" means the same thing to the game as it
+  // does to the file.
+  panicFieldIsClear() {
+    const spawn = this.currentLevelDef?.panicSpawn;
+    if (!spawn) return true;
+    let owed = 0;
+    for (const ball of this.balls.getChildren()) {
+      if (!ball.active) continue;
+      owed += ballWork(ball.shape, ball.size, spawn.tuning);
+      if (owed > spawn.skipRestUnderSec) return false;
+    }
+    return true;
   }
 
   // Onto the next step, and onto the next WAVE when the pattern is spent

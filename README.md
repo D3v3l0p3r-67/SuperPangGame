@@ -573,6 +573,30 @@ depended on where it sat could not be read at all.
 The letters are `shapeCode` in the same file: `r`ound, he`x`, `w`ave,
 `h`unter, hea`v`y.
 
+**A pattern is the slowest the wave can go.** A rest waits out its beat
+only while the field still holds something worth waiting for -- once less
+than `skipRestUnderSec` of shooting is left on it, the rest is skipped
+and the hold released. Standing on an empty screen watching a clock is
+the least interesting thing this mode can ask of anyone.
+
+That is a rule about the FIELD, not about where a token sits, which is
+what keeps `.` meaning one thing everywhere. And it cannot run away with
+itself, for a reason worth stating: the mode becomes a feedback loop.
+While the player is behind, the rests play and the wave runs at its
+authored pressure -- under the limit, so the backlog drains. While they
+are ahead, the rests vanish and it runs at the pressure of its ball steps
+alone, which is over 1, so the backlog grows again. It settles around the
+threshold, and it can only settle because the authored pressure is under
+1. **That** is what `maxPressure` is really protecting: not the fast case,
+but the ability to recover from it. `tests/panic.test.mjs` simulates runs
+at four different skill levels and fails if the backlog is ever unbounded.
+
+One consequence is worth knowing before authoring: since the authored
+pressure is well under 1, a player who is keeping up skips most rests, so
+what a pattern really composes is the ORDER AND MIX of balls. The silences
+are a floor that a struggling player falls back to, not a rhythm a good
+one hears.
+
 **A hold is not a beat.** It is a condition: zero time on a field that is
 already clear, and it never counts towards the wave's length. Its cap
 matters -- a field nobody can clear would otherwise stop the mode dead.

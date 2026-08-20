@@ -15,7 +15,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  checkWaves, parsePattern, patternBeats, waveWork, emergeSec,
+  checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, emergeSec,
 } from '../js/panicWaves.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,13 +38,17 @@ const spawn = JSON.parse(readFileSync(join(ROOT, 'levels', 'panic.json'), 'utf8'
 const ball = ballElements();
 const { problems, warnings } = checkWaves(spawn, ball);
 
-console.log('wave  beats  length  balls   work  now   floor  pattern');
+// "rush" is the wave with every skippable rest skipped -- what a player
+// who clears each ball as it lands actually gets. It is not a limit
+// anything is checked against, because reaching it MEANS keeping up: the
+// rests come back the instant they stop doing so (see panicWaves.js).
+console.log('wave  beats  length  balls   work  now   floor   rush  pattern');
 spawn.waves.forEach((wave, i) => {
   const steps = parsePattern(wave.spawn, spawn.shapeCode, spawn.holdMaxSec);
   const beats = patternBeats(steps);
   const n = String(i + 1).padStart(4);
   if (!beats) {
-    console.log(`${n}      -       -      -      -    -       -  ${wave.spawn}   (breather)`);
+    console.log(`${n}      -       -      -      -    -       -      -  ${wave.spawn}   (breather)`);
     return;
   }
   const work = waveWork(steps, spawn.tuning);
@@ -56,6 +60,7 @@ spawn.waves.forEach((wave, i) => {
   console.log(`${n}  ${String(beats).padStart(5)}  ${`${(wave.beat * beats).toFixed(0)}s`.padStart(6)}`
     + `  ${String(balls).padStart(5)}  ${`${work.toFixed(1)}s`.padStart(5)}`
     + `  ${(work / (wave.beat * beats)).toFixed(2)}  ${(work / (spawn.loop.minBeat * beats)).toFixed(2).padStart(6)}`
+    + `  ${(work / (spawn.loop.minBeat * patternBallSteps(steps))).toFixed(2).padStart(5)}`
     + `  ${wave.spawn}`);
 });
 
@@ -78,4 +83,4 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(`\nok -- ${spawn.waves.length} waves, floor beat ${spawn.loop.minBeat}s,`
-  + ` limit ${spawn.tuning.maxPressure}`);
+  + ` limit ${spawn.tuning.maxPressure}, rests skipped under ${spawn.skipRestUnderSec}s of work left`);

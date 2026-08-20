@@ -11,7 +11,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readJSON, readText } from './helpers.mjs';
 import {
-  checkWaves, parsePattern, patternBeats, waveWork, waveAt, beatFor, shotsToClear, emergeSec,
+  checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, waveAt, beatFor,
+  shotsToClear, emergeSec, ballWork,
 } from '../js/panicWaves.js';
 import { ballElements } from '../tools/panic_waves.mjs';
 
@@ -123,5 +124,81 @@ test('the game walks the pattern, and nothing still counts pops', () => {
   // leftover reader would silently read undefined.
   for (const gone of ['popTarget', 'intervalSec', 'panicPopCount', 'restEveryWaves', 'panicRestLeft']) {
     assert.doesNotMatch(scene, new RegExp(gone), `GameScene still mentions ${gone}`);
+  }
+});
+
+// A run of the mode, stepped exactly as GameScene steps it, against a
+// player who clears `rate` seconds of shooting per second. 1.0 is the
+// player the cost model assumes.
+//
+// This exists because rest-skipping took the safety property out of
+// reach of arithmetic alone. With rests skippable the mode is a feedback
+// loop: while the player is behind, the rests play and the wave runs at
+// its authored pressure (under the limit, so the backlog drains); while
+// they are ahead, the rests vanish and it runs at the pressure of its
+// ball steps alone (over 1, so the backlog grows). It settles around the
+// skip threshold, and it can only settle because the AUTHORED pressure
+// is under 1 -- which is the thing checkWaves checks. This is the test
+// that the loop really does settle.
+function simulate(spawn, rate, waves) {
+  const MIN_GAP = 0.6;
+  const dt = 1 / 60;
+  let t = 0, waveIndex = 0, step = -1, endsAt = spawn.initialDelaySec, startedAt = 0, hold = 0;
+  let cache = null, owed = 0, peak = 0;
+  const wave = () => {
+    if (cache?.index !== waveIndex) cache = { index: waveIndex, ...waveAt(waveIndex, spawn) };
+    return cache;
+  };
+  const clear = () => owed <= spawn.skipRestUnderSec;
+  const next = () => {
+    step += 1;
+    if (step >= wave().steps.length) { waveIndex += 1; step = 0; }
+    const w = wave(), s = w.steps[step];
+    startedAt = t;
+    if (s.kind === 'hold') { hold = s.maxSec; endsAt = Infinity; return; }
+    if (s.kind === 'ball') owed += ballWork(s.shape, s.size, spawn.tuning);
+    endsAt = t + w.beat;
+  };
+  while (waveIndex < waves && t < 40000) {
+    t += dt;
+    owed = Math.max(0, owed - dt * rate);
+    peak = Math.max(peak, owed);
+    if (hold > 0) { hold -= dt; if (!(hold > 0 && !clear())) { hold = 0; next(); } }
+    else if (wave().steps[step]?.kind === 'rest' && clear() && t >= startedAt + MIN_GAP) next();
+    else if (t >= endsAt) next();
+  }
+  return { minutes: t / 60, peak, finished: waveIndex >= waves };
+}
+
+test('skipping rests cannot run away with the field', () => {
+  // Three cycles of the set, for players from below the model's
+  // assumption to far above it. What must hold is that the backlog stays
+  // BOUNDED -- if skipping could outpace recovery, a better player would
+  // be buried by their own speed, which would be an absurd mode.
+  for (const rate of [0.7, 1, 1.5, 3]) {
+    const run = simulate(SPAWN, rate, SPAWN.waves.length * 3);
+    assert.ok(run.finished, `a player clearing ${rate}x never got through three cycles`);
+    // One straggler under the threshold plus the biggest single ball a
+    // pattern holds is the most that can be owed at once.
+    assert.ok(run.peak < 15, `a player clearing ${rate}x fell ${run.peak.toFixed(1)}s behind`);
+  }
+});
+
+test('the authored pattern is what makes recovery possible', () => {
+  // The ball steps alone -- every rest skipped -- run OVER the limit, and
+  // that is fine: reaching that state means the field is clear, i.e. the
+  // player is ahead. What matters is that the pattern they fall back to
+  // when they are not ahead can dig them out again, which is the
+  // maxPressure check. If the authored pressure were also over 1 there
+  // would be no way back and the mode would be the old broken one.
+  for (const wave of SPAWN.waves) {
+    const parsed = steps(wave);
+    const beats = patternBeats(parsed);
+    if (!beats) continue;
+    const work = waveWork(parsed, SPAWN.tuning);
+    assert.ok(work / (SPAWN.loop.minBeat * beats) < 1,
+      `wave with pattern "${wave.spawn}" cannot recover at the floor beat`);
+    assert.ok(patternBallSteps(parsed) < beats,
+      `pattern "${wave.spawn}" is all balls -- it has no rests to fall back on`);
   }
 });

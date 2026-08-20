@@ -9,6 +9,7 @@
     "initialDelaySec": 2,
     "ceilingSpeedPx": 16,
     "holdMaxSec": 8,
+    "skipRestUnderSec": 2.5,
     "shapeCode": {
       "r": "round",
       "x": "hex",
