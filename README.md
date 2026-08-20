@@ -230,7 +230,14 @@ every push.
 | Call the next ball sooner (Panic Mode) | Arrow Down, held | Joystick down, held |
 | Shoot | Space | On-screen shoot button |
 | Pause | Esc | On-screen pause button |
-| Fullscreen | Button on the Options screen | Same |
+| Fullscreen | Options -> Display | Same |
+
+The Options screen is two groups: **Sound** (mute, SFX, music) and
+**Display** (size, fullscreen). They were one undifferentiated column of
+five controls, which did not say that the settings split cleanly into
+what the game sounds like and what it looks like -- and fullscreen
+belongs beside the size buttons, since both answer "how big is this thing
+on my screen".
 
 Every keyboard control is rebindable on the **CONTROLS** screen (Options
 -> CONTROLS): one key per action, click it and press the key you want,
@@ -249,7 +256,7 @@ is a level opened from the editor, which also gets Restart and Back to
 editing, because those are somewhere to go. Mid-run there is nothing to
 restart to that isn't the run you are already in, and Fullscreen -- which
 used to sit there -- is a settings toggle rather than a move. It is on
-the Options screen, and on a touch device it re-arms itself on the next
+Options -> Display, and on a touch device it re-arms itself on the next
 tap and on every orientation change, so nothing is out of reach.
 
 A run also pauses itself the moment the window goes away -- switching tab,
@@ -883,7 +890,7 @@ rest on the floor -- and it would leave one row a different height from
 every other, which would break the player's step-up (every row has to be
 exactly one step above the one below).
 
-Options -> Size picks the display size: the fixed **0.5x**, **1x**
+Options -> Display -> Size picks the display size: the fixed **0.5x**, **1x**
 (original) and **2x** (double), or **FIT**, which scales the canvas to
 the window. Fitting keeps the true 8:5 shape and takes whichever of width
 and height runs out first, so the whole playfield is always on screen --

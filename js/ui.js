@@ -27,7 +27,8 @@ const SCREEN_IDS = {
 
 const ELEMENT_IDS = [
   'screen-menu', 'game-title-line1', 'game-title-line2',
-  'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'screen-options', 'options-title', 'sound-heading', 'display-heading',
+  'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
   'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x', 'btn-zoom-fit',
   'screen-keys', 'keys-title', 'keys-list', 'keys-hint', 'btn-keys-reset', 'btn-close-keys',
   'screen-level-select', 'level-select-title', 'level-select-list',
@@ -53,6 +54,8 @@ const STATIC_LABELS = [
   ['game-title-line1', 'BALLOON', 'h1', COLORS.accent],
   ['game-title-line2', 'BUSTER', 'h1', COLORS.accent],
   ['options-title', 'OPTIONS', 'h2', COLORS.accent],
+  ['sound-heading', 'SOUND', 'button', COLORS.accent],
+  ['display-heading', 'DISPLAY', 'button', COLORS.accent],
   ['chk-mute-label', 'MUTE', 'body', COLORS.text],
   ['rng-sfx-label', 'SFX', 'body', COLORS.text],
   ['rng-music-label', 'MUSIC', 'body', COLORS.text],

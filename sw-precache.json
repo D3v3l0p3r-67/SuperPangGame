@@ -1,8 +1,8 @@
 {
-  "version": "super-pang-2d5d39c4c883",
+  "version": "super-pang-a1da3e50e231",
   "files": {
-    "index.html": "a38e43b83e4a7adc",
-    "style.css": "78dd1fafbf04d14a",
+    "index.html": "885ca8e33e31c745",
+    "style.css": "0b0bc8d98400630c",
     "manifest.webmanifest": "922ab538fd26a2fa",
     "favicon.ico": "394012045ba0bd53",
     "js/Ball.js": "f5af9f78aa22df27",
@@ -45,7 +45,7 @@
     "js/pwa.js": "c9bcc0fcafec48ce",
     "js/regions.js": "c84b25728db85625",
     "js/storage.js": "d1329b89497e7485",
-    "js/ui.js": "b42efcb39dc43cf6",
+    "js/ui.js": "1ba0132503d87e63",
     "js/vendor/PHASER_LICENSE.md": "c3123cd25de4eccf",
     "js/vendor/phaser.min.js": "c79a3e8cf9f5d0f8",
     "js/weapons.js": "ebbb6989372cfaa1",
