@@ -230,7 +230,7 @@ every push.
 | Call the next ball sooner (Panic Mode) | Arrow Down, held | Joystick down, held |
 | Shoot | Space | On-screen shoot button |
 | Pause | Esc | On-screen pause button |
-| Fullscreen | Button in menu/pause screen | Same |
+| Fullscreen | Button on the Options screen | Same |
 
 Every keyboard control is rebindable on the **CONTROLS** screen (Options
 -> CONTROLS): one key per action, click it and press the key you want,
@@ -244,11 +244,13 @@ shoot as well, which made shooting unreliable anywhere near a ladder.
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
 
-Panic Mode's pause screen is deliberately bare: **resume or quit to menu,
-nothing else.** It is one unbroken run with a score attached and no levels
-to choose between, so Restart and Back-to-editor mean nothing there and
-Fullscreen is a way to lose a run by misclicking -- it is still on the
-Options screen.
+Pausing offers two things: **resume, or quit to menu.** The one exception
+is a level opened from the editor, which also gets Restart and Back to
+editing, because those are somewhere to go. Mid-run there is nothing to
+restart to that isn't the run you are already in, and Fullscreen -- which
+used to sit there -- is a settings toggle rather than a move. It is on
+the Options screen, and on a touch device it re-arms itself on the next
+tap and on every orientation change, so nothing is out of reach.
 
 A run also pauses itself the moment the window goes away -- switching tab,
 clicking another window, or (on a phone) leaving the app -- onto the same

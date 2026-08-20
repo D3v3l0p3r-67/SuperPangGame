@@ -38,7 +38,7 @@ const ELEMENT_IDS = [
   'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
-  'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
+  'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select',
   'btn-erase', 'erase-confirm', 'erase-warning', 'btn-erase-yes', 'btn-erase-no', 'erase-done',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
@@ -98,7 +98,6 @@ const STATIC_LABELS = [
   ['erase-done', 'PROGRESS ERASED.', 'body', COLORS.accent],
   ['btn-close-options', 'BACK', 'button', COLORS.text],
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
-  ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
   ['btn-pause-restart', 'RESTART LEVEL', 'button', COLORS.text],
   ['btn-pause-editor', 'LEVEL EDITOR', 'button', COLORS.text],
@@ -217,7 +216,6 @@ export class UI {
       this.el['btn-install'].classList.add('hidden');
     });
     this.el['btn-options-fullscreen'].addEventListener('click', toggleFullscreen);
-    this.el['btn-fullscreen-pause'].addEventListener('click', toggleFullscreen);
 
     this.el['btn-start-level'].addEventListener('click', () => this.game.showLevelSelect());
     this.el['btn-close-level-select'].addEventListener('click', () => this.game.goToMenu());
@@ -464,26 +462,22 @@ export class UI {
     if (state === GAME_STATES.OPTIONS) this.showEraseConfirm(false, true);
 
     if (state === GAME_STATES.PAUSED) {
-      // Panic Mode's pause is deliberately bare: carry on, or leave. It
-      // is one unbroken run with a score attached and no levels to pick
-      // between, so everything else on this screen is either meaningless
-      // there or a way to lose the run by misclicking. Fullscreen goes
-      // with the rest -- it is still on the Options screen.
-      const bare = this.game.isPanicMode;
-      // The extra Restart button only shows for a level opened via the
-      // editor's Play button: jump straight back into testing the level
-      // you're actively building (see GameScene.advanceLevel/hitPlayer
-      // for the matching playtest-only behavior). Not a general
-      // "restart" offered mid-campaign.
-      this.el['btn-pause-restart'].classList.toggle('hidden', bare || !this.game.isCustomLevel);
-      // Back to editing -- offered whenever this pause came from the
-      // editor at all: either Escape pressed while actually editing (
-      // pausedFromEditor) or Escape during a playtest of an editor level
-      // (isCustomLevel), which is exactly when "return to the editor" is
-      // a place you can meaningfully go back to.
+      // Pausing offers two things -- carry on, or leave -- and the one
+      // exception is a level opened from the editor, where "restart this
+      // one" and "back to editing" are places you can actually go.
+      //
+      // Everything else was clutter in front of a paused game: mid-run
+      // there is nothing to restart to that isn't the run you are in, and
+      // Fullscreen (which used to sit here) is a settings toggle rather
+      // than a move -- it is on the Options screen, and on a touch device
+      // it re-arms itself on the next tap and on every orientation change,
+      // so nothing is out of reach.
+      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel);
+      // Offered whenever this pause came from the editor at all: Escape
+      // pressed while actually editing (pausedFromEditor) or during a
+      // playtest of an editor level (isCustomLevel).
       this.el['btn-pause-editor'].classList.toggle('hidden',
-        bare || (!this.game.isCustomLevel && !this.game.pausedFromEditor));
-      this.el['btn-fullscreen-pause'].classList.toggle('hidden', bare);
+        !this.game.isCustomLevel && !this.game.pausedFromEditor);
     } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {
