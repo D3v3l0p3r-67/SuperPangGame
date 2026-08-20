@@ -951,6 +951,13 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.DISPLAY;
   }
 
+  // Erasing is irreversible, so it gets a screen rather than a button:
+  // opening it only says what would be lost (see ui.js's erase-warning),
+  // and nothing is written until YES is pressed there.
+  showErase() {
+    this.state = GAME_STATES.ERASE;
+  }
+
   // Rebinding the game's keys, on a screen of its own rather than in the
   // options list: six actions with two keys each is a table, not a row of
   // settings (see ui.js's renderKeyList).

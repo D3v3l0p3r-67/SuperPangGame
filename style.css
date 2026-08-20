@@ -272,24 +272,12 @@ body {
   justify-content: center;
 }
 
-/* The erase confirmation, which takes the ERASE PROGRESS button's own
-   place while it is up (see ui.js's showEraseConfirm) rather than pushing
-   the rest of the options screen down -- on a phone in landscape this
-   screen is already close to scrolling. Its warning line spans both
-   answers above them, so what is about to be lost is read before either
-   is pressed. */
-#erase-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 1cqmin;
+/* What an erase would cost, on the screen that asks. Not the dimmed
+   .hint the other explanatory lines use -- this one is the point of the
+   screen, and it is read before either answer is pressed. */
+#erase-warning {
   max-width: 100%;
-}
-
-#erase-confirm #erase-warning {
-  flex-basis: 100%;
-  opacity: 1; /* not the dimmed .hint: this one is the point */
+  margin: 0 0 1cqmin;
 }
 
 /* Display size -- exactly three discrete choices (see constants.js's

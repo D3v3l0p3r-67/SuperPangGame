@@ -96,6 +96,7 @@ export const GAME_STATES = Object.freeze({
   // and DISPLAY are screens of their own, same as CONTROLS already was.
   SOUND: 'SOUND',
   DISPLAY: 'DISPLAY',
+  ERASE: 'ERASE',
   LEVEL_SELECT: 'LEVEL_SELECT',
   EDITOR: 'EDITOR',
   LEVEL_INTRO: 'LEVEL_INTRO',

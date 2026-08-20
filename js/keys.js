@@ -80,11 +80,6 @@ export function setBinding(action, code) {
   persist();
 }
 
-export function resetBindings() {
-  bindings = defaultBindings();
-  persist();
-}
-
 // What the player sees on the CONTROLS screen. The menu font is letters,
 // digits and three punctuation marks (see assets.js's INTRO_FONT_CHARS),
 // so every label has to come out as a WORD -- there is no glyph for an

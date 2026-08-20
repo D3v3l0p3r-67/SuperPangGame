@@ -233,8 +233,11 @@ every push.
 | Fullscreen | Options -> DISPLAY | Same |
 
 Options is a list of doors rather than a page of settings: **SOUND**
-(mute, SFX, music), **DISPLAY** (size, fullscreen) and **CONTROLS**, each
-a screen of its own with its own BACK. It was one undifferentiated column
+(mute, SFX, music), **DISPLAY** (size, fullscreen), **CONTROLS** and
+**ERASE PROGRESS**, each a screen of its own with its own BACK. Erasing
+gets a screen for the same reason it used to get a confirmation row: it
+is irreversible, so the door does not do it -- opening it only says what
+would be lost, and nothing is written until YES is pressed there. It was one undifferentiated column
 of five controls plus two buttons, and splitting it says what the
 settings actually are -- what the game sounds like, what it looks like,
 and what the keys do. Fullscreen sits beside the size picker because both
@@ -242,8 +245,9 @@ answer "how big is this thing on my screen".
 
 Every keyboard control is rebindable on the **CONTROLS** screen (Options
 -> CONTROLS): one key per action, click it and press the key you want,
-Esc to cancel, and a **RESET TO DEFAULTS** button. Binding a key another
-action holds takes it from that action rather than leaving two owners.
+Esc to cancel. Binding a key another action holds takes it from that
+action rather than leaving two owners -- which can leave that one bound
+to nothing, and clicking it again is how you give it a key back.
 Bindings are the physical key (`KeyboardEvent.code`), so a layout that
 puts Z where Y is binds the key actually pressed, and they persist with
 the rest of the settings (see `js/keys.js`). Up only climbs -- it used to

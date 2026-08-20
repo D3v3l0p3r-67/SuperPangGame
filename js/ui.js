@@ -4,7 +4,7 @@ import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
 import { initInstall, promptInstall, lockLandscape } from './pwa.js';
-import { ACTIONS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
+import { ACTIONS, getBindings, setBinding, keyLabel, captureNextKey } from './keys.js';
 
 // zoom value -> the DISPLAY screen button that selects it (see
 // ELEMENT_IDS/bindEvents/updateZoomButtons below). Keyed by the value as
@@ -18,6 +18,7 @@ const SCREEN_IDS = {
   [GAME_STATES.KEY_CONFIG]: 'screen-keys',
   [GAME_STATES.SOUND]: 'screen-sound',
   [GAME_STATES.DISPLAY]: 'screen-display',
+  [GAME_STATES.ERASE]: 'screen-erase',
   [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
@@ -33,7 +34,8 @@ const ELEMENT_IDS = [
   'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
   'screen-display', 'display-title', 'btn-close-display',
   'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x', 'btn-zoom-fit',
-  'screen-keys', 'keys-title', 'keys-list', 'keys-hint', 'btn-keys-reset', 'btn-close-keys',
+  'screen-keys', 'keys-title', 'keys-list', 'btn-close-keys',
+  'screen-erase', 'erase-title', 'btn-close-erase',
   'screen-level-select', 'level-select-title', 'level-select-list',
   'screen-pause', 'pause-title',
   'screen-game-over', 'gameover-title', 'final-score',
@@ -43,7 +45,7 @@ const ELEMENT_IDS = [
   'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
   'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
   'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select',
-  'btn-erase', 'erase-confirm', 'erase-warning', 'btn-erase-yes', 'btn-erase-no', 'erase-done',
+  'btn-erase', 'erase-warning', 'btn-erase-yes', 'erase-done',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -82,7 +84,6 @@ const STATIC_LABELS = [
   ['rotate-prompt-text', 'ROTATE YOUR PHONE', 'h2', COLORS.accent],
   ['keys-title', 'CONTROLS', 'h2', COLORS.accent],
   ['btn-controls', 'CONTROLS', 'button', COLORS.text],
-  ['btn-keys-reset', 'RESET TO DEFAULTS', 'button', COLORS.text],
   ['btn-close-keys', 'BACK', 'button', COLORS.text],
   ['level-select-title', 'START LEVEL', 'h2', COLORS.accent],
   ['pause-title', 'PAUSED', 'h2', COLORS.accent],
@@ -104,7 +105,8 @@ const STATIC_LABELS = [
   // stops rather than as a comma-separated list.
   ['erase-warning', 'THIS ERASES SCORES. UNLOCKS. RECORD TIMES.', 'body', COLORS.danger],
   ['btn-erase-yes', 'YES ERASE IT', 'button', COLORS.danger],
-  ['btn-erase-no', 'CANCEL', 'button', COLORS.text],
+  ['erase-title', 'ERASE PROGRESS', 'h2', COLORS.danger],
+  ['btn-close-erase', 'CANCEL', 'button', COLORS.text],
   ['erase-done', 'PROGRESS ERASED.', 'body', COLORS.accent],
   ['btn-close-options', 'BACK', 'button', COLORS.text],
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
@@ -207,14 +209,13 @@ export class UI {
 
     // Erasing what the player has DONE -- scores, unlocks, record times;
     // never their settings, their keys or their edited levels (see
-    // storage.eraseProgress). Irreversible, so the button only ever
-    // reveals the confirmation; nothing is written until the second press
-    // and either answer puts the row away again.
-    this.el['btn-erase'].addEventListener('click', () => this.showEraseConfirm(true));
-    this.el['btn-erase-no'].addEventListener('click', () => this.showEraseConfirm(false));
+    // storage.eraseProgress). Irreversible, so the door does not do it:
+    // ERASE PROGRESS opens a screen that says what would be lost, and
+    // nothing is written until YES is pressed there.
+    this.el['btn-erase'].addEventListener('click', () => this.game.showErase());
+    this.el['btn-close-erase'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-erase-yes'].addEventListener('click', () => {
       this.storage.eraseProgress();
-      this.showEraseConfirm(false);
       this.el['erase-done'].classList.remove('hidden');
     });
     // Installing is the browser's own dialogue -- all this does is ask
@@ -277,10 +278,6 @@ export class UI {
     this.el['btn-close-display'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-controls'].addEventListener('click', () => this.game.showKeyConfig());
     this.el['btn-close-keys'].addEventListener('click', () => this.game.showOptions());
-    this.el['btn-keys-reset'].addEventListener('click', () => {
-      resetBindings();
-      this.renderKeyList();
-    });
   }
 
   // One row per action: its name and the key it is bound to. Rebuilt from
@@ -305,7 +302,6 @@ export class UI {
       row.appendChild(btn);
       list.appendChild(row);
     }
-    setPixelText(this.el['keys-hint'], 'CLICK A KEY THEN PRESS ONE. ESC CANCELS.', 'body', COLORS.text);
   }
 
   // Asks keys.js for the next key pressed and gives it to this action.
@@ -456,26 +452,16 @@ export class UI {
     }
   }
 
-  // Shows or hides the erase confirmation. `alsoClearDone` additionally
-  // takes down the "PROGRESS ERASED." line -- wanted when the screen is
-  // reopened, but not when the confirmation is simply answered, because
-  // that line is the answer.
-  showEraseConfirm(show, alsoClearDone = false) {
-    this.el['erase-confirm'].classList.toggle('hidden', !show);
-    this.el['btn-erase'].classList.toggle('hidden', show);
-    if (show || alsoClearDone) this.el['erase-done'].classList.add('hidden');
-  }
-
   setScreen(state) {
     for (const id of Object.values(SCREEN_IDS)) this.el[id].classList.add('hidden');
     const id = SCREEN_IDS[state];
     if (!id) return;
     this.el[id].classList.remove('hidden');
 
-    // The options screen always opens in its resting state: never
-    // mid-confirmation, and never still announcing an erase from a
-    // previous visit.
-    if (state === GAME_STATES.OPTIONS) this.showEraseConfirm(false, true);
+    // The erase screen always opens in its resting state, never still
+    // announcing an erase from a previous visit -- that line is the
+    // answer to a press, not a fact about the save.
+    if (state === GAME_STATES.ERASE) this.el['erase-done'].classList.add('hidden');
 
     if (state === GAME_STATES.PAUSED) {
       // Pausing offers two things -- carry on, or leave -- and the one
