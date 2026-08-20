@@ -40,21 +40,39 @@
          reaches MENU, which is exactly when loading has finished. -->
     <div id="screen-menu" class="screen hidden">
       <h1 id="game-title"><div id="game-title-line1"></div><div id="game-title-line2"></div></h1>
-      <button id="btn-start" class="menu-btn"></button>
-      <button id="btn-start-panic" class="menu-btn"></button>
-      <button id="btn-start-level" class="menu-btn"></button>
-      <button id="btn-editor" class="menu-btn"></button>
+      <button id="btn-play" class="menu-btn"></button>
       <button id="btn-highscores" class="menu-btn"></button>
       <button id="btn-options" class="menu-btn"></button>
+      <!-- Only for someone logged into the admin tool, which is the only
+           place an edited level can actually be saved (see
+           js/levelFile.js). Revealed by ui.js once that has answered. -->
+      <button id="btn-editor" class="menu-btn hidden"></button>
       <!-- Both start hidden and are revealed by js/pwa.js's rules: the
            button only once the browser has offered an install prompt, the
            iOS line only on an iPhone/iPad that is not already running the
            game from its home screen. -->
       <button id="btn-install" class="menu-btn hidden"></button>
       <p id="ios-install-hint" class="hint hidden"></p>
-      <!-- Keys, so hidden on a phone (see style.css's body.is-touch): none
-           of them exist there, and the room they take does. -->
-      <p class="hint keyboard-hint">Arrows move &amp; climb &middot; Space shoot &middot; Esc pause &middot; Shift+D debug</p>
+    </div>
+
+    <!-- The three ways to play, each said out loud: three buttons on the
+         main menu named them but did not explain them, and "PANIC MODE"
+         tells a first-time player nothing at all. -->
+    <div id="screen-play" class="screen hidden">
+      <h2 id="play-title"></h2>
+      <div class="menu-choice">
+        <button id="btn-start" class="menu-btn"></button>
+        <p id="start-hint" class="hint"></p>
+      </div>
+      <div class="menu-choice">
+        <button id="btn-start-panic" class="menu-btn"></button>
+        <p id="start-panic-hint" class="hint"></p>
+      </div>
+      <div class="menu-choice">
+        <button id="btn-start-level" class="menu-btn"></button>
+        <p id="start-level-hint" class="hint"></p>
+      </div>
+      <button id="btn-close-play" class="menu-btn"></button>
     </div>
 
     <div id="screen-options" class="screen hidden">

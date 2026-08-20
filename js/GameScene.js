@@ -951,6 +951,12 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.DISPLAY;
   }
 
+  // Which of the three ways to play, on a screen that says what each one
+  // is -- "PANIC MODE" on a button tells a first-time player nothing.
+  showPlay() {
+    this.state = GAME_STATES.PLAY;
+  }
+
   // Erasing is irreversible, so it gets a screen rather than a button:
   // opening it only says what would be lost (see ui.js's erase-warning),
   // and nothing is written until YES is pressed there.

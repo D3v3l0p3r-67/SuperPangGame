@@ -272,6 +272,21 @@ body {
   justify-content: center;
 }
 
+/* A way to play and what it is: the description belongs to the button
+   above it, so the gap inside a choice has to be smaller than the gap
+   between two of them or the lines attach themselves to the wrong
+   button. */
+.menu-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.2cqmin;
+}
+
+.menu-choice .hint {
+  margin-top: 0.4cqmin;
+}
+
 /* What an erase would cost, on the screen that asks. Not the dimmed
    .hint the other explanatory lines use -- this one is the point of the
    screen, and it is read before either answer is pressed. */
@@ -793,14 +808,6 @@ body {
    no prompt to trigger there, only a menu to point at. */
 #ios-install-hint {
   max-width: 80cqw;
-}
-
-/* The keyboard cheat-sheet under the main menu, on a phone where none of
-   those keys exist -- the room it takes is better spent on the menu
-   fitting a short screen (see ui.js's showTouchControlsIfNeeded, which
-   sets is-touch). */
-body.is-touch .keyboard-hint {
-  display: none;
 }
 
 /* A hint is one image (see PixelText.js), so a long one cannot reflow --

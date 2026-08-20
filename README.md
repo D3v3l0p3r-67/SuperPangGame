@@ -232,6 +232,22 @@ every push.
 | Pause | Esc | On-screen pause button |
 | Fullscreen | Options -> DISPLAY | Same |
 
+The main menu is three buttons: **START GAME**, **HIGH SCORES**,
+**OPTIONS**. START GAME opens a screen with the three ways to play and a
+line under each saying what it is -- CAMPAIGN (50 levels across eight
+continents), PANIC MODE (endless; the ceiling never stops) and SINGLE
+LEVEL (replay anything unlocked). Three buttons on the front named them
+but did not explain them, and "PANIC MODE" tells a first-time player
+nothing.
+
+**LEVEL EDITOR** appears there only for a browser logged into the admin
+tool. That is not a guess at who ought to have it: the admin session is
+the only thing that lets an edited level be saved anywhere but that one
+browser (see `js/levelFile.js`), so it is exactly the set of people the
+editor is any use to. The check runs once, when the menu first appears,
+and the button stays hidden until it answers -- on a static host with no
+PHP that is one 404 and the answer is no.
+
 Options is a list of doors rather than a page of settings: **SOUND**
 (mute, SFX, music), **DISPLAY** (size, fullscreen), **CONTROLS** and
 **ERASE PROGRESS**, each a screen of its own with its own BACK. Erasing

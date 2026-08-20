@@ -4,6 +4,7 @@ import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
 import { initInstall, promptInstall, lockLandscape } from './pwa.js';
+import { fileSaving } from './levelFile.js';
 import { ACTIONS, getBindings, setBinding, keyLabel, captureNextKey } from './keys.js';
 
 // zoom value -> the DISPLAY screen button that selects it (see
@@ -19,6 +20,7 @@ const SCREEN_IDS = {
   [GAME_STATES.SOUND]: 'screen-sound',
   [GAME_STATES.DISPLAY]: 'screen-display',
   [GAME_STATES.ERASE]: 'screen-erase',
+  [GAME_STATES.PLAY]: 'screen-play',
   [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
@@ -43,7 +45,10 @@ const ELEMENT_IDS = [
   'screen-high-score-entry', 'entry-title', 'entry-score', 'entry-name',
   'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
-  'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
+  'screen-play', 'play-title', 'btn-play', 'btn-close-play',
+  'btn-start', 'start-hint', 'btn-start-panic', 'start-panic-hint',
+  'btn-start-level', 'start-level-hint',
+  'btn-editor', 'btn-highscores', 'btn-options',
   'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select',
   'btn-erase', 'erase-warning', 'btn-erase-yes', 'erase-done',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
@@ -91,9 +96,19 @@ const STATIC_LABELS = [
   ['victory-title', 'YOU WIN!', 'h2', COLORS.accent],
   ['entry-title', 'NEW HIGH SCORE!', 'h2', COLORS.accent],
   ['highscores-title', 'HIGH SCORES', 'h2', COLORS.accent],
-  ['btn-start', 'START CAMPAIGN', 'button', COLORS.text],
-  ['btn-start-panic', 'START PANIC MODE', 'button', COLORS.text],
-  ['btn-start-level', 'START LEVEL', 'button', COLORS.text],
+  ['btn-play', 'START GAME', 'button', COLORS.text],
+  ['play-title', 'START GAME', 'h2', COLORS.accent],
+  ['btn-close-play', 'BACK', 'button', COLORS.text],
+  // Each way to play, with what it actually is underneath it. The font
+  // is uppercase, digits and "!", ":" and "." (see assets.js's
+  // INTRO_FONT_CHARS), so these are written in full stops rather than
+  // commas or dashes.
+  ['btn-start', 'CAMPAIGN', 'button', COLORS.text],
+  ['start-hint', '50 LEVELS ACROSS EIGHT CONTINENTS.', 'body', COLORS.text],
+  ['btn-start-panic', 'PANIC MODE', 'button', COLORS.text],
+  ['start-panic-hint', 'ENDLESS. THE CEILING NEVER STOPS.', 'body', COLORS.text],
+  ['btn-start-level', 'SINGLE LEVEL', 'button', COLORS.text],
+  ['start-level-hint', 'REPLAY ANY LEVEL YOU HAVE UNLOCKED.', 'body', COLORS.text],
   ['btn-editor', 'LEVEL EDITOR', 'button', COLORS.text],
   ['btn-highscores', 'HIGH SCORES', 'button', COLORS.text],
   ['btn-options', 'OPTIONS', 'button', COLORS.text],
@@ -185,6 +200,10 @@ export class UI {
       else this.game.startNewGame();
     };
 
+    // The main menu offers one way in; which of the three it is gets
+    // picked on a screen that says what each one means.
+    this.el['btn-play'].addEventListener('click', () => this.game.showPlay());
+    this.el['btn-close-play'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-start'].addEventListener('click', startGame);
     this.el['btn-restart'].addEventListener('click', playAgain);
     this.el['btn-victory-restart'].addEventListener('click', playAgain);
@@ -452,7 +471,25 @@ export class UI {
     }
   }
 
+  // The level editor is shown to someone logged into the admin tool and
+  // to nobody else. That is not a guess at who "should" have it: the
+  // admin session is the only thing that lets an edited level be SAVED
+  // anywhere but this one browser (see js/levelFile.js), so it is exactly
+  // the set of people the editor is any use to.
+  //
+  // Asked once, when the menu first appears rather than at boot, and the
+  // button stays hidden until it answers -- so a player who is not an
+  // admin never sees it flash. On a static host (GitHub Pages, no PHP)
+  // the probe is one 404 and the answer is no.
+  async revealEditorForAdmins() {
+    if (this.editorProbed) return;
+    this.editorProbed = true;
+    const { loggedIn } = await fileSaving();
+    this.el['btn-editor'].classList.toggle('hidden', !loggedIn);
+  }
+
   setScreen(state) {
+    if (state === GAME_STATES.MENU) this.revealEditorForAdmins();
     for (const id of Object.values(SCREEN_IDS)) this.el[id].classList.add('hidden');
     const id = SCREEN_IDS[state];
     if (!id) return;
