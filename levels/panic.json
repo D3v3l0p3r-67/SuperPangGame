@@ -30,7 +30,10 @@
     },
     "loop": {
       "beatScale": 0.93,
-      "minBeat": 0.5
+      "minBeat": 0.5,
+      "sizeBumpPerCycle": 1,
+      "maxSizeBump": 4,
+      "maxWaveSec": 90
     },
     "waves": [
       {

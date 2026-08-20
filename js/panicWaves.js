@@ -129,28 +129,72 @@ export function waveWork(steps, tuning) {
 // for.
 export const patternBallSteps = (steps) => steps.filter((s) => s.kind === 'ball').length;
 
-// The beat an authored wave runs at on its `cycle`-th time round.
+// How many sizes bigger the balls are on the `cycle`-th time round the
+// set.
 //
-// The mode is endless and the authored set is not: rather than repeat it
-// unchanged forever (which stops being a difficulty curve the moment it
-// starts over), each cycle tightens the beat by `beatScale` until it
-// reaches `minBeat` and stays there. So `minBeat` is where every wave
-// eventually lives, which makes it THE safety number -- see checkWaves,
-// which tests every wave at that floor rather than at what it was
-// written at.
-export function beatFor(beat, cycle, loop) {
-  return Math.max(loop.minBeat, beat * loop.beatScale ** cycle);
+// Tempo alone is not a difficulty curve. The set used to repeat with only
+// the beat tightening, which meant wave 100 was wave 4 again -- same
+// size-1 balls, just sooner -- and the biggest balls in the game never
+// appeared at all. Escalating the SIZE is the axis pressure cannot see: a
+// wave that hands over its work as one size-5 ball is far harder to
+// survive than one that hands over the same work as thirty-one size-1s,
+// because the big one fills the screen with fragments at once while the
+// small ones queue up.
+export function bumpFor(cycle, loop) {
+  return Math.min(loop.maxSizeBump ?? 0, Math.floor(cycle * (loop.sizeBumpPerCycle ?? 1)));
+}
+
+// The same pattern with bigger balls and fewer of them.
+//
+// Fewer is not a nicety, it is what keeps the wave affordable: one size
+// up is a little over twice the shots, so the balls have to thin at about
+// the same rate or the wave becomes an hour of shooting. Every second
+// ball per size step, and what is dropped becomes a REST rather than
+// disappearing -- the pattern keeps its length and its shape, and simply
+// breathes more between bigger threats.
+//
+// `maxSize` is the largest size each shape actually has an element for
+// (hex stops at 3), so a bump can never name a ball that does not exist.
+export function escalate(steps, bump, maxSize) {
+  if (!bump) return steps;
+  const keepEvery = 2 ** bump;
+  let nth = -1;
+  return steps.map((step) => {
+    if (step.kind !== 'ball') return step;
+    nth += 1;
+    if (nth % keepEvery !== 0) return { kind: 'rest' };
+    return { ...step, size: Math.min(step.size + bump, maxSize[step.shape] ?? step.size) };
+  });
 }
 
 // Any wave number at all, however far past the authored set it is: the
-// counter does not stop (see GameScene.advancePanicProgress), so this
-// cannot either.
-export function waveAt(index, spawn) {
-  const { waves } = spawn;
+// counter does not stop (see GameScene.nextPanicStep), so this cannot
+// either.
+//
+// The beat is the LONGEST of three things, and the third is what makes
+// the mode safe by construction rather than by inspection:
+//
+//   * the grid floor, minBeat
+//   * the authored beat, tightened by beatScale once per cycle
+//   * whatever the wave's own work needs to stay under maxPressure
+//
+// So tempo tightens while there is room, and the moment a size bump makes
+// the wave cost more, the beat opens back up to pay for it. Bigger balls
+// arriving less often is not a compromise here, it is the only shape the
+// arithmetic allows.
+export function waveAt(index, spawn, maxSize = {}) {
+  const { waves, loop, tuning } = spawn;
   const cycle = Math.floor(index / waves.length);
   const wave = waves[index % waves.length];
-  const steps = parsePattern(wave.spawn, spawn.shapeCode, spawn.holdMaxSec);
-  return { steps, beat: beatFor(wave.beat, cycle, spawn.loop), cycle };
+  const bump = bumpFor(cycle, loop);
+  const steps = escalate(parsePattern(wave.spawn, spawn.shapeCode, spawn.holdMaxSec), bump, maxSize);
+  const beats = patternBeats(steps);
+  const beat = Math.max(
+    loop.minBeat,
+    wave.beat * loop.beatScale ** cycle,
+    beats ? waveWork(steps, tuning) / (tuning.maxPressure * beats) : 0,
+  );
+  return { steps, beat, cycle, bump };
 }
 
 // Everything a wave table has to be true of. Returns problems (a mode
@@ -159,7 +203,7 @@ export function waveAt(index, spawn) {
 // a build.
 //
 // `ball(shape, size)` gives the element behind a token, or null.
-export function checkWaves(spawn, ball) {
+export function checkWaves(spawn, ball, maxSize = {}) {
   const problems = [];
   const warnings = [];
   const { tuning, loop } = spawn;
@@ -229,6 +273,51 @@ export function checkWaves(spawn, ball) {
         + ' so the next wave starts while its last ball is still coming through');
     }
   });
+
+  // Every cycle the set escalates through, not just the one it was
+  // written at. A bump changes the balls, so it changes the emergence
+  // gaps and the beat -- and a wave that is fine as authored can still
+  // turn into a five-minute crawl three bumps later.
+  const lastCycle = Math.ceil((loop.maxSizeBump ?? 0) / (loop.sizeBumpPerCycle ?? 1));
+  for (let cycle = 0; cycle <= lastCycle; cycle++) {
+    spawn.waves.forEach((_, i) => {
+      const at = cycle * spawn.waves.length + i;
+      let resolved;
+      try {
+        resolved = waveAt(at, spawn, maxSize);
+      } catch {
+        return; // the pattern itself already failed above
+      }
+      const beats = patternBeats(resolved.steps);
+      if (!beats) return;
+      const where = `wave ${i + 1} on cycle ${cycle}`;
+      const pressure = waveWork(resolved.steps, tuning) / (resolved.beat * beats);
+      if (pressure > tuning.maxPressure + 1e-9) {
+        problems.push(`${where}: pressure ${pressure.toFixed(2)} is over the ${tuning.maxPressure} limit`);
+      }
+      // A wave nobody would sit through is as broken as one nobody can
+      // clear, it just fails in the other direction.
+      const seconds = resolved.beat * beats;
+      if (seconds > (loop.maxWaveSec ?? Infinity)) {
+        problems.push(`${where}: lasts ${Math.round(seconds)}s, past the ${loop.maxWaveSec}s a wave may take`
+          + ` -- its balls got big enough that paying for them takes all day`);
+      }
+      let last = null;
+      resolved.steps.forEach((step, at2) => {
+        if (step.kind !== 'ball') return;
+        const el = ball(step.shape, step.size);
+        if (!el) { problems.push(`${where}: there is no ${step.shape} ball of size ${step.size}`); return; }
+        if (last) {
+          const gap = (at2 - last.at) * resolved.beat - emergeSec(last.radius, spawn.ceilingSpeedPx);
+          if (gap < 0) {
+            warnings.push(`${where}: two balls land ${Math.abs(gap).toFixed(1)}s closer than the first`
+              + ' takes to come through the ceiling');
+          }
+        }
+        last = { at: at2, radius: el.radius };
+      });
+    });
+  }
 
   if (!(loop.beatScale > 0 && loop.beatScale <= 1)) {
     problems.push(`loop.beatScale ${loop.beatScale} must be over 0 and at most 1 -- above 1 would slow down`);

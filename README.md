@@ -632,9 +632,43 @@ player was struggling is not a check.
 
 ### Twelve waves, not a hundred
 
-The authored set is twelve. The mode is endless, so the set repeats, and
-each cycle tightens every beat by `loop.beatScale` until it reaches
-`loop.minBeat` and stays there.
+The authored set is twelve. The mode is endless, so the set repeats -- and
+what repeats has to change, or wave 100 is wave 4 again. It did exactly
+that for a while: the loop only ever tightened the beat, the whole set
+only ever used sizes 1 and 2, and standing on wave 100 got you the same
+small balls as wave 4, sooner.
+
+So each cycle escalates on **two** axes. The beat tightens by
+`loop.beatScale` towards `loop.minBeat`, and every ball gets
+`loop.sizeBumpPerCycle` sizes bigger (to a ceiling of `loop.maxSizeBump`,
+and never past the largest size a shape actually has -- hex stops at 3).
+
+Bigger balls have to arrive less often, so the escalation pays for itself:
+each size step keeps only every second ball, and what is dropped becomes a
+rest, so the pattern keeps its length and simply breathes more between
+bigger threats. `waveAt` then takes the LONGEST of the grid floor, the
+tightened beat, and whatever the wave's own work needs to stay under
+`maxPressure` -- which makes every cycle clearable by construction rather
+than by inspection.
+
+Size is the axis pressure cannot see, and it is why this is worth doing:
+a wave that hands over its work as one size-5 ball is far harder to
+survive than one that hands over the same work as thirty-one size-1s,
+because the big one fills the screen with fragments at once while the
+small ones queue up.
+
+```
+cycle  bump  wave 1                wave 11
+    0     0   2.00s r1 r1 r1        0.70s r1 h1 w1 x2 h1 r1 w1 r1
+    1     1   1.86s r2 r2           0.65s r2 w2 h2 w2
+    2     2   1.73s r3              0.63s r3 h3
+    3     3   2.38s r4              0.62s r4
+    4     4   4.92s r5              1.28s r5
+```
+
+`loop.maxWaveSec` is the other end of it: bumps push the beat up, and far
+enough would turn a wave into a crawl with one ball in it. The build
+fails rather than shipping one.
 
 That makes `minBeat` the mode's one safety number, because it is where
 every wave eventually lives -- so **the check is made at the floor beat,

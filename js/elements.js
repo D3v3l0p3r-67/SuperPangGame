@@ -124,6 +124,15 @@ export function getBallElement(shape, size) {
   return BALL_ELEMENTS.find((el) => el.shape === shape && el.size === size);
 }
 
+// The largest size every shape has an element for, as one object --
+// what Panic Mode's size escalation needs so a bump can never name a
+// ball that does not exist (see js/panicWaves.js's escalate).
+export function ballMaxSizes() {
+  const out = {};
+  for (const el of BALL_ELEMENTS) out[el.shape] = Math.max(out[el.shape] ?? 0, el.size);
+  return out;
+}
+
 export function maxBallSize(shape) {
   return BALL_ELEMENTS.filter((el) => el.shape === shape).reduce((max, el) => Math.max(max, el.size), 0);
 }

@@ -4,7 +4,8 @@ import {
   TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
   SHOT_SHAKE_SEC,
 } from './config.js';
-import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, POWERUP_TYPES, getBallElement } from './elements.js';
+import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, POWERUP_TYPES, getBallElement, ballMaxSizes,
+} from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
@@ -1204,7 +1205,7 @@ export class GameScene extends Phaser.Scene {
     const spawn = this.currentLevelDef?.panicSpawn;
     if (!spawn?.waves?.length) return null;
     if (this.panicWaveCache?.index !== this.panicWaveIndex) {
-      this.panicWaveCache = { index: this.panicWaveIndex, ...waveAt(this.panicWaveIndex, spawn) };
+      this.panicWaveCache = { index: this.panicWaveIndex, ...waveAt(this.panicWaveIndex, spawn, ballMaxSizes()) };
     }
     return this.panicWaveCache;
   }

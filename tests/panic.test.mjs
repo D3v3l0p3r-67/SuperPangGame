@@ -11,13 +11,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readJSON, readText } from './helpers.mjs';
 import {
-  checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, waveAt, beatFor,
+  checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, waveAt, bumpFor,
   shotsToClear, emergeSec, ballWork,
 } from '../js/panicWaves.js';
-import { ballElements } from '../tools/panic_waves.mjs';
+import { ballElements, maxSizes } from '../tools/panic_waves.mjs';
 
 const SPAWN = readJSON('levels/panic.json').panicSpawn;
 const BALL = ballElements();
+const MAX = maxSizes();
 const steps = (wave) => parsePattern(wave.spawn, SPAWN.shapeCode, SPAWN.holdMaxSec);
 
 test('a ball costs what the split rule says it costs', () => {
@@ -46,7 +47,7 @@ test('a pattern says what it does', () => {
 });
 
 test('every wave can be cleared, at the tempo it ends up at', () => {
-  const { problems, warnings } = checkWaves(SPAWN, BALL);
+  const { problems, warnings } = checkWaves(SPAWN, BALL, MAX);
   assert.deepEqual(problems, []);
   assert.deepEqual(warnings, []);
 });
@@ -113,16 +114,21 @@ test('the run never runs out of waves', () => {
   // has to answer for any number at all -- and answer faster each time
   // round, down to the floor.
   const n = SPAWN.waves.length;
-  assert.equal(waveAt(0, SPAWN).cycle, 0);
-  assert.equal(waveAt(n, SPAWN).cycle, 1);
-  assert.deepEqual(waveAt(n * 7 + 2, SPAWN).steps, waveAt(2, SPAWN).steps);
-  assert.ok(waveAt(n, SPAWN).beat < waveAt(0, SPAWN).beat, 'a later cycle has to be faster');
-  assert.equal(beatFor(3, 999, SPAWN.loop), SPAWN.loop.minBeat, 'and has to stop at the floor');
+  assert.equal(waveAt(0, SPAWN, MAX).cycle, 0);
+  assert.equal(waveAt(n, SPAWN, MAX).cycle, 1);
+  // A later cycle is not the same wave again: the balls get bigger and
+  // fewer, which is the only escalation left once the tempo has nothing
+  // to give. Wave 100 used to be wave 4 with size-1 balls.
+  const late = waveAt(n * 8 + 2, SPAWN, MAX);
+  const early = waveAt(2, SPAWN, MAX);
+  const size = (w) => Math.max(...w.steps.filter((s) => s.kind === 'ball').map((s) => s.size));
+  assert.ok(size(late) > size(early), 'a later cycle has to bring bigger balls');
+  assert.equal(bumpFor(999, SPAWN.loop), SPAWN.loop.maxSizeBump, 'the bump has to stop somewhere');
 });
 
 test('the game walks the pattern, and nothing still counts pops', () => {
   const scene = readText('js/GameScene.js');
-  assert.match(scene, /waveAt\(this\.panicWaveIndex, spawn\)/, 'GameScene must resolve waves through the model');
+  assert.match(scene, /waveAt\(this\.panicWaveIndex, spawn/, 'GameScene must resolve waves through the model');
   assert.match(scene, /nextPanicStep\(\)/, 'and step through the pattern');
   assert.match(scene, /panicHoldLeft/, 'and hold where a pattern says to');
   // popTarget/intervalSec/restEveryWaves were the old model's, and a
@@ -151,7 +157,7 @@ function simulate(spawn, rate, waves) {
   let t = 0, waveIndex = 0, step = -1, endsAt = spawn.initialDelaySec, startedAt = 0, hold = 0;
   let cache = null, owed = 0, peak = 0;
   const wave = () => {
-    if (cache?.index !== waveIndex) cache = { index: waveIndex, ...waveAt(waveIndex, spawn) };
+    if (cache?.index !== waveIndex) cache = { index: waveIndex, ...waveAt(waveIndex, spawn, MAX) };
     return cache;
   };
   const clear = () => owed <= spawn.skipRestUnderSec;
@@ -180,12 +186,21 @@ test('skipping rests cannot run away with the field', () => {
   // assumption to far above it. What must hold is that the backlog stays
   // BOUNDED -- if skipping could outpace recovery, a better player would
   // be buried by their own speed, which would be an absurd mode.
+  // Far enough to pass through every size bump, since that is where one
+  // ball stops being a small debt: a size-5 is the whole split tree at
+  // once. The bound is therefore not a round number but the most that CAN
+  // be owed -- a field at the skip threshold plus one biggest ball -- with
+  // a little slack for the frame the two overlap on.
+  const cycles = Math.ceil(SPAWN.loop.maxSizeBump / SPAWN.loop.sizeBumpPerCycle) + 2;
+  const biggest = Math.max(...SPAWN.waves.flatMap((w) => steps(w)
+    .filter((s) => s.kind === 'ball')
+    .map((s) => ballWork(s.shape, Math.min(s.size + SPAWN.loop.maxSizeBump, MAX[s.shape]), SPAWN.tuning))));
   for (const rate of [0.7, 1, 1.5, 3]) {
-    const run = simulate(SPAWN, rate, SPAWN.waves.length * 3);
-    assert.ok(run.finished, `a player clearing ${rate}x never got through three cycles`);
-    // One straggler under the threshold plus the biggest single ball a
-    // pattern holds is the most that can be owed at once.
-    assert.ok(run.peak < 15, `a player clearing ${rate}x fell ${run.peak.toFixed(1)}s behind`);
+    const run = simulate(SPAWN, rate, SPAWN.waves.length * cycles);
+    assert.ok(run.finished, `a player clearing ${rate}x never got through ${cycles} cycles`);
+    assert.ok(run.peak < SPAWN.skipRestUnderSec + biggest * 1.5,
+      `a player clearing ${rate}x fell ${run.peak.toFixed(1)}s behind, past the`
+      + ` ${(SPAWN.skipRestUnderSec + biggest * 1.5).toFixed(1)}s one big ball can explain`);
   }
 });
 
@@ -205,5 +220,33 @@ test('the authored pattern is what makes recovery possible', () => {
       `wave with pattern "${wave.spawn}" cannot recover at the floor beat`);
     assert.ok(patternBallSteps(parsed) < beats,
       `pattern "${wave.spawn}" is all balls -- it has no rests to fall back on`);
+  }
+});
+
+test('a long run reaches the biggest balls the game has', () => {
+  // The complaint this answers: standing on wave 100 and still being sent
+  // size-1 balls. The set loops, so without escalation wave 100 is
+  // whichever early wave it lands on, forever.
+  const biggest = Math.max(...Object.values(MAX));
+  const at100 = waveAt(99, SPAWN, MAX);
+  const sizes = at100.steps.filter((s) => s.kind === 'ball').map((s) => s.size);
+  assert.ok(sizes.length, 'wave 100 has to send something');
+  assert.equal(Math.max(...sizes), biggest,
+    `wave 100 tops out at size ${Math.max(...sizes)} of a possible ${biggest}`);
+});
+
+test('no cycle turns a wave into something nobody would sit through', () => {
+  // Bigger balls have to arrive less often to stay clearable, so a bump
+  // pushes the beat back up -- far enough and a wave becomes a crawl with
+  // one ball in it. loop.maxWaveSec is where that stops being acceptable.
+  const cycles = Math.ceil(SPAWN.loop.maxSizeBump / SPAWN.loop.sizeBumpPerCycle) + 1;
+  for (let cycle = 0; cycle <= cycles; cycle++) {
+    for (let i = 0; i < SPAWN.waves.length; i++) {
+      const w = waveAt(cycle * SPAWN.waves.length + i, SPAWN, MAX);
+      const beats = patternBeats(w.steps);
+      if (!beats) continue;
+      assert.ok(w.beat * beats <= SPAWN.loop.maxWaveSec,
+        `wave ${i + 1} on cycle ${cycle} lasts ${Math.round(w.beat * beats)}s`);
+    }
   }
 });

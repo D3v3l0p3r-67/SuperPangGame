@@ -15,7 +15,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, emergeSec,
+  checkWaves, parsePattern, patternBeats, patternBallSteps, waveWork, emergeSec, waveAt, bumpFor,
 } from '../js/panicWaves.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,7 +23,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The ball elements, so a token can be checked against a real ball and
 // its radius (which is what decides how long it takes to squeeze through
 // the ceiling).
-export function ballElements() {
+function allBalls() {
   const dir = join(ROOT, 'elements');
   const balls = [];
   for (const file of readdirSync(dir)) {
@@ -31,12 +31,26 @@ export function ballElements() {
     const el = JSON.parse(readFileSync(join(dir, file), 'utf8'));
     if (el.category === 'ball') balls.push(el);
   }
+  return balls;
+}
+
+export function ballElements() {
+  const balls = allBalls();
   return (shape, size) => balls.find((el) => el.shape === shape && el.size === size) ?? null;
+}
+
+// The largest size each shape actually has art and an element for -- hex
+// stops at 3 -- so a size bump can never name a ball that does not exist.
+export function maxSizes() {
+  const out = {};
+  for (const el of allBalls()) out[el.shape] = Math.max(out[el.shape] ?? 0, el.size);
+  return out;
 }
 
 const spawn = JSON.parse(readFileSync(join(ROOT, 'levels', 'panic.json'), 'utf8')).panicSpawn;
 const ball = ballElements();
-const { problems, warnings } = checkWaves(spawn, ball);
+const MAX_SIZE = maxSizes();
+const { problems, warnings } = checkWaves(spawn, ball, MAX_SIZE);
 
 // "rush" is the wave with every skippable rest skipped -- what a player
 // who clears each ball as it lands actually gets. It is not a limit
@@ -75,6 +89,21 @@ for (const key of [...sizes].sort()) {
   const [shape, size] = key.split(' ');
   const el = ball(shape, Number(size));
   if (el) console.log(`  ${key}  ${emergeSec(el.radius, spawn.ceilingSpeedPx).toFixed(1)}s`);
+}
+
+// What each cycle turns the set into, since that is the part nobody can
+// read off the patterns: the balls get bigger and thin out, and the beat
+// opens up to pay for them.
+console.log('\ncycle  bump  wave 1                        wave 11');
+const lastCycle = Math.ceil((spawn.loop.maxSizeBump ?? 0) / (spawn.loop.sizeBumpPerCycle ?? 1)) + 1;
+for (let cycle = 0; cycle <= lastCycle; cycle++) {
+  const show = (i) => {
+    const w = waveAt(cycle * spawn.waves.length + i, spawn, MAX_SIZE);
+    const letter = Object.fromEntries(Object.entries(spawn.shapeCode).map(([k, v]) => [v, k]));
+    const balls = w.steps.filter((s) => s.kind === 'ball').map((s) => `${letter[s.shape]}${s.size}`).join(' ');
+    return `${`${w.beat.toFixed(2)}s`.padStart(6)} ${balls}`.padEnd(28);
+  };
+  console.log(`${String(cycle).padStart(5)}  ${String(bumpFor(cycle, spawn.loop)).padStart(4)}  ${show(0)}  ${show(10)}`);
 }
 
 for (const warning of warnings) console.log(`\nwarning: ${warning}`);
