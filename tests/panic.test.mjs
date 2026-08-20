@@ -84,22 +84,27 @@ test('the difficulty ramp actually ramps', () => {
   assert.ok(played[0] <= 0.35, `the opening wave claims ${(played[0] * 100).toFixed(0)}% already`);
 });
 
-test('a beat is long enough for the ball to get through the ceiling', () => {
+test('no ball is still coming through the ceiling when the next one starts', () => {
   // A ball creeps through the border at ceilingSpeedPx and has to travel
-  // its own diameter before any of it is loose. A beat shorter than that
-  // means the next ball starts through before the last one is out -- the
-  // ceiling extruding a stream rather than dropping things. checkWaves
-  // warns about it; this is the statement that the shipped set is clear
-  // of it even at the floor beat.
+  // its own diameter before any of it is loose. What matters is the gap
+  // between CONSECUTIVE BALLS, not the beat: on a fine grid most beats
+  // are rests, and comparing one beat to an emergence would say nothing
+  // about what actually happens in the pattern.
   for (const wave of SPAWN.waves) {
-    for (const step of steps(wave)) {
-      if (step.kind !== 'ball') continue;
+    let last = null;
+    steps(wave).forEach((step, at) => {
+      if (step.kind !== 'ball') return;
       const el = BALL(step.shape, step.size);
       assert.ok(el, `no ${step.shape} ball of size ${step.size}`);
-      assert.ok(emergeSec(el.radius, SPAWN.ceilingSpeedPx) <= SPAWN.loop.minBeat,
-        `${step.shape} ${step.size} needs ${emergeSec(el.radius, SPAWN.ceilingSpeedPx)}s`
-        + ` to emerge, past the ${SPAWN.loop.minBeat}s floor beat`);
-    }
+      if (last) {
+        const gap = (at - last.at) * SPAWN.loop.minBeat;
+        const needs = emergeSec(last.radius, SPAWN.ceilingSpeedPx);
+        assert.ok(gap >= needs,
+          `"${wave.spawn}": two balls ${gap.toFixed(1)}s apart at the floor beat,`
+          + ` but the first needs ${needs.toFixed(1)}s to get through the ceiling`);
+      }
+      last = { at, radius: el.radius };
+    });
   }
 });
 

@@ -182,16 +182,27 @@ export function checkWaves(spawn, ball) {
       return;
     }
 
-    let biggest = 0;
-    for (const step of steps) {
-      if (step.kind !== 'ball') continue;
+    // The tightest a ball is ever followed by another one, in seconds at
+    // the floor beat -- measured between CONSECUTIVE BALL STEPS rather
+    // than against the beat itself. On a fine grid most beats are rests,
+    // so comparing a ball's emergence to one beat would flag every
+    // pattern in the file while saying nothing about what actually
+    // happens in it.
+    let tightest = Infinity;
+    let lastBall = null;
+    steps.forEach((step, at) => {
+      if (step.kind !== 'ball') return;
       const el = ball(step.shape, step.size);
       if (!el) {
         problems.push(`${where}: there is no ${step.shape} ball of size ${step.size}`);
-        continue;
+        return;
       }
-      biggest = Math.max(biggest, emergeSec(el.radius, spawn.ceilingSpeedPx));
-    }
+      if (lastBall) {
+        const gap = (at - lastBall.at) * loop.minBeat;
+        tightest = Math.min(tightest, gap - emergeSec(lastBall.radius, spawn.ceilingSpeedPx));
+      }
+      lastBall = { at, radius: el.radius };
+    });
 
     // Checked at the floor beat, not the authored one: every wave ends up
     // there, so that is the case that has to hold. Passing at the beat it
@@ -204,13 +215,12 @@ export function checkWaves(spawn, ball) {
         + ` ${(loop.minBeat * beats).toFixed(1)}s, so the field can only grow`);
     }
 
-    // A beat shorter than the biggest ball's emergence means the next
-    // ball starts through the ceiling before the last one is out: the
-    // ceiling extrudes a stream rather than dropping things. Legible, not
-    // broken -- hence a warning.
-    if (biggest > loop.minBeat) {
-      warnings.push(`${where}: its biggest ball takes ${biggest.toFixed(1)}s to come through the ceiling,`
-        + ` longer than the ${loop.minBeat}s floor beat -- late cycles will run them together`);
+    // A ball still coming through the ceiling when the next one starts:
+    // the ceiling extrudes a stream rather than dropping things. Legible
+    // rather than broken, hence a warning.
+    if (tightest < 0) {
+      warnings.push(`${where}: two balls land ${Math.abs(tightest).toFixed(1)}s closer than the first one`
+        + ` takes to come through the ceiling, once the beat is at its ${loop.minBeat}s floor`);
     }
     if (steps[steps.length - 1].kind !== 'hold') {
       // The last ball of a pattern is still emerging when the beats run

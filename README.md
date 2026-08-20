@@ -556,7 +556,7 @@ Each wave in `levels/panic.json` is a beat length and a pattern, and it
 reads as what it does:
 
 ```json
-{ "beat": 2.8, "spawn": "r1 x1 . w1 . r2 . r1 . r1 . |" }
+{ "beat": 0.75, "spawn": "r1 . . . . . . x1 . . . . . w1 . . . . . . r2 . . . |" }
 ```
 
 | token | means | takes |
@@ -641,8 +641,18 @@ That makes `minBeat` the mode's one safety number, because it is where
 every wave eventually lives -- so **the check is made at the floor beat,
 not at the beat a wave was written at**. Passing as authored and failing
 three cycles later would not be passing. The shipped set runs 0.22 to
-0.72 pressure on its first time round, and 0.34 to 0.86 once it has
-settled at the floor.
+0.75 pressure on its first time round, and settles at about 0.85 across
+the whole set once the beat is at the floor -- so the first pass is a
+difficulty curve, and every pass after it runs uniformly at the edge.
+
+The beat runs from **2s** at the opening wave down to a **0.5s** floor.
+That floor is not a difficulty knob on its own, which is worth
+understanding before touching it: halving it while doubling the dots in
+every pattern is a no-op on the game. What the floor really sets is the
+resolution the patterns are written at, and how much room the tempo has
+to tighten over a run. What decides how fast balls may actually arrive is
+`shotTimeSec` -- the working average of two seconds a shot -- and that is
+a claim about the player, not a preference.
 
 ```
 node tools/panic_waves.mjs
