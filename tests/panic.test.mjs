@@ -299,3 +299,16 @@ test('no other weapon can fall out of a ball there', () => {
   assert.match(scene, /excludePowerupKinds/, 'nothing reads the exclusion');
   assert.match(scene, /dropPowerupTypes\(\)/, 'the drop roll has to go through the filtered pool');
 });
+
+test('its pause screen offers two things and nothing else', () => {
+  // One unbroken run with a score attached and no levels to pick
+  // between, so Restart, Back to editor and Fullscreen are each either
+  // meaningless there or a way to lose the run by misclicking.
+  const ui = readText('js/ui.js');
+  const paused = ui.slice(ui.indexOf("if (state === GAME_STATES.PAUSED)"), ui.indexOf('GAME_STATES.GAME_OVER'));
+  assert.match(paused, /const bare = this\.game\.isPanicMode/, 'the pause screen has to know it is Panic Mode');
+  for (const id of ['btn-pause-restart', 'btn-pause-editor', 'btn-fullscreen-pause']) {
+    assert.match(paused, new RegExp(`'${id}'[\\s\\S]{0,120}bare`),
+      `${id} is still offered during a Panic Mode pause`);
+  }
+});

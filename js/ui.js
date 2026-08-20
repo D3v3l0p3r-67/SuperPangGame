@@ -464,19 +464,26 @@ export class UI {
     if (state === GAME_STATES.OPTIONS) this.showEraseConfirm(false, true);
 
     if (state === GAME_STATES.PAUSED) {
+      // Panic Mode's pause is deliberately bare: carry on, or leave. It
+      // is one unbroken run with a score attached and no levels to pick
+      // between, so everything else on this screen is either meaningless
+      // there or a way to lose the run by misclicking. Fullscreen goes
+      // with the rest -- it is still on the Options screen.
+      const bare = this.game.isPanicMode;
       // The extra Restart button only shows for a level opened via the
-      // editor's Play button (jump straight back into testing the level
-      // you're actively building -- see GameScene.advanceLevel/hitPlayer
-      // for the matching playtest-only behavior) or for Panic Mode (start
-      // the difficulty ramp over without spending a life) -- not a general
+      // editor's Play button: jump straight back into testing the level
+      // you're actively building (see GameScene.advanceLevel/hitPlayer
+      // for the matching playtest-only behavior). Not a general
       // "restart" offered mid-campaign.
-      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.isPanicMode);
+      this.el['btn-pause-restart'].classList.toggle('hidden', bare || !this.game.isCustomLevel);
       // Back to editing -- offered whenever this pause came from the
       // editor at all: either Escape pressed while actually editing (
       // pausedFromEditor) or Escape during a playtest of an editor level
       // (isCustomLevel), which is exactly when "return to the editor" is
       // a place you can meaningfully go back to.
-      this.el['btn-pause-editor'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.pausedFromEditor);
+      this.el['btn-pause-editor'].classList.toggle('hidden',
+        bare || (!this.game.isCustomLevel && !this.game.pausedFromEditor));
+      this.el['btn-fullscreen-pause'].classList.toggle('hidden', bare);
     } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {

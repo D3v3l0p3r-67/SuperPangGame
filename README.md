@@ -244,6 +244,12 @@ shoot as well, which made shooting unreliable anywhere near a ladder.
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
 
+Panic Mode's pause screen is deliberately bare: **resume or quit to menu,
+nothing else.** It is one unbroken run with a score attached and no levels
+to choose between, so Restart and Back-to-editor mean nothing there and
+Fullscreen is a way to lose a run by misclicking -- it is still on the
+Options screen.
+
 A run also pauses itself the moment the window goes away -- switching tab,
 clicking another window, or (on a phone) leaving the app -- onto the same
 screen Esc opens (`GameScene.pauseFromFocusLoss`). Both cases need
