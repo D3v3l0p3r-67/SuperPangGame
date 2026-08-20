@@ -2,8 +2,10 @@ import { VIRTUAL_W, PLAYFIELD_H, GROUND_Y, BORDER_THICKNESS, GAME_STATES, COLORS
 import {
   PLAYER_CONFIG, WEAPON_TYPES, POWERUP_DROP_CHANCE,
   TIME_BONUS_POINTS_PER_SEC, TIME_BONUS_COUNTDOWN_PER_SEC, TIME_BONUS_TICK_SEC, LEVEL_TRANSITION,
+  SHOT_SHAKE_SEC,
 } from './config.js';
-import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, POWERUP_TYPES, getBallElement } from './elements.js';
+import { OBSTACLE_TYPES, POWERUP_TYPE_KEYS, POWERUP_TYPES, getBallElement, ballMaxSizes,
+} from './elements.js';
 import { Player } from './Player.js';
 import { Ball } from './Ball.js';
 import { Projectile } from './Projectile.js';
@@ -28,14 +30,15 @@ import { Debug } from './debug.js';
 import { Editor } from './editor.js';
 import { touchInput, initTouchInput, consumeTouchPausePressed } from './input.js';
 import { initKeyboard, readKeyboard, onPauseKey } from './keys.js';
+import { waveAt, ballWork } from './panicWaves.js';
 import * as storage from './storage.js';
 import {
-  obstacleTextureKey, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
+  obstacleTextureKey, FRAME_TILE_TEXTURE, PARTICLE_TEXTURE_KEY, backgroundTextureKey, DEFAULT_BACKGROUND,
+  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
   ballPopTextureKey, ballPopAnimKey,
   PLAYER_HIT_TEXTURE_KEY, PLAYER_HIT_ANIM_KEY,
   PLAYER_DUST_TEXTURE_KEY, PLAYER_DUST_ANIM_KEY,
   PLAYER_GHOST_TEXTURE_KEY, PLAYER_GHOST_ANIM_KEY,
-  BULLET_HIT_TEXTURE_KEY, BULLET_HIT_ANIM_KEY,
 } from './assets.js';
 import { hexColor } from './colors.js';
 
@@ -59,6 +62,33 @@ const HIT_FREEZE_SEC = 2;
 // this is one more than that, and exists so a ball element added later
 // with a bigger size cannot turn the loop into an endless one.
 const MAX_SHATTER_PASSES = 6;
+
+// How fast a Panic Mode ball creeps while it is still coming through the
+// ceiling (px/s), when the level does not say (panic.json's
+// panicSpawn.ceilingSpeedPx). Slow on purpose: it is the one warning the
+// player gets about where the next ball is arriving, and at this speed
+// even the biggest takes a few seconds to squeeze out -- long enough to
+// walk under it, or to shoot it before it is loose.
+const PANIC_CEILING_SPEED = 16;
+
+// How much faster the wait for the next Panic Mode ball passes while the
+// down key is held, and the shortest gap between two balls that hurrying
+// can produce (seconds). Four times is fast enough to be worth reaching
+// for -- an opening 2.6s wait becomes 0.65s -- and the floor is what
+// keeps the late waves, whose own interval is 1.3s, from arriving as one
+// clump. See updatePanicSpawner.
+const PANIC_HURRY_RATE = 4;
+const PANIC_HURRY_MIN_GAP = 0.6;
+
+// What a shot leaves behind when it does not say (see playShotImpact).
+// A default only a HALF-UPDATED game can reach: this is an offline game,
+// its files are cached one by one, and an update that lands a new caller
+// beside an old shot would otherwise throw here every frame and freeze
+// the picture. The service worker now installs a release whole (see its
+// store()), so this should never be read -- and if it ever is, a spark is
+// the mark every shot in the game used to leave, which is a far better
+// answer than a frozen game.
+const BULLET_IMPACT = { textureKey: BULLET_HIT_TEXTURE_KEY, animKey: BULLET_HIT_ANIM_KEY };
 
 // The gap between those passes. Long enough that each one is a separate
 // event to watch -- the field halving, again, and again -- and short
@@ -171,7 +201,8 @@ export class GameScene extends Phaser.Scene {
     // the same fifty levels -- see ui.js's renderLevelSelect.
     this.levelSelectMode = 'play';
     this.panicWaveIndex = 0;
-    this.panicPopCount = 0;
+    this.panicStep = -1;
+    this.panicHoldLeft = 0;
     this.weaponType = 'harpoon';
     this.volleyCounter = 0; // see fireVolley -- ids only need to be distinct
     this.scorePopups = []; // live ScorePopup instances -- see popBall/updatePlaying
@@ -344,7 +375,7 @@ export class GameScene extends Phaser.Scene {
   // of the playfield.
   drawBorder() {
     const t = BORDER_THICKNESS;
-    const wallTexture = obstacleTextureKey('wall');
+    const wallTexture = obstacleTextureKey(FRAME_TILE_TEXTURE);
     const strips = [
       this.add.tileSprite(0, 0, VIRTUAL_W, t, wallTexture),
       this.add.tileSprite(0, 0, t, GROUND_Y, wallTexture),
@@ -364,13 +395,37 @@ export class GameScene extends Phaser.Scene {
     const wall = OBSTACLE_TYPES.platform;
     const light = hexColor(wall.edgeLight ?? '#ffffff');
     const dark = hexColor(wall.edgeDark ?? '#000000');
+    // Each line covers the face it belongs to AND NO MORE. The two
+    // horizontal ones used to run the full width of the canvas, which
+    // took them straight across both side walls -- a light line at the
+    // floor and a dark one at the ceiling, cutting each wall in two at
+    // exactly the height where the frame turns a corner. The frame then
+    // read as four separate bands butted together rather than as one
+    // piece, which is the opposite of what a bevel is for. They stop at
+    // the walls now (one pixel INTO them, so the corners close rather
+    // than leaving a gap where the horizontal and the vertical nearly
+    // meet).
+    // The four INNER faces are not drawn here: a wall built against the
+    // frame is one surface with it, so where that line runs depends on
+    // what has been built and it is redrawn with the obstacles instead
+    // (see Obstacle.js's drawFrameEdges).
     const edges = this.add.graphics().setDepth(0.6);
-    edges.lineStyle(1, dark, 1);
-    edges.lineBetween(0, t - 0.5, VIRTUAL_W, t - 0.5);              // under the ceiling
-    edges.lineBetween(t - 0.5, t, t - 0.5, GROUND_Y);               // right of the left wall
+
+    // The frame's OUTER faces, which is what
+    // makes it read as one raised object rather than as a band that
+    // happens to stop. It is the rule every obstacle already follows (see
+    // Obstacle.js's drawObstacleEdges): light where a shape faces up or
+    // left, dark where it faces down or right, around the whole of it.
+    // The frame used to be the one thing in the playfield lit on the
+    // inside only -- which is exactly the difference you could see by
+    // painting wall over it in the editor and watching the border gain an
+    // edge it did not have.
     edges.lineStyle(1, light, 1);
-    edges.lineBetween(VIRTUAL_W - t + 0.5, t, VIRTUAL_W - t + 0.5, GROUND_Y); // left of the right wall
-    edges.lineBetween(0, GROUND_Y + 0.5, VIRTUAL_W, GROUND_Y + 0.5);          // top of the floor
+    edges.lineBetween(0, 0.5, VIRTUAL_W, 0.5);                      // the top of the frame
+    edges.lineBetween(0.5, 0, 0.5, PLAYFIELD_H);                    // its left side
+    edges.lineStyle(1, dark, 1);
+    edges.lineBetween(VIRTUAL_W - 0.5, 0, VIRTUAL_W - 0.5, PLAYFIELD_H);      // its right side
+    edges.lineBetween(0, PLAYFIELD_H - 0.5, VIRTUAL_W, PLAYFIELD_H - 0.5);    // and its bottom
   }
 
   get currentLevelDef() {
@@ -406,11 +461,25 @@ export class GameScene extends Phaser.Scene {
     if (!WEAPON_TYPES[type]) return;
     this.weaponType = type;
     this.weaponState = createWeaponState(type);
+    // A level may hand out extra shots for its whole length rather than
+    // for a power-up's twelve seconds (Panic Mode's harpoon carries one:
+    // see levels/panic.json's weaponBonusShots). Applied before the timed
+    // effects so a rapid_shot picked up on top of it still wins -- its
+    // own apply() reads baseMaxActiveShots and overwrites this.
+    this.weaponState.maxActiveShots += this.currentLevelDef?.weaponBonusShots ?? 0;
     for (const active of this.effects.active.keys()) POWERUP_TYPES[active].apply(this);
   }
 
+  // What "no power-up running" means for this weapon ON THIS LEVEL. The
+  // level's own bonus belongs in here, not just in the initial state:
+  // weapon_max_shots sets maxActiveShots from this and puts it back here
+  // when it expires (see elements.js), so leaving the bonus out meant a
+  // rapid_shot picked up in Panic Mode did nothing at all for twelve
+  // seconds and then confiscated the harpoon's second shot for the rest
+  // of the run. Measured before the fix: 2 shots, 2 during, 1 after.
   get baseMaxActiveShots() {
-    return WEAPON_TYPES[this.weaponType].baseMaxActiveShots;
+    return WEAPON_TYPES[this.weaponType].baseMaxActiveShots
+      + (this.currentLevelDef?.weaponBonusShots ?? 0);
   }
 
   get weaponLabel() {
@@ -471,7 +540,7 @@ export class GameScene extends Phaser.Scene {
     // restart after losing a life (restartLevel(), which calls loadLevel()
     // directly rather than through here) deliberately leaves this alone,
     // so the run picks back up on whatever wave it was on (see loadLevel's
-    // own panicPopCount/panicSpawnAt reset for what DOES restart on a hit).
+    // own panicStep/panicStepEndsAt reset for what DOES restart on a hit).
     this.panicWaveIndex = 0;
     this.effects.reset(this);
     // The run-start fanfare used to play straight over the countdown's own
@@ -603,6 +672,14 @@ export class GameScene extends Phaser.Scene {
     this.player.reset(playerSpawn(def) || DEFAULT_PLAYER_SPAWN);
     this.weaponType = def.weapon && WEAPON_TYPES[def.weapon] ? def.weapon : 'harpoon';
     this.weaponState = createWeaponState(this.weaponType);
+    // Extra shots the LEVEL grants, for its whole length rather than for
+    // a power-up's twelve seconds -- Panic Mode's harpoon carries one
+    // (levels/panic.json's weaponBonusShots), which is what makes it the
+    // rapid harpoon the mode is built around. Applied here as well as in
+    // setWeapon because loading a level does not go through it, and
+    // reading `def` rather than currentLevelDef because loadLevelData may
+    // not have published it yet.
+    this.weaponState.maxActiveShots += def.weaponBonusShots ?? 0;
     // A campaign level takes its look and its music from the continent
     // it is played on (see js/regions.js), not from its own file -- that's
     // what makes five levels in a row feel like one place. The look also
@@ -616,15 +693,24 @@ export class GameScene extends Phaser.Scene {
       : (def.background || DEFAULT_BACKGROUND)));
     this.effects.reset(this);
     this.levelTimer = 0;
-    // Panic Mode only (see updatePanicSpawner/panicWave/popBall) --
-    // panicSpawnAt is the levelTimer value at which the next ceiling-drop
-    // ball is due; panicPopCount tracks progress within the CURRENT wave.
-    // Both reset on every load, including a post-hit restart, so a life
-    // lost restarts the wave you were actually on ("that level's balls
-    // start falling again") rather than dumping progress. panicWaveIndex
-    // itself is deliberately NOT touched here -- see beginRun().
-    this.panicSpawnAt = def.panicSpawn?.initialDelaySec ?? 0;
-    this.panicPopCount = 0;
+    // Panic Mode only (see updatePanicSpawner/panicWave) -- the run
+    // restarts the CURRENT wave's pattern from its first step. All of it
+    // resets on every load, including a post-hit restart, so a life lost
+    // replays the wave you were actually on ("that level's balls start
+    // falling again") rather than dumping progress. panicWaveIndex itself
+    // is deliberately NOT touched here -- see beginRun().
+    //
+    // panicStep is -1 because nothing has been entered yet: the first
+    // nextPanicStep() makes it 0, and initialDelaySec is how long the run
+    // waits before that happens.
+    this.panicStep = -1;
+    this.panicStepStartedAt = 0;
+    this.panicStepEndsAt = def.panicSpawn?.initialDelaySec ?? 0;
+    this.panicWaveCache = null;
+    // A hold in progress does not survive a life being lost -- the field
+    // is cleared by the restart anyway, which is everything the pause was
+    // there to allow.
+    this.panicHoldLeft = 0;
     this.hurryUpPlayed = false;
     this.hurryMusicPlayed = false;
     // A key still held from before this level started (e.g. mashed
@@ -853,6 +939,31 @@ export class GameScene extends Phaser.Scene {
     this.state = GAME_STATES.OPTIONS;
   }
 
+  // The two halves of the settings, each on a screen of its own -- what
+  // the game sounds like, and what it looks like. Options is a list of
+  // doors rather than a page of controls, which is what CONTROLS already
+  // was and what kept that screen readable.
+  showSound() {
+    this.state = GAME_STATES.SOUND;
+  }
+
+  showDisplay() {
+    this.state = GAME_STATES.DISPLAY;
+  }
+
+  // Which of the three ways to play, on a screen that says what each one
+  // is -- "PANIC MODE" on a button tells a first-time player nothing.
+  showPlay() {
+    this.state = GAME_STATES.PLAY;
+  }
+
+  // Erasing is irreversible, so it gets a screen rather than a button:
+  // opening it only says what would be lost (see ui.js's erase-warning),
+  // and nothing is written until YES is pressed there.
+  showErase() {
+    this.state = GAME_STATES.ERASE;
+  }
+
   // Rebinding the game's keys, on a screen of its own rather than in the
   // options list: six actions with two keys each is a table, not a row of
   // settings (see ui.js's renderKeyList).
@@ -1033,8 +1144,6 @@ export class GameScene extends Phaser.Scene {
       this.hurryUpPlayed = true;
     }
 
-    if (this.isPanicMode) this.updatePanicSpawner();
-
     const inputState = this.readInput();
     // Getting ON a ladder is a press, never a hold: holding up to climb
     // one must not grab the next one the moment the player walks past its
@@ -1043,6 +1152,10 @@ export class GameScene extends Phaser.Scene {
     inputState.downPressed = inputState.down && !this.wasDown;
     this.wasUp = inputState.up;
     this.wasDown = inputState.down;
+
+    // Read AFTER the input, because holding down is what hurries it along.
+    if (this.isPanicMode) this.updatePanicSpawner(dt, inputState.down);
+
     this.player.update(dt, inputState);
 
     // One shot per press, for every weapon and power-up alike: the input
@@ -1088,19 +1201,18 @@ export class GameScene extends Phaser.Scene {
       // with world-bounds collision off, so they visibly slide out from
       // under/through the border instead of just appearing already fully
       // below it -- restored to normal once the whole ball has cleared it.
+      // Out from under the ceiling, all of it: it stops creeping and
+      // becomes an ordinary ball in the same instant -- drawn in front of
+      // the border again, held by the world bounds again, given its
+      // normal sideways drift, and handed its vertical motion back (its
+      // own gravity picks up from the 16px/s it was already doing, so
+      // nothing jumps).
       if (ball.emergeY !== undefined && ball.body.y >= ball.emergeY) {
         ball.setDepth(3);
         ball.body.setCollideWorldBounds(true);
         ball.emergeY = undefined;
-      }
-      // Pinned to vx=0 and a controlled constant descent (see
-      // spawnPanicBall) so it visibly falls straight down first; the
-      // instant it reaches the shared release height, give it normal
-      // drift and hand its vertical motion back to normal ball behavior.
-      if (ball.dropReleaseY !== undefined && ball.body.y >= ball.dropReleaseY) {
         ball.activateDrift();
         ball.resumeNormalFall();
-        ball.dropReleaseY = undefined;
       }
     }
     for (const pu of this.powerups.getChildren()) pu.update(dt);
@@ -1128,34 +1240,137 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  // Panic Mode's active wave: PANIC_LEVEL.panicSpawn.waves (levels/
-  // panic.json) is a list of { popTarget, intervalSec, shapes } entries --
-  // progress is driven by balls actually popped (panicPopCount, see
-  // popBall/advancePanicProgress), not a timer, so a sharper player faces
-  // harder waves sooner instead of everyone escalating in lockstep. The
-  // last wave repeats forever once the run outlasts the whole table.
+  // Panic Mode's active wave, whatever number the run has reached: a
+  // beat length and a list of steps, resolved from the authored set by
+  // js/panicWaves.js (which also decides what the set does once the run
+  // outlasts it -- it repeats, a little faster each time round).
+  //
+  // Cached because it parses a pattern string, and this is read every
+  // frame. The wave index is the whole cache key: nothing else about a
+  // wave can change while it is the one being played.
   get panicWave() {
-    const waves = this.currentLevelDef?.panicSpawn?.waves;
-    if (!waves || !waves.length) return null;
-    return waves[Math.min(this.panicWaveIndex, waves.length - 1)];
+    const spawn = this.currentLevelDef?.panicSpawn;
+    if (!spawn?.waves?.length) return null;
+    if (this.panicWaveCache?.index !== this.panicWaveIndex) {
+      this.panicWaveCache = { index: this.panicWaveIndex, ...waveAt(this.panicWaveIndex, spawn, ballMaxSizes()) };
+    }
+    return this.panicWaveCache;
   }
 
-  // 0-100 completion of the CURRENT wave, for the HUD's progress bar (see
-  // Hud.js) -- caps at 100 on the final wave instead of ever exceeding it.
+  // 0-100 through the current wave's pattern, for the HUD's progress bar
+  // (see Hud.js). How far through the PATTERN, not how many balls have
+  // been popped: a wave is a written rhythm now, and it is over when the
+  // rhythm is over.
   get panicProgressPct() {
     const wave = this.panicWave;
-    if (!wave || !wave.popTarget) return 0;
-    return Math.min(100, Math.floor(100 * this.panicPopCount / wave.popTarget));
+    if (!wave || !wave.steps.length) return 0;
+    return Math.min(100, Math.floor(100 * Math.max(0, this.panicStep) / wave.steps.length));
   }
 
-  // Ball spawn timing only -- still purely time-driven (panicSpawnAt vs
-  // levelTimer) since spawn CADENCE is about keeping the pressure steady,
-  // unlike wave difficulty which is skill-gated (see panicWave above).
-  updatePanicSpawner() {
+  // One step of the current wave's pattern per beat.
+  //
+  // `hurry` is the down key held, which in Panic Mode means nothing else:
+  // there is no ladder to climb down (levels/panic.json has no obstacles
+  // at all), so the key was simply dead. What a player waiting out a rest
+  // actually wants is the next ball -- an empty field is not a rest, it
+  // is a wave that isn't advancing and a clock that is -- and holding
+  // down now asks for it, running the beat at PANIC_HURRY_RATE times its
+  // normal speed for as long as it is held.
+  //
+  // It is also how a sharp player still outruns the pattern. Progress
+  // used to be gated on balls popped, so shooting well brought the harder
+  // waves sooner; a written rhythm cannot do that on its own, and this is
+  // where that went. What it cannot do is empty a whole wave onto the
+  // field at once -- PANIC_HURRY_MIN_GAP is how close together two steps
+  // may land however hard the key is held.
+  updatePanicSpawner(dt, hurry) {
     const wave = this.panicWave;
-    if (!wave || this.levelTimer < this.panicSpawnAt) return;
-    this.spawnPanicBall(wave, this.currentLevelDef.panicSpawn);
-    this.panicSpawnAt = this.levelTimer + wave.intervalSec;
+    if (!wave) return;
+    if (this.panicHoldLeft > 0) { this.updatePanicHold(dt, hurry); return; }
+    // Nothing left to rest FOR: a rest waits out its beat only while the
+    // field still has something on it worth waiting for. Standing on an
+    // empty screen watching a clock is the least interesting thing this
+    // mode can ask of anyone, and the pattern is written as the wave at
+    // its SLOWEST, not as a promise about the clock.
+    //
+    // It cannot run away with itself: skipping is only possible while the
+    // player is ahead, and the moment they are not the rests come back.
+    // A wave cannot compress itself into something its player was not
+    // already clearing. The floor is the same one the down key gets, so
+    // a skip can never drop two balls on top of each other either.
+    if (wave.steps[this.panicStep]?.kind === 'rest' && this.panicFieldIsClear()
+      && this.levelTimer >= this.panicStepStartedAt + PANIC_HURRY_MIN_GAP) {
+      this.nextPanicStep();
+      return;
+    }
+    if (hurry) {
+      this.panicStepEndsAt = Math.max(this.panicStepStartedAt + PANIC_HURRY_MIN_GAP,
+        this.panicStepEndsAt - dt * (PANIC_HURRY_RATE - 1));
+    }
+    if (this.levelTimer >= this.panicStepEndsAt) this.nextPanicStep();
+  }
+
+  // A hold step (`|` in a pattern): the ceiling stops sending anything
+  // down, so what is on the field is all there is and it can actually be
+  // finished.
+  //
+  // It ends the moment the field IS clear -- that is the whole point of
+  // it, and there is nothing to wait for once it has happened -- or after
+  // the step's own cap, whichever comes first, because a field nobody can
+  // finish would otherwise stop the mode dead. Holding down drains it at
+  // the same rate it hurries a beat: a player who does not want the pause
+  // should not have to sit through it.
+  updatePanicHold(dt, hurry) {
+    this.panicHoldLeft -= dt * (hurry ? PANIC_HURRY_RATE : 1);
+    if (this.panicHoldLeft > 0 && !this.panicFieldIsClear()) return;
+    this.panicHoldLeft = 0;
+    this.nextPanicStep();
+  }
+
+  // Whether the field is clear ENOUGH to stop waiting on it -- what both
+  // a rest and a hold ask before they take any time.
+  //
+  // Measured in the seconds of shooting still owed rather than in balls,
+  // because a ball is not a unit of anything: one size-2 is three shots
+  // and a whole split tree, one size-1 is a straggler to walk under. It
+  // is the same measure the patterns are costed in (see panicWaves.js's
+  // ballWork), so "nearly clear" means the same thing to the game as it
+  // does to the file.
+  panicFieldIsClear() {
+    const spawn = this.currentLevelDef?.panicSpawn;
+    if (!spawn) return true;
+    let owed = 0;
+    for (const ball of this.balls.getChildren()) {
+      if (!ball.active) continue;
+      owed += ballWork(ball.shape, ball.size, spawn.tuning);
+      if (owed > spawn.skipRestUnderSec) return false;
+    }
+    return true;
+  }
+
+  // Onto the next step, and onto the next WAVE when the pattern is spent
+  // -- which is what ends a wave now. The counter is not stopped by the
+  // end of the authored set (see panicWaves.js's waveAt): a run that
+  // outlasts it still has a next milestone and a bar moving towards it.
+  nextPanicStep() {
+    this.panicStep += 1;
+    if (this.panicStep >= this.panicWave.steps.length) {
+      this.panicWaveIndex += 1;
+      this.panicStep = 0;
+    }
+    const wave = this.panicWave;
+    const step = wave.steps[this.panicStep];
+    this.panicStepStartedAt = this.levelTimer;
+    if (step.kind === 'hold') {
+      // Not a beat: a hold takes no time at all on a field that is
+      // already clear, and never counts towards the wave's length (which
+      // is why the pressure check leaves it out -- see panicWaves.js).
+      this.panicHoldLeft = step.maxSec;
+      this.panicStepEndsAt = Infinity;
+      return;
+    }
+    if (step.kind === 'ball') this.spawnPanicBall(step, this.currentLevelDef.panicSpawn);
+    this.panicStepEndsAt = this.levelTimer + wave.beat;
   }
 
   // Picks one (shape, size) from the wave's weighted `shapes` list and
@@ -1166,42 +1381,23 @@ export class GameScene extends Phaser.Scene {
   // through the border as it falls, rather than just appearing already
   // mostly exposed.
   //
-  // Becoming "active" (normal drift + normal falling, see resumeNormalFall)
-  // happens at a fixed HEIGHT shared by every size (releaseHeightPx below
-  // the border, measured to the ball's own center) but after a size-scaled
-  // TIME (releaseDelayBaseSec + (size-1)*releaseDelayStepSec) -- every
-  // round size shares the same gravityAccel (see elements/round-ball-*
-  // .json), so hitting two independent targets (same end height, different
-  // elapsed time) means the descent speed has to be deliberately overridden
-  // rather than left to each ball's own gravity: gravity is switched off
-  // for the descent and vy is set to exactly travelDistance/delaySec,
-  // restored to normal (resumeNormalFall) only once release fires.
-  spawnPanicBall(wave, spawn) {
-    const entries = wave.shapes;
-    const totalWeight = entries.reduce((sum, e) => sum + (e.weight ?? 1), 0);
-    let roll = Math.random() * totalWeight;
-    let choice = entries[entries.length - 1];
-    for (const e of entries) {
-      roll -= e.weight ?? 1;
-      if (roll <= 0) { choice = e; break; }
-    }
-
+  // While ANY of it is still in the ceiling it creeps: gravity off, a
+  // constant `ceilingSpeedPx` (16px/s) downward, which is slow enough to
+  // watch and to shoot at, and continuous rather than a wait followed by
+  // a jump. A ball squeezing out of the ceiling is the one moment in
+  // Panic Mode that says where the next threat is coming from, so it is
+  // worth the second it takes -- and a bigger ball takes proportionally
+  // longer, because there is more of it to come through.
+  //
+  // The instant the whole ball has cleared the border it is an ordinary
+  // ball: normal drift, normal fall (see updatePlaying's emergeY check),
+  // its own gravity taking it from the 16px/s it was already doing.
+  spawnPanicBall(choice, spawn) {
     const el = getBallElement(choice.shape, choice.size);
     const bt = BORDER_THICKNESS;
     const x = Phaser.Math.Between(bt + el.radius, VIRTUAL_W - bt - el.radius);
     const y = bt - el.radius;
-    const bodyY = y - el.radius; // Arcade's circle-body top-left == center - radius
-
-    const releaseHeightPx = spawn.releaseHeightPx ?? 48;
-    const delaySec = (spawn.releaseDelayBaseSec ?? 1) + (el.size - 1) * (spawn.releaseDelayStepSec ?? 0.5);
-    // Distance from THIS ball's own bodyY to the shared release height
-    // (measured by ball CENTER, bt + releaseHeightPx, so it's identical
-    // across sizes) -- working in bodyY terms throughout keeps this
-    // consistent with the >= comparison in updatePlaying's release check.
-    const travelPx = releaseHeightPx + el.radius;
-    const vy = travelPx / delaySec;
-
-    const ball = new Ball(this, choice.shape, choice.size, x, y, 0, vy);
+    const ball = new Ball(this, choice.shape, choice.size, x, y, 0, spawn.ceilingSpeedPx ?? PANIC_CEILING_SPEED);
     // Gravity would otherwise accelerate the descent, missing both the
     // fixed height and the fixed time -- overridden with a constant
     // velocity for the whole pre-release descent instead (see above).
@@ -1212,22 +1408,7 @@ export class GameScene extends Phaser.Scene {
     ball.body.setCollideWorldBounds(false);
     ball.setDepth(0.4); // below the ceiling border's own depth (0.5) while emerging
     ball.emergeY = bt; // body.y (top edge) reaching this means the whole ball has cleared the border
-    ball.dropReleaseY = bodyY + travelPx;
     this.balls.add(ball);
-  }
-
-  // Panic Mode's own "level" progress: popping enough balls (the active
-  // wave's popTarget) advances to the next, harder wave -- see panicWave/
-  // updatePanicSpawner. Skill-driven on purpose (pop faster, face harder
-  // waves sooner) rather than a blind timer.
-  advancePanicProgress() {
-    this.panicPopCount += 1;
-    const wave = this.panicWave;
-    const waves = this.currentLevelDef.panicSpawn.waves;
-    if (wave && this.panicPopCount >= wave.popTarget && this.panicWaveIndex + 1 < waves.length) {
-      this.panicWaveIndex += 1;
-      this.panicPopCount = 0;
-    }
   }
 
   tryFire() {
@@ -1237,7 +1418,21 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     const activeCount = this.projectiles.countActive(true);
-    if (activeCount >= this.weaponState.maxActiveShots) return;
+    if (activeCount >= this.weaponState.maxActiveShots) {
+      // Nothing can be fired -- but a grapple hanging from the ceiling is
+      // what is usually holding the slot, and a player pressing again is
+      // asking for it back. Each press shakes it loose a little sooner
+      // (see Projectile.shakeLoose and config.js's SHOT_SHAKE_SEC), which
+      // is the difference between a weapon that is busy and a button that
+      // does nothing.
+      for (const proj of this.projectiles.getChildren()) {
+        if (proj.active && proj.shakeLoose?.(SHOT_SHAKE_SEC)) {
+          this.audio.play('weaponhold');
+          break;
+        }
+      }
+      return;
+    }
     // The beam spans the player: its foot is planted at their FEET (not
     // at the ground line -- standing on a platform or holding a ladder,
     // those are different heights, and anchoring to the ground would
@@ -1288,14 +1483,21 @@ export class GameScene extends Phaser.Scene {
     this.player.playShotAnim();
   }
 
-  // The splash a bullet leaves where it stops on something it cannot break
-  // -- the ceiling, a side wall, or an indestructible obstacle. The beam
-  // weapons have no equivalent: a beam ENDS at the ceiling by design, while
-  // a bullet visibly strikes it.
-  playBulletImpact(x, y) {
-    const sprite = this.add.sprite(x, y, BULLET_HIT_TEXTURE_KEY);
+  // The splash a shot leaves where it stops on something it cannot break
+  // -- the ceiling, a side wall, or an indestructible obstacle. Every
+  // weapon gets it: the bullets always did, and a beam ending at the
+  // ceiling is the same event, which is why it looked like less of one.
+  // (The artwork is still named for the bullet it was drawn for; what it
+  // draws is a puff, and nothing about it was bullet-shaped.)
+  playShotImpact(x, y, impact = BULLET_IMPACT) {
+    const sprite = this.add.sprite(x, y, impact.textureKey);
+    // Centred by default -- the bullet's spark straddles the point it
+    // struck, which is what a chip flying off looks like. A shot whose
+    // mark hangs from the surface instead says so (originY 0, see
+    // Projectile's impact).
+    sprite.setOrigin(0.5, impact.originY ?? 0.5);
     sprite.setDepth(6);
-    sprite.play(BULLET_HIT_ANIM_KEY);
+    sprite.play(impact.animKey);
     sprite.once('animationcomplete', () => sprite.destroy());
   }
 
@@ -1322,7 +1524,6 @@ export class GameScene extends Phaser.Scene {
   popBall(ball, { quiet = false, rollDrop = true } = {}) {
     const awarded = Math.round(ball.points * this.scoreMultiplier);
     this.score += awarded;
-    if (this.isPanicMode) this.advancePanicProgress();
     if (!quiet) this.audio.play('balldestroy');
     this.playBallPopEffect(ball.x, ball.y, ball.shape, ball.size);
     this.scorePopups.push(new ScorePopup(this, ball.x, ball.y, awarded, ball.color, ball.radius));
@@ -1337,13 +1538,34 @@ export class GameScene extends Phaser.Scene {
 
     // A ball the level editor tagged with a powerup guarantees that drop
     // (bypassing the random roll below) -- see Ball.js's forcedPowerup.
+    const pool = this.dropPowerupTypes();
     const dropType = forcedPowerup
-      || (rollDrop && Math.random() < POWERUP_DROP_CHANCE
-        ? POWERUP_TYPE_KEYS[Math.floor(Math.random() * POWERUP_TYPE_KEYS.length)] : null);
+      || (rollDrop && pool.length && Math.random() < POWERUP_DROP_CHANCE
+        ? pool[Math.floor(Math.random() * pool.length)] : null);
     if (dropType) {
       const bonus = new Bonus(this, dropType, ball.x, ball.y);
       this.powerups.add(bonus);
     }
+  }
+
+  // What a popped ball may drop here. Every power-up there is, minus any
+  // whose KIND the level rules out -- `excludePowerupKinds` in the level
+  // file. Panic Mode rules out `give_weapon`: the mode is built around
+  // one weapon, and a machine gun falling out of a ball would quietly
+  // rewrite the arithmetic the whole thing is balanced on (see
+  // js/panicWaves.js).
+  //
+  // By kind rather than by name so it stays right when a weapon is added.
+  // Cached per level because a pop is a common event and this answer only
+  // changes when the level does.
+  dropPowerupTypes() {
+    const exclude = this.currentLevelDef?.excludePowerupKinds;
+    if (!exclude?.length) return POWERUP_TYPE_KEYS;
+    if (this.dropPoolFor !== this.currentLevelDef) {
+      this.dropPoolFor = this.currentLevelDef;
+      this.dropPool = POWERUP_TYPE_KEYS.filter((type) => !exclude.includes(POWERUP_TYPES[type].kind));
+    }
+    return this.dropPool;
   }
 
   // The dynamite (see elements.js's shatter_balls): every ball on the
@@ -1440,12 +1662,15 @@ export class GameScene extends Phaser.Scene {
     // to hang from, not something to waste the shot on. Destructible
     // blocks still take the hit and stop the shot, so the grapple can't be
     // used to dodge breaking them open.
-    if (!obstacleGO.def.destructible && projGO.anchorAt(obstacleGO.body.bottom)) return;
-    // A bullet can't catch hold, so an unbreakable block simply stops it --
-    // and that stop gets the same splash the ceiling and side walls give.
-    if (!obstacleGO.def.destructible && projGO.volleyId !== undefined) {
-      const tip = projGO.tip;
-      this.playBulletImpact(tip.x, Math.max(obstacleGO.body.bottom, tip.y));
+    if (!obstacleGO.def.destructible) {
+      // Where the shot actually stopped: a bullet's tip or a beam's head,
+      // and never past the block's underside, which is as far as either
+      // of them got. Played before the grapple is given its chance to
+      // catch hold, so that catching hold is marked too -- it is the same
+      // contact either way.
+      const point = projGO.tip ?? projGO.head;
+      this.playShotImpact(point.x, Math.max(obstacleGO.body.bottom, point.y), projGO.impact);
+      if (projGO.anchorAt(obstacleGO.body.bottom)) return;
     }
     projGO.destroy();
     const forcedPowerup = obstacleGO.forcedPowerup;

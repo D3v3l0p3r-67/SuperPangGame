@@ -38,6 +38,14 @@ SIZE = 16
 TILES = {
     'crate': {'body': (142, 90, 32), 'grain': ((133, 86, 15), (150, 98, 40))},
     'wall': {'body': (48, 72, 135), 'grain': ((40, 62, 120), (56, 82, 146))},
+    # Ice: a pale blue, and the only material whose grain goes UP from the
+    # body rather than both ways. Frost catches the light; it does not
+    # pit like stone or timber, and a darker fleck on ice reads as dirt.
+    # Pale enough to be told from the wall at a glance across a level,
+    # which matters more here than for the other two -- standing on this
+    # one is a different game (see elements/obstacle-icy-wall.json's grip
+    # and js/Player.js).
+    'ice': {'body': (140, 196, 222), 'grain': ((164, 216, 238), (182, 230, 248))},
 }
 
 # How much of the tile gets a grain pixel. Enough that a big wall is not a

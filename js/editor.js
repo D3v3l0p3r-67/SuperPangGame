@@ -1,4 +1,4 @@
-import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
+import { VIRTUAL_W, VIRTUAL_H, HUD_H, GROUND_Y, PLAYFIELD_H, OBSTACLE_BLOCK_SIZE, BORDER_THICKNESS, GAME_STATES } from './constants.js';
 import { OBSTACLE_TYPES, OBSTACLE_TYPE_KEYS, LADDER_TYPES, LADDER_TYPE_KEYS, POWERUP_TYPE_KEYS, POWERUP_TYPES, BALL_ELEMENTS, getBallElement, maxBallSize } from './elements.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from './config.js';
 import { backgroundTextureKey, DEFAULT_BACKGROUND, levelFileKey, powerupTextureKey } from './assets.js';
@@ -15,14 +15,18 @@ import * as storage from './storage.js';
 import { saveLevelFile } from './levelFile.js';
 import { OBSTACLE_PIECES, obstaclePiece, mergeBlocks } from './obstaclePieces.js';
 
-// Split into the two brushes that TILE (painted cell by cell while the
-// pointer is dragged) and the two that don't, because the panel row below
-// puts the whole-element brushes -- ladders, the player's start -- between
+// The brushes that TILE -- painted cell by cell while the pointer is
+// dragged -- as against the ones that place a whole thing per click
+// (ladders, the player's start), which the panel row below puts after
 // them.
-const TILE_BRUSHES = [
-  { id: 'platform', label: 'Wall' },
-  { id: 'crate', label: 'Crate' },
-];
+//
+// Built from the obstacle registry rather than written out, so a new
+// elements/obstacle-*.json is a new brush with no change here: that is
+// how the icy wall arrived, and it is how the next material will. The
+// brush id IS the obstacle type, which is what the level file stores.
+function tileBrushes() {
+  return OBSTACLE_TYPE_KEYS.map((type) => ({ id: type, label: OBSTACLE_TYPES[type].label }));
+}
 const START_BRUSH = { id: 'start', label: 'Start' };
 // One brush for every ball, whatever kind and size -- which the two
 // pickers beside it choose (see buildPanel). The brush itself still
@@ -116,17 +120,29 @@ function gridSnap(bt, grid, rawMax) {
   return bt + Math.floor((rawMax - bt) / grid) * grid;
 }
 
-function snapObstacleOrigin(x, y) {
+// `reach` is how far out of the playfield this brush is allowed (see the
+// Editor's brushReach): 'none' stops at the frame, 'floor' adds the strip
+// below the ground line, 'frame' adds the whole frame. The frame is
+// exactly one cell thick on every side (BORDER_THICKNESS ===
+// OBSTACLE_BLOCK_SIZE, see constants.js), so reaching into it is one more
+// column at each end and one more row at each end -- the grid itself
+// never moves.
+function snapObstacleOrigin(x, y, reach = 'none') {
   const grid = OBSTACLE_BLOCK_SIZE;
-  const bt = BORDER_THICKNESS;
-  const gx = Math.floor((x - bt) / grid) * grid + bt;
-  const maxX = gridSnap(bt, grid, VIRTUAL_W - bt - grid);
+  const bt = reach === 'frame' ? 0 : BORDER_THICKNESS;
+  const gx = Math.floor((x - BORDER_THICKNESS) / grid) * grid + BORDER_THICKNESS;
+  const maxX = gridSnap(BORDER_THICKNESS, grid, VIRTUAL_W - bt - grid);
 
   // Which row up from the ground the pointer is in: 1 is the row resting
   // on the ground, counting upward. ceil, so a pointer anywhere inside a
   // row picks that row rather than the one below it.
+  //
+  // Row 0 is the FLOOR itself -- the strip of frame below the ground line,
+  // which the pointer only ever reaches while painting a floor material
+  // (see onPointer, which is what allows the pointer down there at all).
   const maxRows = Math.floor((GROUND_Y - bt) / grid);
-  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), 1), maxRows);
+  const minRows = reach === 'none' ? 1 : 0;
+  const rows = Math.min(Math.max(Math.ceil((GROUND_Y - y) / grid), minRows), maxRows);
 
   return { x: Math.min(Math.max(gx, bt), maxX), y: GROUND_Y - rows * grid };
 }
@@ -229,10 +245,18 @@ export class Editor {
     // which a hunter could not be told from a heavy. Which ball the brush
     // places is chosen by name, next to the other options for the next
     // thing placed.
-    this.panelEl.appendChild(group(
+    // The size a wall/crate press puts down belongs HERE, under the
+    // brushes, rather than with the options for the next thing placed: it
+    // is a property of the brush in hand, and this group is one row of
+    // buttons in a band with room for three. Where it used to sit it was
+    // the widest thing in its group, and the counts readout at the end of
+    // the panel was being cut off to pay for it (tests/smoke measures
+    // exactly that).
+    this.brushGroup = group(
       'BRUSH',
-      row(...[...TILE_BRUSHES, BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
-    ));
+      row(...[...tileBrushes(), BALL_BRUSH, ...ladderBrushes(), START_BRUSH, ERASE_BRUSH].map(brushButton)),
+    );
+    this.panelEl.appendChild(this.brushGroup);
 
     // Options that apply to the NEXT placed ball/crate: initial direction
     // (round balls only use the X one; hex balls use both) and a
@@ -299,10 +323,13 @@ export class Editor {
     // work out which -- the Drops dropdown in particular sat there, fully
     // usable, over a Wall brush that silently threw the answer away.
     this.dirRow = row(this.dirXBtn, this.dirYBtn);
-    this.dropRow = row(labelled('Drops ', this.powerupSelect));
-    this.pieceRow = row(labelled('Block ', this.pieceSelect));
+    this.dropField = labelled('Drops ', this.powerupSelect);
+    this.dropRow = row(this.dropField);
     this.ballRow = row(labelled('Ball ', this.ballKindSelect), this.ballSizeSelect);
-    this.nextGroup = group('NEXT PLACED', this.dirRow, this.dropRow, this.pieceRow, this.ballRow);
+    this.nextGroup = group('NEXT PLACED', this.dirRow, this.dropRow, this.ballRow);
+    // Second row of BRUSH, built after the picker exists.
+    this.pieceField = labelled('Size ', this.pieceSelect);
+    this.brushGroup.appendChild(row(this.pieceField));
     this.panelEl.appendChild(this.nextGroup);
     this.updateOptionLabels();
 
@@ -399,9 +426,14 @@ export class Editor {
     this.setBrush(this.brush);
   }
 
+  // The arrow IS the label: these sit in NEXT PLACED beside the ball
+  // pickers, where a horizontal and a vertical arrow can only mean one
+  // thing, and each still carries the full sentence as its tooltip. The
+  // "Dir X:"/"Dir Y:" prefixes cost fifty pixels of a band that has none
+  // to give -- the counts readout beside them was being cut off for it.
   updateOptionLabels() {
-    if (this.dirXBtn) this.dirXBtn.textContent = `Dir X: ${this.dirX > 0 ? '→' : '←'}`;
-    if (this.dirYBtn) this.dirYBtn.textContent = `Dir Y: ${this.dirY < 0 ? '↑' : '↓'}`;
+    if (this.dirXBtn) this.dirXBtn.textContent = `X ${this.dirX > 0 ? '→' : '←'}`;
+    if (this.dirYBtn) this.dirYBtn.textContent = `Y ${this.dirY < 0 ? '↑' : '↓'}`;
   }
 
   // Updates both the editor's own saved field and the live GameScene
@@ -478,8 +510,10 @@ export class Editor {
 
     show(this.dirRow, isBall);
     show(this.dirYBtn, isBall && !getBallElement(this.ballShape, this.ballSize).hasGravity);
-    show(this.dropRow, isBall || (breakable && singlePiece));
-    show(this.pieceRow, isTile);
+    // The two share a row, so each is shown on its own rather than the
+    // row being shown for both (see buildPanel).
+    show(this.dropField, isBall || (breakable && singlePiece));
+    show(this.pieceField, isTile);
     show(this.ballRow, isBall);
   }
 
@@ -685,7 +719,33 @@ export class Editor {
   // applies to -- balls, ladders, the start and the eraser each place
   // their own thing.
   isTileBrush() {
-    return TILE_BRUSHES.some((brush) => brush.id === this.brush);
+    return OBSTACLE_TYPE_KEYS.includes(this.brush);
+  }
+
+  // How far out of the playfield the selected brush may paint:
+  //
+  //   'frame'  the whole frame -- ceiling, both side walls and the floor
+  //   'floor'  the strip below the ground line, and nothing else
+  //   'none'   the playfield only, which is where everything used to stop
+  //
+  // Nothing breakable ever leaves the playfield. The frame is the one part
+  // of a level the player can never open up, and a crate built into it
+  // would leave a hole that the border goes on being solid through --
+  // a picture that lies about what is there.
+  //
+  // Of what is left, a material whose GRIP is not 1 is a surface rather
+  // than a material: the only thing ice changes is what happens to
+  // someone standing on it, and nobody stands on a ceiling or a side
+  // wall. So it is offered where it means something and nowhere else,
+  // and the plain wall -- which is what the frame is drawn from anyway --
+  // goes anywhere. Read off the element, so a second slippery material
+  // would land on the same side of this on its own.
+  brushReach() {
+    if (this.brush === 'erase') return 'frame';
+    if (!this.isTileBrush()) return 'none';
+    const def = OBSTACLE_TYPES[this.brush];
+    if (def.destructible) return 'none';
+    return def.grip < 1 ? 'floor' : 'frame';
   }
 
   // Low-level placement (grid cell already known) shared by the live
@@ -758,7 +818,7 @@ export class Editor {
   // obstacle's own element rather than by testing for 'crate', so a
   // second breakable type carries drops without a change here.
   placeBlock(x, y, type) {
-    const piece = obstaclePiece(this.selectedPiece);
+    const piece = this.pieceAt(y);
     // A drop belongs on a ONE-BLOCK crate: on a bigger piece the tag goes
     // onto every block it becomes and bursts one power-up per block (see
     // js/obstaclePieces.js and the rule in tests/levels.test.mjs).
@@ -778,9 +838,24 @@ export class Editor {
   // them wide or tall -- so it is pulled back in at the right and bottom
   // edges rather than being placed half outside (the same thing setLadder
   // does for a ladder, which is six cells tall).
+  // The piece a press at this height actually puts down. The selected one
+  // everywhere except in the floor strip, where it is one row deep
+  // whatever is selected: the floor is exactly one block thick, and a
+  // pillar painted into it would hang under the level. Its WIDTH still
+  // counts -- a 96x16 run of ice laid in one press is the point of having
+  // the wider pieces at all.
+  pieceAt(y) {
+    const piece = obstaclePiece(this.selectedPiece);
+    return y >= GROUND_Y ? { ...piece, rows: 1 } : piece;
+  }
+
   pieceOrigin(x, y, piece) {
-    const maxX = VIRTUAL_W - BORDER_THICKNESS - piece.cols * OBSTACLE_BLOCK_SIZE;
-    const maxY = GROUND_Y - piece.rows * OBSTACLE_BLOCK_SIZE;
+    const side = this.brushReach() === 'frame' ? 0 : BORDER_THICKNESS;
+    const maxX = VIRTUAL_W - side - piece.cols * OBSTACLE_BLOCK_SIZE;
+    // In the floor strip a piece is one row deep no matter which one is
+    // selected: the floor is exactly one block thick, and a pillar driven
+    // into it would be a pillar hanging under the level.
+    const maxY = y >= GROUND_Y ? GROUND_Y : GROUND_Y - piece.rows * OBSTACLE_BLOCK_SIZE;
     return { x: Math.min(x, maxX), y: Math.min(y, maxY) };
   }
 
@@ -882,9 +957,15 @@ export class Editor {
     // the ground itself is the inner face there and the whole bottom row
     // is inside the playfield. Subtracting the border thickness here as
     // well was the other half of why nothing could be placed on the floor.
-    if (x < BORDER_THICKNESS || x > VIRTUAL_W - BORDER_THICKNESS || y < BORDER_THICKNESS || y > GROUND_Y) return;
+    // How much of the frame this brush may reach into (see brushReach) --
+    // for everything that cannot go there, the bounds are the playfield
+    // exactly as they always were.
+    const reach = this.brushReach();
+    const side = reach === 'frame' ? 0 : BORDER_THICKNESS;
+    const maxY = reach === 'none' ? GROUND_Y : PLAYFIELD_H;
+    if (x < side || x > VIRTUAL_W - side || y < side || y > maxY) return;
 
-    const snapped = snapObstacleOrigin(x, y);
+    const snapped = snapObstacleOrigin(x, y, reach);
     this.hoverCell = snapped;
 
     // pointer.isDown only reflects the LEFT button -- the right button
@@ -941,7 +1022,7 @@ export class Editor {
     // A tile brush outlines the whole PIECE it would put down, not the one
     // cell under the cursor: a 64x16 beam placed from a 16x16 cursor is a
     // guess about where its other three cells go.
-    const piece = this.isTileBrush() ? obstaclePiece(this.selectedPiece) : { cols: 1, rows: 1 };
+    const piece = this.isTileBrush() ? this.pieceAt(this.hoverCell.y) : { cols: 1, rows: 1 };
     const origin = this.isTileBrush() ? this.pieceOrigin(this.hoverCell.x, this.hoverCell.y, piece) : this.hoverCell;
     this.cursorGraphics.strokeRect(
       origin.x, origin.y,
@@ -992,12 +1073,16 @@ export class Editor {
     // The start counts like everything else here: 1 when this level places
     // one, 0 when it has none and the player starts where the default puts
     // them (see LevelManager's playerSpawn).
-    // Single-spaced, and that is not fussiness: this readout gets
-    // whatever width the controls leave it (see style.css), and at the
-    // default display size the double spaces were the last eight pixels
-    // between "Ladders 0 Start 0" and "Ladders 0 Start..".
-    this.statusEl.textContent = `Blocks ${this.blocks.size} Balls ${this.balls.size}\n`
-      + `Ladders ${this.ladders.size} Start ${this.playerStart ? 1 : 0}`;
+    // One count per line, not two to a line. This readout gets whatever
+    // width the controls leave it (see style.css) and must not be cut
+    // off (tests/smoke measures exactly that), so it is written as the
+    // narrowest thing that still says everything: the longest line is
+    // then one label instead of two, which is half the width for the
+    // same four numbers -- and the band has the height to spare.
+    this.statusEl.textContent = `Blocks ${this.blocks.size}\n`
+      + `Balls ${this.balls.size}\n`
+      + `Ladders ${this.ladders.size}\n`
+      + `Start ${this.playerStart ? 1 : 0}`;
   }
 
   showStatusMessage(text, durationMs = 3000) {

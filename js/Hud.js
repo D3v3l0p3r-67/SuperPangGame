@@ -45,8 +45,16 @@ class DigitRow {
     }
   }
 
+  // Right-hand digits only, and never more of them than there are slots:
+  // a value too big for its row is shown as the largest that row CAN
+  // draw. Dropping the leftmost digits instead -- which is what taking
+  // str[i] straight did -- turns 100 into "10", so Panic Mode's hundredth
+  // wave read as its tenth, and a run of any length looked stuck.
+  // Clamping still under-reports, but it under-reports as a ceiling
+  // ("this is as far as the row goes") rather than as a smaller number.
   setValue(n) {
-    const str = String(Math.max(0, Math.floor(n)));
+    const most = 10 ** this.images.length - 1;
+    const str = String(Math.min(most, Math.max(0, Math.floor(n))));
     for (let i = 0; i < this.images.length; i++) {
       const has = i < str.length;
       this.images[i].setVisible(has);
@@ -134,8 +142,8 @@ export class Hud {
 
     // Panic Mode has no time limit (see loadLevel/currentLevelDef) -- it
     // shares the TIME row's slot with a small bar instead, showing the
-    // current wave's completion (balls popped / popTarget, see
-    // GameScene.panicProgressPct) rather than leaving the slot empty.
+    // current wave's completion (how far through its written pattern,
+    // see GameScene.panicProgressPct) rather than leaving the slot empty.
     this.panicBarMaxW = 60;
     const PANIC_BAR_H = 6;
     this.panicBarBg = scene.add.rectangle(RIGHT_X, ROW1_Y + 4, this.panicBarMaxW, PANIC_BAR_H, 0x000000).setOrigin(0, 0).setStrokeStyle(1, ACCENT);
@@ -143,8 +151,12 @@ export class Hud {
     this.container.add(this.panicBarBg);
     this.container.add(this.panicBarFill);
 
+    // Three digits, not two: the campaign stops at 50, but Panic Mode's
+    // wave counter runs past 100 and keeps going (see
+    // GameScene.advancePanicProgress), and two slots turned that into
+    // "10".
     this.container.add(scene.add.image(RIGHT_X, ROW2_Y, assets.HUD_LEVEL_LABEL_KEY).setOrigin(0, 0).setTint(ACCENT));
-    this.levelRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 2, RIGHT_X + 54, ROW2_Y);
+    this.levelRow = new DigitRow(this.container, assets.HUD_DIGITS_SMALL_KEY, assets.HUD_DIGITS_SMALL_FRAME.frameWidth, 3, RIGHT_X + 54, ROW2_Y);
     this.levelRow.setTint(ACCENT);
 
     // Active power-up row -- sits in HUD_H's spare vertical room below

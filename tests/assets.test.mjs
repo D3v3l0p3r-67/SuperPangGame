@@ -65,6 +65,22 @@ test('a power-up file is named after its type, and after nothing else', () => {
   }
 });
 
+// Footing. `grip` is optional and defaults to 1 in js/elements.js, which
+// is every surface the game had before the icy wall: the player moves the
+// frame the key goes down and stops the frame it comes up. A value here
+// is therefore always a DEPARTURE from that, and two of them would break
+// the game rather than change it -- 0 is a surface that can never be left
+// (the eased speed never reaches what is asked for), and above 1 is a
+// player who overshoots the speed they asked for and keeps accelerating.
+test('an obstacle that is slippery says so with a grip between 0 and 1', () => {
+  for (const el of EL.obstacles) {
+    if (el.grip === undefined) continue;
+    assert.equal(typeof el.grip, 'number', `${el.id}: grip must be a number`);
+    assert.ok(el.grip > 0 && el.grip <= 1,
+      `${el.id}: grip ${el.grip} is outside 0..1 -- 1 is solid footing and below it is slippery`);
+  }
+});
+
 test('every element has the graphic BootScene will load for it', () => {
   for (const el of EL.balls) {
     assert.ok(exists(ballTexturePath(el.shape, el.size)), `${el.id}: missing ${ballTexturePath(el.shape, el.size)}`);

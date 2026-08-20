@@ -13,7 +13,7 @@ import { PLAYER_CONFIG, PLAYER_STEP_UP_PX, LEVEL_TRANSITION, LEVELS_PER_REGION }
 import { DEFAULT_BINDINGS, ACTIONS, keyLabel } from '../js/keys.js';
 import { DAYLIGHT_PHASES, daylightPhaseForLevel } from '../js/regions.js';
 import { formatLevelTime } from '../js/storage.js';
-import { readJSON, levelFiles, elements } from './helpers.mjs';
+import { readJSON, readText, levelFiles, elements } from './helpers.mjs';
 
 // The transition registry is data, but the module it lives in converts a
 // palette colour at import time, and that conversion goes through Phaser
@@ -233,4 +233,25 @@ test('every key label is something the menu font can actually draw', () => {
     assert.ok(label.length > 0, `${code}: empty label`);
     assert.ok(drawable.test(label) || label === '...', `${code}: label "${label}" has glyphs the font lacks`);
   }
+});
+
+test('the HUD has room for every level number it can be handed', () => {
+  // The LEVEL slot is a fixed row of digit images, and a value too big
+  // for it is CLAMPED (see Hud.js's DigitRow.setValue) -- it used to be
+  // truncated from the left, which is how Panic Mode's hundredth wave
+  // came out as "10". Clamping is the safe failure, not a licence to
+  // under-size the row: this is the check that the row is actually big
+  // enough for the numbers the game produces.
+  const hud = readText('js/Hud.js');
+  const slots = Number(hud.match(/this\.levelRow = new DigitRow\([^)]*?,\s*(\d+),/)[1]);
+  const most = 10 ** slots - 1;
+  assert.ok(levelFiles().length <= most,
+    `the campaign reaches level ${levelFiles().length}, and the HUD's LEVEL row holds ${slots} digits`);
+  // Panic Mode's counter is not stopped by the end of its wave table (see
+  // GameScene.advancePanicProgress) -- the table's own length is only the
+  // point past which difficulty plateaus. The row has to hold at least
+  // that much, which is where two digits stopped being enough.
+  const waves = readJSON('levels/panic.json').panicSpawn.waves.length;
+  assert.ok(waves <= most,
+    `Panic Mode's table runs to wave ${waves}, and the HUD's LEVEL row holds ${slots} digits`);
 });

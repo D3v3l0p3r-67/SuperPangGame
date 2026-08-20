@@ -1,22 +1,37 @@
 import { GAME_STATES, COLORS, ZOOM_FIT } from './constants.js';
 import { LEVELS } from './LevelManager.js';
+import { MENU_MUSIC } from './config.js';
 import { setPixelText } from './PixelText.js';
 import { getZoom, setZoom, watchViewport } from './DisplayZoom.js';
 import { isMobileDevice } from './input.js';
-import { initInstall, promptInstall, lockLandscape } from './pwa.js';
-import { ACTIONS, getBindings, setBinding, resetBindings, keyLabel, captureNextKey } from './keys.js';
+import { initInstall, promptInstall, lockLandscape, isStandalone } from './pwa.js';
+import { fileSaving } from './levelFile.js';
+import { ACTIONS, getBindings, setBinding, keyLabel, captureNextKey } from './keys.js';
 
-// zoom value -> the settings-row button that selects it (see ELEMENT_IDS/
-// bindEvents/updateZoomButtons below).
-// zoom value -> the settings-row button that selects it. Keyed by the
-// value as a STRING, because one of them is not a number (see
-// constants.js's ZOOM_FIT) and object keys are strings regardless.
+// zoom value -> the DISPLAY screen button that selects it (see
+// ELEMENT_IDS/bindEvents/updateZoomButtons below). Keyed by the value as
+// a STRING, because one of them is not a number (see constants.js's
+// ZOOM_FIT) and object keys are strings regardless.
 const ZOOM_BUTTON_IDS = { 0.5: 'btn-zoom-half', 1: 'btn-zoom-1x', 2: 'btn-zoom-2x', [ZOOM_FIT]: 'btn-zoom-fit' };
+
+// The screens the menu music plays behind: everything in front of a run,
+// including the ones reached from Options. Deliberately not the screens a
+// run ends on -- GAME_OVER and VICTORY have their own cues, and a menu
+// tune cutting in over them would step on the moment.
+const MUSIC_STATES = new Set([
+  GAME_STATES.MENU, GAME_STATES.PLAY, GAME_STATES.LEVEL_SELECT,
+  GAME_STATES.OPTIONS, GAME_STATES.SOUND, GAME_STATES.DISPLAY,
+  GAME_STATES.KEY_CONFIG, GAME_STATES.ERASE, GAME_STATES.HIGH_SCORE_TABLE,
+]);
 
 const SCREEN_IDS = {
   [GAME_STATES.MENU]: 'screen-menu',
   [GAME_STATES.OPTIONS]: 'screen-options',
   [GAME_STATES.KEY_CONFIG]: 'screen-keys',
+  [GAME_STATES.SOUND]: 'screen-sound',
+  [GAME_STATES.DISPLAY]: 'screen-display',
+  [GAME_STATES.ERASE]: 'screen-erase',
+  [GAME_STATES.PLAY]: 'screen-play',
   [GAME_STATES.LEVEL_SELECT]: 'screen-level-select',
   [GAME_STATES.PAUSED]: 'screen-pause',
   [GAME_STATES.GAME_OVER]: 'screen-game-over',
@@ -27,9 +42,13 @@ const SCREEN_IDS = {
 
 const ELEMENT_IDS = [
   'screen-menu', 'game-title-line1', 'game-title-line2',
-  'screen-options', 'options-title', 'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'screen-options', 'options-title', 'btn-sound', 'btn-display',
+  'screen-sound', 'sound-title', 'btn-close-sound',
+  'chk-mute-label', 'rng-sfx-label', 'rng-music-label',
+  'screen-display', 'display-title', 'btn-close-display',
   'zoom-label', 'btn-zoom-half', 'btn-zoom-1x', 'btn-zoom-2x', 'btn-zoom-fit',
-  'screen-keys', 'keys-title', 'keys-list', 'keys-hint', 'btn-keys-reset', 'btn-close-keys',
+  'screen-keys', 'keys-title', 'keys-list', 'btn-close-keys',
+  'screen-erase', 'erase-title', 'btn-close-erase',
   'screen-level-select', 'level-select-title', 'level-select-list',
   'screen-pause', 'pause-title',
   'screen-game-over', 'gameover-title', 'final-score',
@@ -37,9 +56,14 @@ const ELEMENT_IDS = [
   'screen-high-score-entry', 'entry-title', 'entry-score', 'entry-name',
   'screen-high-scores', 'highscores-title', 'high-score-list',
   'touch-controls', 'rotate-prompt-text', 'btn-install', 'ios-install-hint',
-  'btn-start', 'btn-start-panic', 'btn-start-level', 'btn-editor', 'btn-highscores', 'btn-options',
-  'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select', 'btn-fullscreen-pause',
-  'btn-erase', 'erase-confirm', 'erase-warning', 'btn-erase-yes', 'btn-erase-no', 'erase-done',
+  'screen-play', 'play-title', 'btn-play', 'btn-close-play',
+  'btn-start', 'start-name', 'start-hint',
+  'btn-start-panic', 'start-panic-name', 'start-panic-hint',
+  'btn-start-level', 'start-level-name', 'start-level-hint',
+  'btn-quit-game', 'quit-hint',
+  'btn-editor', 'btn-highscores', 'btn-options',
+  'btn-controls', 'btn-options-fullscreen', 'btn-close-options', 'btn-close-level-select',
+  'btn-erase', 'erase-warning', 'btn-erase-yes', 'erase-done',
   'btn-resume', 'btn-pause-restart', 'btn-pause-editor', 'btn-quit', 'btn-restart', 'btn-menu', 'btn-victory-restart', 'btn-victory-menu',
   'btn-submit-score', 'btn-close-highscores', 'chk-mute', 'rng-sfx', 'rng-music',
 ];
@@ -53,6 +77,12 @@ const STATIC_LABELS = [
   ['game-title-line1', 'BALLOON', 'h1', COLORS.accent],
   ['game-title-line2', 'BUSTER', 'h1', COLORS.accent],
   ['options-title', 'OPTIONS', 'h2', COLORS.accent],
+  ['btn-sound', 'SOUND', 'button', COLORS.text],
+  ['btn-display', 'DISPLAY', 'button', COLORS.text],
+  ['sound-title', 'SOUND', 'h2', COLORS.accent],
+  ['display-title', 'DISPLAY', 'h2', COLORS.accent],
+  ['btn-close-sound', 'BACK', 'button', COLORS.text],
+  ['btn-close-display', 'BACK', 'button', COLORS.text],
   ['chk-mute-label', 'MUTE', 'body', COLORS.text],
   ['rng-sfx-label', 'SFX', 'body', COLORS.text],
   ['rng-music-label', 'MUSIC', 'body', COLORS.text],
@@ -72,7 +102,6 @@ const STATIC_LABELS = [
   ['rotate-prompt-text', 'ROTATE YOUR PHONE', 'h2', COLORS.accent],
   ['keys-title', 'CONTROLS', 'h2', COLORS.accent],
   ['btn-controls', 'CONTROLS', 'button', COLORS.text],
-  ['btn-keys-reset', 'RESET TO DEFAULTS', 'button', COLORS.text],
   ['btn-close-keys', 'BACK', 'button', COLORS.text],
   ['level-select-title', 'START LEVEL', 'h2', COLORS.accent],
   ['pause-title', 'PAUSED', 'h2', COLORS.accent],
@@ -80,12 +109,24 @@ const STATIC_LABELS = [
   ['victory-title', 'YOU WIN!', 'h2', COLORS.accent],
   ['entry-title', 'NEW HIGH SCORE!', 'h2', COLORS.accent],
   ['highscores-title', 'HIGH SCORES', 'h2', COLORS.accent],
-  ['btn-start', 'START CAMPAIGN', 'button', COLORS.text],
-  ['btn-start-panic', 'START PANIC MODE', 'button', COLORS.text],
-  ['btn-start-level', 'START LEVEL', 'button', COLORS.text],
+  ['btn-play', 'START GAME', 'button', COLORS.text],
+  ['play-title', 'START GAME', 'h2', COLORS.accent],
+  ['btn-close-play', 'BACK', 'button', COLORS.text],
+  // Each way to play, with what it actually is underneath it. The font
+  // is uppercase, digits and "!", ":" and "." (see assets.js's
+  // INTRO_FONT_CHARS), so these are written in full stops rather than
+  // commas or dashes.
+  ['start-name', 'CAMPAIGN', 'button', COLORS.text],
+  ['start-hint', '50 LEVELS ACROSS EIGHT CONTINENTS.', 'body', COLORS.text],
+  ['start-panic-name', 'PANIC MODE', 'button', COLORS.text],
+  ['start-panic-hint', 'ENDLESS. THE CEILING NEVER STOPS.', 'body', COLORS.text],
+  ['start-level-name', 'SINGLE LEVEL', 'button', COLORS.text],
+  ['start-level-hint', 'REPLAY ANY LEVEL YOU HAVE UNLOCKED.', 'body', COLORS.text],
   ['btn-editor', 'LEVEL EDITOR', 'button', COLORS.text],
   ['btn-highscores', 'HIGH SCORES', 'button', COLORS.text],
   ['btn-options', 'OPTIONS', 'button', COLORS.text],
+  ['btn-quit-game', 'QUIT GAME', 'button', COLORS.text],
+  ['quit-hint', 'CLOSE THIS WINDOW YOURSELF.', 'body', COLORS.text],
   ['btn-options-fullscreen', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-erase', 'ERASE PROGRESS', 'button', COLORS.text],
   // Every glyph here has to be one the bitmap font can draw -- uppercase,
@@ -94,11 +135,11 @@ const STATIC_LABELS = [
   // stops rather than as a comma-separated list.
   ['erase-warning', 'THIS ERASES SCORES. UNLOCKS. RECORD TIMES.', 'body', COLORS.danger],
   ['btn-erase-yes', 'YES ERASE IT', 'button', COLORS.danger],
-  ['btn-erase-no', 'CANCEL', 'button', COLORS.text],
+  ['erase-title', 'ERASE PROGRESS', 'h2', COLORS.danger],
+  ['btn-close-erase', 'CANCEL', 'button', COLORS.text],
   ['erase-done', 'PROGRESS ERASED.', 'body', COLORS.accent],
   ['btn-close-options', 'BACK', 'button', COLORS.text],
   ['btn-close-level-select', 'BACK', 'button', COLORS.text],
-  ['btn-fullscreen-pause', 'FULLSCREEN', 'button', COLORS.text],
   ['btn-resume', 'RESUME', 'button', COLORS.text],
   ['btn-pause-restart', 'RESTART LEVEL', 'button', COLORS.text],
   ['btn-pause-editor', 'LEVEL EDITOR', 'button', COLORS.text],
@@ -144,12 +185,13 @@ export class UI {
     document.addEventListener('keydown', () => this.audio.resumeContext(), { once: true, capture: true });
 
     this.bindEvents();
+    this.armAudioUnlock();
     this.bindMenuSfx();
     this.applySettingsToControls();
     this.setupPixelLabels();
   }
 
-  // Every static heading/button/settings-row label goes through the same
+  // Every static heading/button/settings label goes through the same
   // bitmap font the HUD/level-intro screen use (see PixelText.js), so
   // this menu chrome actually looks like it belongs to the same game --
   // only the live-editable initials input stays plain CSS text.
@@ -174,6 +216,10 @@ export class UI {
       else this.game.startNewGame();
     };
 
+    // The main menu offers one way in; which of the three it is gets
+    // picked on a screen that says what each one means.
+    this.el['btn-play'].addEventListener('click', () => this.game.showPlay());
+    this.el['btn-close-play'].addEventListener('click', () => this.game.goToMenu());
     this.el['btn-start'].addEventListener('click', startGame);
     this.el['btn-restart'].addEventListener('click', playAgain);
     this.el['btn-victory-restart'].addEventListener('click', playAgain);
@@ -193,19 +239,25 @@ export class UI {
     this.el['btn-highscores'].addEventListener('click', () => this.game.showHighScores());
     this.el['btn-close-highscores'].addEventListener('click', () => this.game.goToMenu());
 
+    this.el['btn-quit-game'].addEventListener('click', () => {
+      window.close();
+      // Still here? Then the browser declined, and the player needs to be
+      // told rather than left pressing a dead button.
+      setTimeout(() => this.el['quit-hint'].classList.remove('hidden'), 400);
+    });
+
     this.el['btn-options'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-close-options'].addEventListener('click', () => this.game.goToMenu());
 
     // Erasing what the player has DONE -- scores, unlocks, record times;
     // never their settings, their keys or their edited levels (see
-    // storage.eraseProgress). Irreversible, so the button only ever
-    // reveals the confirmation; nothing is written until the second press
-    // and either answer puts the row away again.
-    this.el['btn-erase'].addEventListener('click', () => this.showEraseConfirm(true));
-    this.el['btn-erase-no'].addEventListener('click', () => this.showEraseConfirm(false));
+    // storage.eraseProgress). Irreversible, so the door does not do it:
+    // ERASE PROGRESS opens a screen that says what would be lost, and
+    // nothing is written until YES is pressed there.
+    this.el['btn-erase'].addEventListener('click', () => this.game.showErase());
+    this.el['btn-close-erase'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-erase-yes'].addEventListener('click', () => {
       this.storage.eraseProgress();
-      this.showEraseConfirm(false);
       this.el['erase-done'].classList.remove('hidden');
     });
     // Installing is the browser's own dialogue -- all this does is ask
@@ -217,7 +269,6 @@ export class UI {
       this.el['btn-install'].classList.add('hidden');
     });
     this.el['btn-options-fullscreen'].addEventListener('click', toggleFullscreen);
-    this.el['btn-fullscreen-pause'].addEventListener('click', toggleFullscreen);
 
     this.el['btn-start-level'].addEventListener('click', () => this.game.showLevelSelect());
     this.el['btn-close-level-select'].addEventListener('click', () => this.game.goToMenu());
@@ -261,12 +312,14 @@ export class UI {
     // nothing to follow) -- see DisplayZoom.watchViewport.
     watchViewport();
 
+    // Options is a list of doors; each one goes back to it rather than to
+    // the main menu, so BACK always means "up one level".
+    this.el['btn-sound'].addEventListener('click', () => this.game.showSound());
+    this.el['btn-display'].addEventListener('click', () => this.game.showDisplay());
+    this.el['btn-close-sound'].addEventListener('click', () => this.game.showOptions());
+    this.el['btn-close-display'].addEventListener('click', () => this.game.showOptions());
     this.el['btn-controls'].addEventListener('click', () => this.game.showKeyConfig());
     this.el['btn-close-keys'].addEventListener('click', () => this.game.showOptions());
-    this.el['btn-keys-reset'].addEventListener('click', () => {
-      resetBindings();
-      this.renderKeyList();
-    });
   }
 
   // One row per action: its name and the key it is bound to. Rebuilt from
@@ -291,7 +344,6 @@ export class UI {
       row.appendChild(btn);
       list.appendChild(row);
     }
-    setPixelText(this.el['keys-hint'], 'CLICK A KEY THEN PRESS ONE. ESC CANCELS.', 'body', COLORS.text);
   }
 
   // Asks keys.js for the next key pressed and gives it to this action.
@@ -442,41 +494,112 @@ export class UI {
     }
   }
 
-  // Shows or hides the erase confirmation. `alsoClearDone` additionally
-  // takes down the "PROGRESS ERASED." line -- wanted when the screen is
-  // reopened, but not when the confirmation is simply answered, because
-  // that line is the answer.
-  showEraseConfirm(show, alsoClearDone = false) {
-    this.el['erase-confirm'].classList.toggle('hidden', !show);
-    this.el['btn-erase'].classList.toggle('hidden', show);
-    if (show || alsoClearDone) this.el['erase-done'].classList.add('hidden');
+  // The menu's own music: started on any screen in front of a run, left
+  // alone while it is already playing (playMusic is a no-op for the track
+  // it is already on, so walking between menus does not restart the tune),
+  // and stopped the moment a run begins.
+  //
+  // Only ever stops music it started. A level's own track is playing by
+  // the time PLAYING is reached, and stopping "whatever is playing" here
+  // would cut it off.
+  // A browser will not let a page make noise before it has been touched,
+  // so the first moment of a first visit is silent whatever the menu
+  // wants. This is how it stops being silent: the first press anywhere
+  // wakes the audio and starts the tune.
+  //
+  // Not a one-shot listener, because the context can be put back to sleep
+  // (a backgrounded tab), and not conditional on the state either -- a
+  // press during a run wakes it just the same, and syncMenuMusic decides
+  // whether that means the menu tune or nothing.
+  armAudioUnlock() {
+    const unlock = () => {
+      if (!this.audio.resumeContext()) return;
+      // It was asleep, so anything "playing" was silent -- started again
+      // rather than merely un-paused.
+      if (this.audio.musicName === MENU_MUSIC) this.audio.stopMusic();
+      this.syncMenuMusic(this.game.state);
+    };
+    for (const type of ['pointerdown', 'keydown']) {
+      window.addEventListener(type, unlock, { capture: true });
+    }
+  }
+
+  syncMenuMusic(state) {
+    if (MUSIC_STATES.has(state)) {
+      // Asked every time rather than once: the context can be suspended
+      // again (a backgrounded tab), and this is the cheap way back.
+      this.audio.resumeContext();
+      this.audio.playMusic(MENU_MUSIC);
+    } else if (this.audio.musicName === MENU_MUSIC) {
+      this.audio.stopMusic();
+    }
+  }
+
+  // The level editor is shown to someone logged into the admin tool and
+  // to nobody else. That is not a guess at who "should" have it: the
+  // admin session is the only thing that lets an edited level be SAVED
+  // anywhere but this one browser (see js/levelFile.js), so it is exactly
+  // the set of people the editor is any use to.
+  //
+  // Asked once, when the menu first appears rather than at boot, and the
+  // button stays hidden until it answers -- so a player who is not an
+  // admin never sees it flash. On a static host (GitHub Pages, no PHP)
+  // the probe is one 404 and the answer is no.
+  // QUIT GAME only where quitting is a thing that can happen. A browser
+  // tab may not close itself -- window.close() is ignored for anything
+  // the page did not open -- so in a tab this would be a button that does
+  // nothing, which is worse than no button. Installed, it usually works.
+  //
+  // "Usually" is why the hint exists: even standalone, whether close() is
+  // honoured is the browser's business, and a button that silently fails
+  // is the thing being avoided. If the window is still here a moment
+  // later, say so rather than leaving the player pressing it again.
+  revealQuitWhenInstalled() {
+    if (!isStandalone()) return;
+    this.el['btn-quit-game'].classList.remove('hidden');
+  }
+
+  async revealEditorForAdmins() {
+    if (this.editorProbed) return;
+    this.editorProbed = true;
+    const { loggedIn } = await fileSaving();
+    this.el['btn-editor'].classList.toggle('hidden', !loggedIn);
   }
 
   setScreen(state) {
+    this.syncMenuMusic(state);
+    if (state === GAME_STATES.MENU) {
+      this.revealEditorForAdmins();
+      this.revealQuitWhenInstalled();
+      this.el['quit-hint'].classList.add('hidden');
+    }
     for (const id of Object.values(SCREEN_IDS)) this.el[id].classList.add('hidden');
     const id = SCREEN_IDS[state];
     if (!id) return;
     this.el[id].classList.remove('hidden');
 
-    // The options screen always opens in its resting state: never
-    // mid-confirmation, and never still announcing an erase from a
-    // previous visit.
-    if (state === GAME_STATES.OPTIONS) this.showEraseConfirm(false, true);
+    // The erase screen always opens in its resting state, never still
+    // announcing an erase from a previous visit -- that line is the
+    // answer to a press, not a fact about the save.
+    if (state === GAME_STATES.ERASE) this.el['erase-done'].classList.add('hidden');
 
     if (state === GAME_STATES.PAUSED) {
-      // The extra Restart button only shows for a level opened via the
-      // editor's Play button (jump straight back into testing the level
-      // you're actively building -- see GameScene.advanceLevel/hitPlayer
-      // for the matching playtest-only behavior) or for Panic Mode (start
-      // the difficulty ramp over without spending a life) -- not a general
-      // "restart" offered mid-campaign.
-      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.isPanicMode);
-      // Back to editing -- offered whenever this pause came from the
-      // editor at all: either Escape pressed while actually editing (
-      // pausedFromEditor) or Escape during a playtest of an editor level
-      // (isCustomLevel), which is exactly when "return to the editor" is
-      // a place you can meaningfully go back to.
-      this.el['btn-pause-editor'].classList.toggle('hidden', !this.game.isCustomLevel && !this.game.pausedFromEditor);
+      // Pausing offers two things -- carry on, or leave -- and the one
+      // exception is a level opened from the editor, where "restart this
+      // one" and "back to editing" are places you can actually go.
+      //
+      // Everything else was clutter in front of a paused game: mid-run
+      // there is nothing to restart to that isn't the run you are in, and
+      // Fullscreen (which used to sit here) is a settings toggle rather
+      // than a move -- it is on the Options screen, and on a touch device
+      // it re-arms itself on the next tap and on every orientation change,
+      // so nothing is out of reach.
+      this.el['btn-pause-restart'].classList.toggle('hidden', !this.game.isCustomLevel);
+      // Offered whenever this pause came from the editor at all: Escape
+      // pressed while actually editing (pausedFromEditor) or during a
+      // playtest of an editor level (isCustomLevel).
+      this.el['btn-pause-editor'].classList.toggle('hidden',
+        !this.game.isCustomLevel && !this.game.pausedFromEditor);
     } else if (state === GAME_STATES.GAME_OVER) {
       setPixelText(this.el['final-score'], `FINAL SCORE: ${this.game.score}`, 'body', COLORS.text);
     } else if (state === GAME_STATES.VICTORY) {

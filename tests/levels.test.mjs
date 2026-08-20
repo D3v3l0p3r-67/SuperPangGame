@@ -10,7 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { levelFiles, elements, exists, readJSON, obstacleCells } from './helpers.mjs';
 import {
-  VIRTUAL_W, GROUND_Y, BORDER_THICKNESS, OBSTACLE_BLOCK_SIZE,
+  VIRTUAL_W, GROUND_Y, PLAYFIELD_H, BORDER_THICKNESS, OBSTACLE_BLOCK_SIZE,
 } from '../js/constants.js';
 import { WEAPON_TYPES, PLAYER_CONFIG } from '../js/config.js';
 
@@ -18,7 +18,7 @@ const LEVELS = levelFiles();
 const EL = elements();
 const BALL_KEY = (shape, size) => `${shape}-${size}`;
 const BALL_SIZES = new Map(EL.balls.map((el) => [BALL_KEY(el.shape, el.size), el]));
-const OBSTACLE_TYPES = new Set(EL.obstacles.map((el) => el.type));
+const OBSTACLE_TYPES = new Map(EL.obstacles.map((el) => [el.type, el]));
 const LADDER_TYPES = new Map(EL.ladders.map((el) => [el.type, el]));
 const POWERUP_TYPES = new Set(EL.powerups.map((el) => el.type));
 
@@ -74,10 +74,32 @@ test('obstacles are on the 16px grid and inside the playfield', () => {
         assert.equal(o.h % OBSTACLE_BLOCK_SIZE, 0, `${where}: height is not whole blocks`);
       }
       for (const [x, y] of obstacleCells(o, OBSTACLE_BLOCK_SIZE)) {
-        assert.ok(x >= BORDER_THICKNESS && x + OBSTACLE_BLOCK_SIZE <= VIRTUAL_W - BORDER_THICKNESS,
-          `${where}: block (${x}, ${y}) crosses a side wall`);
-        assert.ok(y >= BORDER_THICKNESS && y + OBSTACLE_BLOCK_SIZE <= GROUND_Y,
-          `${where}: block (${x}, ${y}) crosses the ceiling or floor`);
+        // A level may build in the FRAME as well as the playfield -- the
+        // ceiling, the two side walls and the floor strip, each exactly
+        // one block thick (see the editor's brushReach). What it may not
+        // do is leave the canvas.
+        assert.ok(x >= 0 && x + OBSTACLE_BLOCK_SIZE <= VIRTUAL_W,
+          `${where}: block (${x}, ${y}) is off the side of the canvas`);
+        assert.ok(y >= 0 && y + OBSTACLE_BLOCK_SIZE <= PLAYFIELD_H,
+          `${where}: block (${x}, ${y}) is above the ceiling or below the floor`);
+
+        const inFrame = x < BORDER_THICKNESS || y < BORDER_THICKNESS
+          || x + OBSTACLE_BLOCK_SIZE > VIRTUAL_W - BORDER_THICKNESS
+          || y + OBSTACLE_BLOCK_SIZE > GROUND_Y;
+        if (!inFrame) continue;
+        const el = OBSTACLE_TYPES.get(o.type);
+        // Nothing that can be shot open: the frame is the one part of a
+        // level the player can never break through, and a crate in it
+        // would leave a hole the border goes on being solid through.
+        assert.equal(el.destructible, false,
+          `${where}: block (${x}, ${y}) is in the frame, and nothing that can be shot open belongs there`);
+        // A slippery material is a SURFACE, and the only surface of the
+        // frame anyone stands on is its floor. On a ceiling or a side
+        // wall it would be a picture of something that never happens.
+        if ((el.grip ?? 1) < 1) {
+          assert.equal(y, GROUND_Y,
+            `${where}: block (${x}, ${y}) is slippery, and nobody stands on a wall or a ceiling`);
+        }
       }
       if (o.powerup !== undefined) {
         assert.ok(POWERUP_TYPES.has(o.powerup), `${where}: unknown powerup "${o.powerup}"`);
@@ -237,3 +259,4 @@ test('panic mode has a level of its own, in the same shape', () => {
     'panic.json must load like any other level');
   assert.ok(panic.panicSpawn, 'panic.json needs its panicSpawn wave table');
 });
+

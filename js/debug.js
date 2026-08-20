@@ -160,6 +160,12 @@ export class Debug {
     const jumpTo = (idx) => {
       this.scene.levelIndex = idx;
       this.scene.loadLevel(idx);
+      // Going straight to PLAYING skips the countdown, and the countdown
+      // is what un-pauses the world (see startLevelIntro/update's
+      // LEVEL_INTRO branch). Jumping from anywhere that left the physics
+      // frozen -- the menu, straight after a run -- would otherwise land
+      // on a level that just sits there.
+      this.scene.physics.resume();
       this.scene.state = GAME_STATES.PLAYING;
     };
     const chosenLevel = () => Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
@@ -184,6 +190,25 @@ export class Debug {
         }, 'Clear this level now, and carry on into the next'),
       ),
       row(transitionSelect, makeButton('Play', () => this.scene.transition.start(transitionSelect.value, null))),
+    ));
+
+    // -- Panic Mode's own jump. Its waves are not levels and there is no
+    // list to pick from -- the counter runs past the table and keeps
+    // going (see GameScene.advancePanicProgress) -- so this takes a
+    // number and starts a run standing on it. Balancing that mode
+    // otherwise means surviving 70 waves to find out what wave 70 feels
+    // like, which is the reason its curve went unchecked for as long as
+    // it did.
+    const waveInput = document.createElement('input');
+    waveInput.type = 'number';
+    waveInput.min = '1';
+    waveInput.value = '1';
+    waveInput.style.width = 'calc(var(--panel-unit) * 9)';
+    this.panelEl.appendChild(group(
+      'PANIC',
+      row(labelled('Wave ', waveInput), makeButton('Jump', () => {
+        this.jumpToPanicWave(Math.max(1, parseInt(waveInput.value, 10) || 1));
+      })),
     ));
 
     // -- What debug mode draws over the game, and the one thing here that
@@ -213,6 +238,34 @@ export class Debug {
     this.textEl = document.createElement('div');
     this.panelEl.appendChild(group('STATE', this.textEl));
     this.panelEl.lastChild.classList.add('panel-status');
+  }
+
+  // Starts a Panic Mode run already standing on wave `n`.
+  //
+  // A run, not a splice into whatever is on screen: beginRun() is what
+  // resets the score, the lives and the field, and a "wave 70" reached by
+  // dropping wave 70's balls onto wave 3's leftovers would not be wave
+  // 70. The index is set AFTER it, because beginRun deliberately zeroes
+  // it (a fresh run starts at the beginning) -- and loadLevel, which it
+  // calls, is what rewinds the pattern to its first step and clears any
+  // hold, so nothing here has to.
+  //
+  // The countdown is EXPIRED rather than skipped. beginRun ends in
+  // startLevelIntro, which pauses the physics; the handover back --
+  // resuming them, going to PLAYING, starting the music -- is what the
+  // LEVEL_INTRO branch of update() does when its timer runs out. Setting
+  // the state here instead left the world paused and the run looked like
+  // it had not started at all. Running the timer out leaves that one
+  // place in charge of it.
+  jumpToPanicWave(n) {
+    this.scene.startPanicMode();
+    this.scene.panicWaveIndex = n - 1;
+    this.scene.introLeadInSec = 0;
+    this.scene.stateTimer = 0;
+    // The two countdown cues would otherwise both fire on the same frame,
+    // which is a jump-cut's worth of noise for a debug button.
+    this.scene.setSoundPlayed = true;
+    this.scene.goSoundPlayed = true;
   }
 
   // The single place either overlay is switched, so the panel button and
@@ -300,11 +353,19 @@ export class Debug {
     // and this is the one part of the line with no length limit -- four
     // running at once would otherwise be more than half of it.
     const effects = [...g.effects.active.keys()].map((key) => key.split('_')[0]);
+    // Panic Mode has neither a level number nor a clock (see loadLevel),
+    // so those two would read "L1/50 t0" for the whole run. It gets what
+    // the mode does have in the same width: which wave, how far into it,
+    // how often balls are due, and the breather while one is running.
+    const wave = g.panicWave;
+    const where = g.isPanicMode
+      ? [`W${g.panicWaveIndex + 1}`, `step ${Math.max(0, g.panicStep) + 1}/${wave?.steps.length ?? '-'}`,
+        `beat${wave?.beat.toFixed(1) ?? '-'}`, ...(g.panicHoldLeft > 0 ? [`hold${g.panicHoldLeft.toFixed(1)}`] : [])]
+      : [`L${g.levelIndex + 1}/${LEVELS.length}`, `t${g.remainingLevelTime}`];
     this.textEl.textContent = [
       g.state,
       `${Math.round(this.scene.game.loop.actualFps)}fps`,
-      `L${g.levelIndex + 1}/${LEVELS.length}`,
-      `t${g.remainingLevelTime}`,
+      ...where,
       `pts ${g.score}`,
       // Only when it is on, and said in the readout as well as on the
       // button: a run where nothing can go wrong looks like a run where

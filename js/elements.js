@@ -124,6 +124,15 @@ export function getBallElement(shape, size) {
   return BALL_ELEMENTS.find((el) => el.shape === shape && el.size === size);
 }
 
+// The largest size every shape has an element for, as one object --
+// what Panic Mode's size escalation needs so a bump can never name a
+// ball that does not exist (see js/panicWaves.js's escalate).
+export function ballMaxSizes() {
+  const out = {};
+  for (const el of BALL_ELEMENTS) out[el.shape] = Math.max(out[el.shape] ?? 0, el.size);
+  return out;
+}
+
 export function maxBallSize(shape) {
   return BALL_ELEMENTS.filter((el) => el.shape === shape).reduce((max, el) => Math.max(max, el.size), 0);
 }
@@ -217,6 +226,15 @@ export function registerElement(el, harpoon) {
       // existed still gets an edge rather than a white one.
       edgeLight: el.edgeLight ?? el.color,
       edgeDark: el.edgeDark ?? el.color,
+      // How well the player's feet hold on this material, 1 being every
+      // surface the game had before this existed: they go exactly as
+      // fast as the key is held and stop the frame it is let go. Below 1
+      // the footing is slippery -- the icy wall is 0.12 -- and Player.js
+      // eases towards the speed being asked for instead of taking it
+      // (see its slide()). Defaulted rather than required, so an
+      // obstacle written before ice existed still behaves as it always
+      // did.
+      grip: el.grip ?? 1,
     };
     OBSTACLE_TYPE_KEYS.push(el.type);
   } else if (el.category === 'ladder') {
@@ -232,6 +250,10 @@ export function registerElement(el, harpoon) {
     const params = el.params || {};
     POWERUP_TYPES[el.type] = {
       label: el.label,
+      // Kept as well as used, so a level can rule out a CLASS of power-up
+      // -- "no other weapons" is `give_weapon`, and stays right when a
+      // fourth weapon is added (see GameScene.dropPowerupTypes).
+      kind: el.kind,
       color: el.color,
       durationMs: el.durationMs,
       instant: el.instant,

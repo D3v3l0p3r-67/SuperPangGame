@@ -122,6 +122,94 @@ test('the player walks, shoots, and pops what it hits', async () => {
   assert.equal(drainErrors(), '');
 });
 
+// Every weapon marks stopping on something it cannot break. The machine
+// gun always did; the beams did not, and the difference was invisible in
+// any file -- it is one sprite, alive for two frames of a 14fps
+// animation, which is exactly the kind of thing only a running game can
+// answer. Note what this does NOT do: screenshot it. A screenshot round
+// trip takes longer than the puff lives, so the picture comes back empty
+// however well the game is working. Reading the display list is both
+// faster and the actual question.
+test('every weapon leaves a mark where it stops on what it cannot break', async () => {
+  const LEVEL = {
+    id: 1,
+    name: 'Impact',
+    timeLimitSec: 90,
+    background: 'default',
+    obstacles: [{ type: 'platform', x: 384, y: 200, w: 64, h: 16 }],
+    balls: [{ shape: 'round', size: 1, x: 100, y: 60, vx: -100 }],
+    playerStart: { x: 408, y: 400 },
+  };
+
+  // ...and each leaves ITS OWN mark: the beams a grey cloud, the machine
+  // gun its teal spark (see the weapons table in the README).
+  for (const [weapon, texture] of [['harpoon', 'beam-hit'], ['grapple', 'beam-hit'], ['machinegun', 'bullet-hit']]) {
+    await game.scene((s, level) => { s.startCustomLevel(level); }, LEVEL);
+    await game.page.waitForFunction(
+      () => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 },
+    );
+    // Straight up from under the block, with the shot lock cleared so the
+    // shot goes the instant it is asked for.
+    await game.scene((s, w) => { s.setWeapon(w); s.player.shotLock = 0; s.tryFire(); }, weapon);
+
+    let marks = [];
+    for (let i = 0; i < 60 && !marks.length; i++) {
+      await game.frames(1);
+      marks = await game.scene((s) => s.children.list
+        .filter((c) => ['bullet-hit', 'beam-hit'].includes(c.texture?.key))
+        .map((c) => c.texture.key));
+    }
+    assert.ok(marks.length > 0, `${weapon}: nothing marked the block it stopped on`);
+    assert.deepEqual([...new Set(marks)], [texture], `${weapon}: marked it with the wrong thing`);
+  }
+  assert.equal(drainErrors(), '');
+});
+
+// A grapple hanging from the ceiling holds the player's only shot for its
+// whole four seconds. Pressing fire in the meantime used to do nothing at
+// all, which reads as the button being broken rather than the weapon
+// being busy -- so each refused press now shakes it down sooner, up to a
+// second and a half over the life of that one beam.
+test('rattling the trigger brings a hanging grapple down sooner', async () => {
+  await game.scene((s) => {
+    s.startCustomLevel({
+      id: 1,
+      name: 'Grapple',
+      timeLimitSec: 90,
+      background: 'default',
+      obstacles: [],
+      balls: [{ shape: 'round', size: 1, x: 100, y: 60, vx: -100 }],
+      playerStart: { x: 400, y: 400 },
+    });
+  });
+  await game.page.waitForFunction(
+    () => window.game.scene.getScene('Game').state === 'PLAYING', null, { timeout: 30000 },
+  );
+  await game.scene((s) => { s.setWeapon('grapple'); s.player.shotLock = 0; s.tryFire(); });
+
+  let hanging = false;
+  for (let i = 0; i < 90 && !hanging; i++) {
+    await game.frames(1);
+    hanging = await game.scene((s) => s.projectiles.getChildren()[0]?.isAnchored ?? false);
+  }
+  assert.ok(hanging, 'the grapple never caught the ceiling');
+
+  // Six presses in ONE call, so what the clock loses to the presses is not
+  // confused with what it loses to time passing between them.
+  const shaken = await game.scene((s) => {
+    const before = s.projectiles.getChildren()[0].stickLeft;
+    for (let i = 0; i < 6; i++) { s.player.shotLock = 0; s.tryFire(); }
+    const after = s.projectiles.getChildren()[0].stickLeft;
+    for (let i = 0; i < 6; i++) { s.player.shotLock = 0; s.tryFire(); }
+    return { taken: before - after, andSixMore: after - s.projectiles.getChildren()[0].stickLeft };
+  });
+  assert.ok(shaken.taken > 1.4 && shaken.taken < 1.6,
+    `six presses took ${shaken.taken.toFixed(2)}s off the hang, not the 1.5s they are worth`);
+  assert.ok(shaken.andSixMore < 0.01,
+    `the shake budget did not hold: six more presses took another ${shaken.andSixMore.toFixed(2)}s`);
+  assert.equal(drainErrors(), '');
+});
+
 test('losing a life sends the ghost up and restarts the level', async () => {
   // Its own run, and its own clean slate for it. A hit leaves the player
   // invulnerable for PLAYER_CONFIG.invulnMs, so a ball that happened to

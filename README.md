@@ -227,14 +227,55 @@ every push.
 | --- | --- | --- |
 | Move | Arrow Left/Right | Joystick left/right |
 | Climb a ladder | Arrow Up/Down | Joystick up/down |
+| Call the next ball sooner (Panic Mode) | Arrow Down, held | Joystick down, held |
 | Shoot | Space | On-screen shoot button |
 | Pause | Esc | On-screen pause button |
-| Fullscreen | Button in menu/pause screen | Same |
+| Fullscreen | Options -> DISPLAY | Same |
+
+The main menu is three buttons: **START GAME**, **HIGH SCORES**,
+**OPTIONS**. START GAME opens a screen with the three ways to play, each
+a **card** carrying its name and, inside the same button, a line saying
+what it is -- CAMPAIGN (50 levels across eight continents), PANIC MODE
+(endless; the ceiling never stops) and SINGLE LEVEL (replay anything
+unlocked). Three buttons on the front named them but did not explain
+them, and "PANIC MODE" tells a first-time player nothing. The description
+goes *inside* the button rather than loose underneath it because two
+stray lines per choice read as a list of settings; enclosed, they read as
+three things to choose between, and the whole card lights up together on
+hover.
+
+**QUIT GAME** appears only when the game is running as an installed app.
+A browser tab may not close itself -- `window.close()` is ignored for
+anything the page did not open -- so in a tab it would be a button that
+does nothing. Even installed, whether the browser honours it is the
+browser's business, so if the window is still there a moment later the
+screen says to close it by hand rather than leaving the button looking
+broken.
+
+**LEVEL EDITOR** appears there only for a browser logged into the admin
+tool. That is not a guess at who ought to have it: the admin session is
+the only thing that lets an edited level be saved anywhere but that one
+browser (see `js/levelFile.js`), so it is exactly the set of people the
+editor is any use to. The check runs once, when the menu first appears,
+and the button stays hidden until it answers -- on a static host with no
+PHP that is one 404 and the answer is no.
+
+Options is a list of doors rather than a page of settings: **SOUND**
+(mute, SFX, music), **DISPLAY** (size, fullscreen), **CONTROLS** and
+**ERASE PROGRESS**, each a screen of its own with its own BACK. Erasing
+gets a screen for the same reason it used to get a confirmation row: it
+is irreversible, so the door does not do it -- opening it only says what
+would be lost, and nothing is written until YES is pressed there. It was one undifferentiated column
+of five controls plus two buttons, and splitting it says what the
+settings actually are -- what the game sounds like, what it looks like,
+and what the keys do. Fullscreen sits beside the size picker because both
+answer "how big is this thing on my screen".
 
 Every keyboard control is rebindable on the **CONTROLS** screen (Options
 -> CONTROLS): one key per action, click it and press the key you want,
-Esc to cancel, and a **RESET TO DEFAULTS** button. Binding a key another
-action holds takes it from that action rather than leaving two owners.
+Esc to cancel. Binding a key another action holds takes it from that
+action rather than leaving two owners -- which can leave that one bound
+to nothing, and clicking it again is how you give it a key back.
 Bindings are the physical key (`KeyboardEvent.code`), so a layout that
 puts Z where Y is binds the key actually pressed, and they persist with
 the rest of the settings (see `js/keys.js`). Up only climbs -- it used to
@@ -242,6 +283,14 @@ shoot as well, which made shooting unreliable anywhere near a ladder.
 
 Touch controls appear automatically on devices with a coarse pointer
 (phones/tablets); they're always available in fullscreen too.
+
+Pausing offers two things: **resume, or quit to menu.** The one exception
+is a level opened from the editor, which also gets Restart and Back to
+editing, because those are somewhere to go. Mid-run there is nothing to
+restart to that isn't the run you are already in, and Fullscreen -- which
+used to sit there -- is a settings toggle rather than a move. It is on
+Options -> DISPLAY, and on a touch device it re-arms itself on the next
+tap and on every orientation change, so nothing is out of reach.
 
 A run also pauses itself the moment the window goes away -- switching tab,
 clicking another window, or (on a phone) leaving the app -- onto the same
@@ -304,7 +353,42 @@ any can be tried without editing a file.
 | kind | beam | beam | volley of darts |
 | speed | 440 px/s | 400 px/s | 520 px/s |
 | in the air at once | 1 shot | 1 shot | 3 volleys (12 darts) |
-| on reaching the ceiling | ends | anchors for 4s | splashes and stops |
+| on reaching the ceiling | ends | anchors for 4s | stops |
+
+Every one of them **puffs where it stops** on something it cannot break --
+the ceiling, a side wall, an indestructible block (`GameScene
+.playShotImpact`, from the beam's head or the dart's tip, never past the
+underside of what stopped it). **The beams leave their own mark**: a
+32x20 grey cloud, dust off the block rather than a spark
+(`tools/impact_puffs.py`). It is wider than it is tall on purpose -- it
+has to cover the width of the weapon that made it and then spread ALONG
+the surface -- and it HANGS from that surface rather than straddling it
+(`originY: 0`), so no part of the cloud is ever drawn inside solid stone.
+The bullet's spark still straddles the point it struck, which is what a
+chip flying off looks like. One thick shaft arriving in one place is not
+four darts striking in a scatter, and wearing the same small teal spark
+it read as a stray bullet going off -- while the machine gun's own sparks
+are still on screen, telling the two apart at a glance is the whole job of
+the picture. Which mark a shot leaves is asked of the SHOT (`Bullet`'s and
+`Projectile`'s `impact`), not looked up from its weapon: the shot is the
+thing that stopped. Only the bullets used to, on the theory
+that a beam ENDS at the ceiling by design while a dart visibly strikes
+it -- which read, in the hand, as the beam weapons quietly vanishing
+into the frame. A grapple gets it at the moment it catches hold too: that
+is the same contact, and the one shot in the game where something is
+being grabbed rather than bounced off.
+
+**Pressing fire while a grapple hangs brings it down sooner.** It holds
+the player's only shot for its whole four seconds, and a press in the
+meantime used to do nothing at all -- which reads as a broken button
+rather than a busy weapon. Each refused press now takes `SHOT_SHAKE_SEC`
+(0.25s) off what is left of the hang, out of a `SHOT_SHAKE_MAX_SEC`
+(1.5s) budget that belongs to that one beam and does not refill: six
+presses reach the cap, and the cap is what stops a rattled trigger from
+turning the grapple into an ordinary harpoon. Putting a barrier up still
+costs most of what it costs. The beam switches to its "letting go" frame
+the moment the shortened clock reaches the warning, so the press is
+answered on screen as well as in the timer.
 
 The **grapple** is the reason the beam has phases. Topping out doesn't end
 it: it catches hold for `ceilingStickSec` (4s), staying lethal
@@ -492,6 +576,219 @@ and it lost its ladder for it. `tests/levels.test.mjs` checks all four,
 plus that no start is inside an obstacle or a ball and that a guaranteed
 drop sits on a single breakable block.
 
+## Panic Mode is arithmetic
+
+Panic Mode's waves used to be written by hand, and they were not hard,
+they were unwinnable. Not late on -- from wave 1, which is why nobody
+caught it: every row looked reasonable on its own.
+
+The thing a hand-written row cannot see is what a ball actually costs.
+Every hit replaces one ball with two of the next size down, so taking a
+ball off the field entirely is the whole tree beneath it:
+
+| size | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- |
+| shots to clear it away | 1 | 3 | 7 | 15 | 31 |
+| seconds to squeeze through the ceiling | 1.0 | 2.0 | 3.0 | 4.0 | 6.0 |
+
+At `shotTimeSec` -- one second a shot, the flight plus the aiming and the
+occasional miss -- a size-5 ball is **half a minute** of one player's
+entire attention. The old table dropped those every 1.9 seconds. Measured as a fraction of what a player can shoot, wave 1 asked
+for 128%, wave 25 for 383%, and wave 50 for 2100%. The field could only
+grow, whoever was holding the keyboard.
+
+### What Panic Mode is played with
+
+Red balls only -- the plain round bouncer, no weaving or hunting
+variants. One shape means the ramp inside a cycle has to be carried by
+size and density alone, which is why the patterns thin out and grow
+rather than swapping in a different kind of threat.
+
+The weapon is the harpoon with a **second shot in the air**, for the
+whole run rather than for a power-up's twelve seconds --
+`weaponBonusShots` in the level file, applied wherever the weapon is set.
+It is also what makes `shotTimeSec: 1` defensible: with one shot at a
+time the player must wait out a miss, which over the full height of the
+playfield is 0.98s of flight plus 0.15s of shot lock, so a second shot in
+the air is roughly what turns a second per shot from an expert's rate
+into an ordinary one.
+
+Every power-up drops there **except the ones that touch the weapon**. A
+machine gun falling out of a ball would quietly rewrite the arithmetic
+the mode is balanced on, and rapid shot is an extra shot the harpoon
+already carries. Both are ruled out by KIND --
+`excludePowerupKinds: ["give_weapon", "weapon_max_shots"]` -- so a fourth
+weapon is excluded the day it is added rather than the day someone
+remembers.
+
+A level granting `weaponBonusShots` has to count it in
+`baseMaxActiveShots` too, and not only in the state it starts with:
+`weapon_max_shots` sets the shot count FROM that number and puts it back
+there when it expires. Leaving the bonus out meant a rapid shot picked up
+in Panic Mode did nothing for twelve seconds and then confiscated the
+harpoon's second shot for the rest of the run -- 2 shots, 2 during, 1
+after. It is 2, 3, 2 now.
+
+### A wave is a rhythm
+
+Each wave in `levels/panic.json` is a beat length and a pattern, and it
+reads as what it does:
+
+```json
+{ "beat": 0.75, "spawn": "r1 . . . . . . x1 . . . . . w1 . . . . . . r2 . . . |" }
+```
+
+| token | means | takes |
+| --- | --- | --- |
+| `r1` | drop a **r**ound ball of size 1 | one beat |
+| `.` | drop nothing | one beat |
+| `\|8` | **hold** while the field still has balls, up to 8s | 0 to 8s |
+
+Ball tokens and rests both take exactly one beat. That is what makes a
+pattern a grid you can read down a column of, and it is why `.` has
+exactly one meaning wherever it appears -- a symbol whose meaning
+depended on where it sat could not be read at all.
+
+The letters are `shapeCode` in the same file: `r`ound, he`x`, `w`ave,
+`h`unter, hea`v`y.
+
+**A pattern is the slowest the wave can go.** A rest waits out its beat
+only while the field still holds something worth waiting for -- once less
+than `skipRestUnderSec` of shooting is left on it, the rest is skipped
+and the hold released. Standing on an empty screen watching a clock is
+the least interesting thing this mode can ask of anyone.
+
+That is a rule about the FIELD, not about where a token sits, which is
+what keeps `.` meaning one thing everywhere. And it cannot run away with
+itself, for a reason worth stating: the mode becomes a feedback loop.
+While the player is behind, the rests play and the wave runs at its
+authored pressure -- under the limit, so the backlog drains. While they
+are ahead, the rests vanish and it runs at the pressure of its ball steps
+alone, which is over 1, so the backlog grows again. It settles around the
+threshold, and it can only settle because the authored pressure is under
+1. **That** is what `maxPressure` is really protecting: not the fast case,
+but the ability to recover from it. `tests/panic.test.mjs` simulates runs
+at four different skill levels and fails if the backlog is ever unbounded.
+
+One consequence is worth knowing before authoring: since the authored
+pressure is well under 1, a player who is keeping up skips most rests, so
+what a pattern really composes is the ORDER AND MIX of balls. The silences
+are a floor that a struggling player falls back to, not a rhythm a good
+one hears.
+
+**A hold is not a beat.** It is a condition: zero time on a field that is
+already clear, and it never counts towards the wave's length. Its cap
+matters -- a field nobody can clear would otherwise stop the mode dead.
+One token replaced three separate mechanisms: the every-N-waves rest, its
+maximum, and a `clearFirst` flag. A breather is now just a wave whose
+pattern is a single hold, and a wave that must not start until the
+previous one is cleaned up simply begins with one.
+
+**A beat starts when the ball is released, not when it is fully out.** If
+it started at full emergence, a pattern's real length would depend on
+which balls were in it -- the written duration would lie, and the check
+below would lose its denominator. So the seconds a ball spends squeezing
+through the ceiling run *inside* the beat, which also means a beat
+shorter than that emergence makes the ceiling extrude a stream rather
+than drop things. The checker warns about it.
+
+### What it costs, and why that is checkable
+
+```
+work     = Σ (2^size - 1) x shotTimeSec x effort[shape]
+pressure = work / (beat x beats in the pattern)
+```
+
+`pressure` is the share of the player's shooting time the ceiling claims.
+At 1.0 they must land every shot, forever, and never move; the slack
+below 1.0 is everything left for dodging, missing and walking somewhere.
+`maxPressure` (0.9) is therefore exactly "the point past which the field
+can no longer be cleared".
+
+Holds are left out of that denominator on purpose, and so is emergence
+time. Both can only ever give the player more time, so counting them
+would make the check optimistic -- and a check you only pass because the
+player was struggling is not a check.
+
+### Twelve waves, not a hundred
+
+The authored set is twelve. The mode is endless, so the set repeats -- and
+what repeats has to change, or wave 100 is wave 4 again. It did exactly
+that for a while: the loop only ever tightened the beat, the whole set
+only ever used sizes 1 and 2, and standing on wave 100 got you the same
+small balls as wave 4, sooner.
+
+So each cycle escalates on **two** axes. The beat tightens by
+`loop.beatScale` towards `loop.minBeat`, and every ball gets
+`loop.sizeBumpPerCycle` sizes bigger (to a ceiling of `loop.maxSizeBump`,
+and never past the largest size a shape actually has -- hex stops at 3).
+
+Bigger balls have to arrive less often, so the escalation pays for itself:
+each size step keeps only every second ball, and what is dropped becomes a
+rest, so the pattern keeps its length and simply breathes more between
+bigger threats. `waveAt` then takes the LONGEST of the grid floor, the
+tightened beat, and whatever the wave's own work needs to stay under
+`maxPressure` -- which makes every cycle clearable by construction rather
+than by inspection.
+
+Size is the axis pressure cannot see, and it is why this is worth doing:
+a wave that hands over its work as one size-5 ball is far harder to
+survive than one that hands over the same work as thirty-one size-1s,
+because the big one fills the screen with fragments at once while the
+small ones queue up.
+
+```
+cycle  bump  wave 1                wave 11
+    0     0   2.00s r1 r1 r1        0.70s r1 h1 w1 x2 h1 r1 w1 r1
+    1     1   1.86s r2 r2           0.65s r2 w2 h2 w2
+    2     2   1.73s r3              0.63s r3 h3
+    3     3   2.38s r4              0.62s r4
+    4     4   4.92s r5              1.28s r5
+```
+
+`loop.maxWaveSec` is the other end of it: bumps push the beat up, and far
+enough would turn a wave into a crawl with one ball in it. The build
+fails rather than shipping one.
+
+That makes `minBeat` the mode's one safety number, because it is where
+every wave eventually lives -- so **the check is made at the floor beat,
+not at the beat a wave was written at**. Passing as authored and failing
+three cycles later would not be passing. The shipped set runs 0.22 to
+0.60 pressure on its first time round, and settles at about 0.85 across
+the whole set once the beat is at the floor -- so the first pass is a
+difficulty curve, and every pass after it runs uniformly at the edge.
+
+The beat runs from **2s** at the opening wave down to a **0.5s** floor.
+That floor is not a difficulty knob on its own, which is worth
+understanding before touching it: halving it while doubling the dots in
+every pattern is a no-op on the game. What the floor really sets is the
+resolution the patterns are written at, and how much room the tempo has
+to tighten over a run. What decides how fast balls may actually arrive is
+`shotTimeSec`, and that is a claim about the player rather than a
+preference. It is one second: the harpoon's own flight over the full
+height of the playfield is 0.98s, plus 0.15s of shot lock, so one second
+assumes shots that connect around mid-height with no wasted movement --
+an expert's rate, not an average one. Halving it from two was what let
+every pattern be re-laid at twice the density.
+
+And once rests are skippable there is a second knob, easy to miss:
+**`skipRestUnderSec` is what the mode actually settles at.** The field is
+driven to about that much outstanding work and held there, so it, not the
+patterns, is what decides how crowded the screen is in the steady state.
+Simulated runs sit at a 3.3s peak backlog against a 2.5s threshold. The
+patterns only govern what happens while the player is behind it.
+
+```
+node tools/panic_waves.mjs
+```
+
+prints every wave's length, cost and both pressures, warns about
+emergence and about patterns that do not end on a hold, and exits
+non-zero if anything is unclearable. The model itself is
+`js/panicWaves.js` -- shared by the game, the tool and the tests, so what
+is checked and what is played cannot come apart.
+`tests/panic.test.mjs` re-runs all of it over the shipped file.
+
 ## Level transitions
 
 Clearing a campaign level doesn't cut straight to the next one: an effect
@@ -626,7 +923,7 @@ rest on the floor -- and it would leave one row a different height from
 every other, which would break the player's step-up (every row has to be
 exactly one step above the one below).
 
-Options -> Size picks the display size: the fixed **0.5x**, **1x**
+Options -> DISPLAY -> Size picks the display size: the fixed **0.5x**, **1x**
 (original) and **2x** (double), or **FIT**, which scales the canvas to
 the window. Fitting keeps the true 8:5 shape and takes whichever of width
 and height runs out first, so the whole playfield is always on screen --
@@ -650,6 +947,48 @@ so it scales in lockstep without any separate logic. At 2x the canvas can
 be larger than the browser window -- the page scrolls rather than
 clipping it.
 
+**The menus have their own music**, so opening the game is not silence.
+`MENU_MUSIC` in `config.js` names the track -- `music01`, one of the two
+generic ones, which every campaign level and Panic Mode between them had
+left playing almost nowhere. It plays behind every screen in front of a
+run, including the ones reached from Options, and stops the moment one
+starts. Walking between menus does not restart it: `playMusic` is a no-op
+for the track it is already on.
+
+What it cannot do is start before the player has touched something. A
+browser will not let a page make noise until it has been interacted with,
+so the first moment of a first visit is silent whatever this says --
+`ui.js`'s `armAudioUnlock` starts the tune on the first press anywhere.
+It has to *restart* it rather than merely resume, because a track begun
+while the audio context was asleep exists and reports itself playing
+while never having made a sound; `resumeContext()` returns whether it had
+to wake anything, which is how the difference is known.
+
+**A screen's buttons share one width, and BACK sits back.** A column
+where every button shrinks to its own label reads as ragged rather than
+as a menu, so the ones that are a stack of peers -- direct children of a
+screen or of a settings group -- take a per-screen width: 300px normally,
+420px on the play screen whose cards hold a sentence. Deliberately not
+every `.menu-btn`: the size picker is a row of four, the level list a
+grid of fifty, the key bindings a table, and all three are wrong at a
+menu's width.
+
+Going back is not a choice anyone came to a screen to make, so it does
+not compete with the ones they did: transparent, dimmer, brightening to a
+normal button on hover so it never looks disabled. Every one of them is
+named `btn-close-*` -- BACK on five screens, CANCEL on the erase screen
+-- which is what lets that be one CSS rule instead of a list to keep up
+to date.
+
+**Menus are centred on the frame, not on the canvas.** The canvas is 500
+tall and the last 84 of that is the HUD strip (`constants.js`'s
+`VIRTUAL_H`/`HUD_H`), so a screen centred in the whole thing sits 42px
+below the middle of the playfield -- visibly low, with all the leftover
+room piled above the title. `.screen` pads its bottom by the HUD's full
+height, which moves the centre up by half of it: exactly the 42. In `cqh`
+rather than a percentage, because percentage padding resolves against the
+container's WIDTH.
+
 Wherever the game's own background is black (the HUD strip, the page
 around/outside the canvas at any zoom level) it's the exact same color
 (`COLORS.hudBg` / `style.css`'s `--bg`, `#05040a`), so there's no visible
@@ -667,6 +1006,46 @@ seam between the canvas and the page behind it.
   smallest-size balls (4 heading left, 4 right, each bouncing off a wall
   before its path can ever reach the player) for a gentle but active first
   look at movement, shooting, and ball physics.
+- **In Panic Mode a ball comes through the ceiling at 16px/s.** It spawns
+  entirely inside the border strip and creeps down at that fixed speed --
+  gravity off, drawn behind the border, so what is visible is the part
+  that has squeezed out -- until the whole of it has cleared. Then, in one
+  instant, it is an ordinary ball: its own drift, its own gravity picking
+  up from the 16px/s it was already doing, so nothing jumps. That crawl is
+  the only warning the player gets about where the next threat is
+  arriving, which is why it is worth a second of the clock; and a bigger
+  ball takes proportionally longer, because there is more of it to come
+  through (a size 1 takes a second, a size 5 three). The speed is
+  `panicSpawn.ceilingSpeedPx` in `levels/panic.json`.
+- **Holding down in Panic Mode calls the next ball early.** There is no
+  ladder there to climb (`levels/panic.json` has no obstacles at all), so
+  the key was dead -- while what a player standing on an empty field
+  actually wants is the next ball: an empty field is not a rest, it is a
+  wave that isn't advancing and a clock that is. Held, the wait passes at
+  four times its speed, so the opening 2.6s becomes 0.65s. It is offered
+  whatever is already in the air rather than only when the field is thin
+  -- calling a ball early is a bet, and the player takes it knowing what
+  they are standing under -- but two balls can never arrive closer
+  together than 0.6s, which is what stops a held key from emptying a late
+  wave, whose own interval is at its shortest, onto the field in one
+  clump. See `GameScene.updatePanicSpawner`.
+- **Panic Mode is arithmetic.** See the section of that name above -- the
+  short version is that a ball of size N takes 2^N - 1 shots to clear
+  away entirely, so how often balls may arrive is a calculation, not a
+  taste.
+- **A wave is a written rhythm, and it ends when the rhythm does.** A
+  beat length and a pattern of tokens -- a ball, a rest, or a hold that
+  waits for the field to clear. Progress used to be gated on balls
+  popped, so shooting well brought the harder waves sooner; that went to
+  the down key, which runs the beat at four times its speed for as long
+  as it is held (see `GameScene.updatePanicSpawner`).
+- **Panic Mode's wave counter does not stop at the end of its set.** The
+  twelve authored waves repeat, a little faster each cycle, and the
+  counter goes on climbing -- so a long run always has a next milestone
+  and a progress bar moving towards it. Freezing it left the HUD dead for
+  the whole rest of the run. The HUD's LEVEL row holds three digits for
+  the same reason: with two, wave 100 was drawn as "10", and a long run
+  looked like it had gone nowhere.
 - The campaign uses what the engine has rather than only walls and balls:
   **15 levels have ladders** up to a shelf worth shooting from (two of
   them, 37 and 38, onto a stepped staircase you then walk up), **42 name
@@ -700,10 +1079,49 @@ seam between the canvas and the page behind it.
   all -- barely bouncing and moving slowly is entirely a matter of its
   numbers. The campaign introduces them one at a time: green from level
   11, purple from 16, blue from 26, and never a level made only of one.
-- Obstacles: indestructible platforms and shootable crates, built from
+- Obstacles: indestructible walls, shootable crates and **icy walls**,
+  built from
   16x16 blocks (rectangular or stepped shapes), blocking ball movement from
-  every side with proper anti-tunneling collision; a multi-block crate
-  loses only the block that's actually shot.
+  every side with proper anti-tunneling collision; a breakable obstacle
+  goes down as one piece.
+- **Ice is a surface, not an obstacle type with a special case.** The icy
+  wall is a wall that cannot be shot, like any other -- what it changes is
+  underfoot: its element carries `grip: 0.12`, and on anything below full
+  grip the player's speed EASES towards what the keys are asking for
+  instead of becoming it (`Player.slideSpeed`). Letting go leaves them
+  gliding on -- about 70px before they are near a stop -- which is what
+  makes a ledge of ice a thing to judge rather than a thing to walk
+  across. **Turning round is slower still**, at half that rate
+  (`slideTurnFactor`), because momentum has to be undone before any of it
+  can be rebuilt: pressing right at a full run to the left takes about
+  0.6s to come to a stop and another 0.3s to reach half speed the other
+  way. That turn is what a plate of ice is really made of.
+- **The frame is paintable now**, which is what lets a level's own floor
+  be icy rather than only the ledges standing on it. `Editor.brushReach`
+  decides how far out of the playfield each brush goes, and it reads the
+  answer off the element:
+  - *nothing breakable, ever.* The frame is the one part of a level the
+    player can never open up, and a crate in it would leave a hole that
+    the border goes on being solid through.
+  - *a plain wall goes anywhere* in it -- ceiling, both side walls, floor.
+  - *a slippery material only goes in the floor.* Ice is a SURFACE: the
+    only thing it changes is what happens to someone standing on it, and
+    nobody stands on a ceiling or a side wall.
+
+  A block in the floor is one row deep whatever piece size is selected (a
+  pillar painted into the floor would hang under the level), and every
+  frame block carries **no collision at all** -- `Obstacle`'s constructor
+  turns it off. The world bounds already stop everything dead along the
+  inside of the frame, flush with such a block's own inner edge, so a live
+  body there would have every ball resolving two collisions in the same
+  instant on every bounce along it. `Player.support` reads the geometry
+  directly instead, which is what lets a floor be slippery underfoot while
+  colliding with nothing. The easing is exponential, so it closes the
+  same fraction of the gap per unit of TIME and one slow frame cannot put
+  the player somewhere two fast ones would not. Every other surface
+  defaults to `grip: 1` and sets the speed outright, exactly as the game
+  always did -- ice costs the old surfaces nothing, not even a branch they
+  reach.
 - The **LEVEL EDITOR** places obstacles on rows counted up from the
   ground, so the bottom row rests on the floor and a stack of them is a
   staircase the player can climb. The interior is a whole number of rows
@@ -1013,7 +1431,14 @@ tools/               Scripts run by hand, never by the game:
                       app_icons.py draws the app icons,
                       powerup_icons.py draws every power-up's pickup
                       disc, and the three weapons' HUD icons with them
-                      (see "Icons say it in pictures"), and
+                      (see "Icons say it in pictures"),
+                      impact_puffs.py draws the grey cloud a beam leaves
+                      where it stops (the bullet's own spark is hand-drawn
+                      and is not written by it),
+                      panic_waves.mjs checks Panic Mode's wave patterns
+                      and prints what they cost, exiting non-zero on one
+                      that cannot be cleared (see "Panic Mode is
+                      arithmetic"), and
                       build_precache.mjs writes the offline file list
                       and the cache version (see "Install it on a phone")
 admin/               A separate, PHP-backed, login-gated site for editing
@@ -1217,7 +1642,12 @@ false` shapes this is instead a spin spritesheet, see below.
 ```
 `hitPoints: null` means indestructible (infinite hit points, like
 `obstacle-platform.json`). `tileTexture` names an
-`assets/obstacles/<name>.webp` file (8x8, see "Swapping graphics").
+`assets/obstacles/<name>.webp` file (16x16, see "Swapping graphics").
+`grip` is optional and defaults to 1, which is solid footing; below it the
+surface is slippery underfoot (`obstacle-icy-wall.json` is 0.12 -- see
+"Ice is a surface" above). An obstacle type gets its own editor brush
+automatically, from `OBSTACLE_TYPE_KEYS` and labelled by its own `label`
+-- adding a material is one file.
 
 A `"category": "ladder"` element instead names a `texture` and its own
 `width`/`height` (whole obstacle blocks -- the editor snaps to them and
@@ -1412,7 +1842,7 @@ height, container query units for everything inside), so it scales with
 the display zoom; at 0.5x the strip is only 42 CSS px and the panel
 scrolls rather than clipping anything out of reach.
 
-**NEXT PLACED**'s **Block** picker is how big a piece a wall or crate
+The **Size** picker under the brushes is how big a piece a wall or crate
 press puts down: `16x16`, `16x64` or `16x96` (pillars), `64x16` or
 `96x16` (beams). Nothing
 new reaches the level format here -- an obstacle has always been
@@ -1445,10 +1875,20 @@ an empty NEXT PLACED and **LEVEL**, **FILE**, **GO** and **COUNT** stay
 exactly where they were (`.invisible`, not `.hidden`). Collapsing the
 group instead slid every group after it sideways on each change of brush,
 in a panel whose positions the hand learns.
-A wall has no drop, a crate has no direction or size, a round ball's
+The same goes for the **Size** picker under the brushes, which is blank
+for a brush that places no blocks. A wall has no drop, a round ball's
 vertical direction is decided by gravity rather than by the panel, and a
 piece bigger than one block cannot carry a drop, so with `16x64` selected
-that row goes away too. The rules are not a second opinion about what is
+the Drops picker goes blank too.
+
+The panel is a fixed band as wide as the canvas and 83px tall, and it is
+FULL: `tests/smoke` measures both, and the counts readout at the end has
+exactly the width the controls leave it. That is why the piece size sits
+under the brushes (one row of buttons in a group with room for three)
+rather than in NEXT PLACED, why the counts are one per line, and why the
+direction buttons are `X →` / `Y ↑` rather than `Dir X: →`. Each of those
+was a group growing past the band the moment something new was added to
+it. The rules are not a second opinion about what is
 sensible: `updateNextPlaced()` asks the same questions the placement code
 answers (`placeBall` reads the directions, `placeBlock` takes a drop only
 from a one-block breakable crate, `computeBallVelocity` ignores `dirY`
@@ -1802,8 +2242,31 @@ dimensions:
   the physics on the very next line and anything with a velocity would
   just hang there; tweens are not paused with it, which is what lets the
   ghost keep moving through an otherwise frozen picture.
+- **The frame** is drawn from the wall material and beveled on ALL four of
+  its outer faces as well as its inner ones, each line covering the face
+  it belongs to **and no more** (`GameScene.drawBorder`), which
+  is the rule every obstacle piece follows -- light where a shape faces up
+  or left, dark where it faces down or right. It used to be lit on the
+  inside only, so it read as a band that happened to stop rather than as
+  one raised object around the playfield; the difference is visible the
+  moment you paint wall over it in the editor and watch the border gain an
+  edge it did not have. **A wall built against the frame is one surface
+  with it**: neither side of that join is drawn, so a column meeting the
+  side wall reads as part of the frame rather than as a slab pushed up
+  against it. That is why the frame's four INNER lines are drawn with the
+  obstacles (`Obstacle.js`'s `drawFrameEdges`) rather than once with the
+  border -- where they run depends on what has been built, so each side is
+  drawn as the segments left over once the blocks lying against it are
+  taken out. Only the frame's own material joins it (compared by texture,
+  not by type: what makes two surfaces continuous to look at is what they
+  are made of), so a crate on the floor keeps its whole outline. The two horizontal lines used to run the full
+  width of the canvas, which took them straight across both side walls --
+  cutting each one in two at exactly the height where the frame turns a
+  corner, so it read as four bands butted together, which is the opposite
+  of what a bevel is for. Every level gets it, campaign or custom, because
+  it is drawn once from the material rather than stored in any level.
 - **Obstacles**: `assets/obstacles/<tileTexture>.webp` (`wall.webp`,
-  `crate.webp`) -- named by each `elements/obstacle-*.json`'s
+  `crate.webp`, `ice.webp`) -- named by each `elements/obstacle-*.json`'s
   `tileTexture` field, 16x16px (matching `OBSTACLE_BLOCK_SIZE`/
   `BORDER_THICKNESS`, see "Display size" above, so a block/the border
   reads as one clean tile), tiled across whatever area a block (or the

@@ -40,29 +40,68 @@
          reaches MENU, which is exactly when loading has finished. -->
     <div id="screen-menu" class="screen hidden">
       <h1 id="game-title"><div id="game-title-line1"></div><div id="game-title-line2"></div></h1>
-      <button id="btn-start" class="menu-btn"></button>
-      <button id="btn-start-panic" class="menu-btn"></button>
-      <button id="btn-start-level" class="menu-btn"></button>
-      <button id="btn-editor" class="menu-btn"></button>
+      <button id="btn-play" class="menu-btn"></button>
       <button id="btn-highscores" class="menu-btn"></button>
       <button id="btn-options" class="menu-btn"></button>
+      <!-- Only for someone logged into the admin tool, which is the only
+           place an edited level can actually be saved (see
+           js/levelFile.js). Revealed by ui.js once that has answered. -->
+      <button id="btn-editor" class="menu-btn hidden"></button>
+      <!-- Only when running as an installed app: a browser tab is not
+           allowed to close itself, so in one this would be a button that
+           does nothing (see ui.js's revealQuitWhenInstalled). -->
+      <button id="btn-quit-game" class="menu-btn hidden"></button>
+      <p id="quit-hint" class="hint hidden"></p>
       <!-- Both start hidden and are revealed by js/pwa.js's rules: the
            button only once the browser has offered an install prompt, the
            iOS line only on an iPhone/iPad that is not already running the
            game from its home screen. -->
       <button id="btn-install" class="menu-btn hidden"></button>
       <p id="ios-install-hint" class="hint hidden"></p>
-      <!-- Keys, so hidden on a phone (see style.css's body.is-touch): none
-           of them exist there, and the room they take does. -->
-      <p class="hint keyboard-hint">Arrows move &amp; climb &middot; Space shoot &middot; Esc pause &middot; Shift+D debug</p>
+    </div>
+
+    <!-- The three ways to play, each said out loud: three buttons on the
+         main menu named them but did not explain them, and "PANIC MODE"
+         tells a first-time player nothing at all. -->
+    <div id="screen-play" class="screen hidden">
+      <h2 id="play-title"></h2>
+      <button id="btn-start" class="menu-btn menu-card">
+        <span id="start-name"></span>
+        <span id="start-hint" class="card-hint"></span>
+      </button>
+      <button id="btn-start-panic" class="menu-btn menu-card">
+        <span id="start-panic-name"></span>
+        <span id="start-panic-hint" class="card-hint"></span>
+      </button>
+      <button id="btn-start-level" class="menu-btn menu-card">
+        <span id="start-level-name"></span>
+        <span id="start-level-hint" class="card-hint"></span>
+      </button>
+      <button id="btn-close-play" class="menu-btn"></button>
     </div>
 
     <div id="screen-options" class="screen hidden">
       <h2 id="options-title"></h2>
-      <div id="settings-row">
+      <button id="btn-sound" class="menu-btn"></button>
+      <button id="btn-display" class="menu-btn"></button>
+      <button id="btn-controls" class="menu-btn"></button>
+      <button id="btn-erase" class="menu-btn"></button>
+      <button id="btn-close-options" class="menu-btn"></button>
+    </div>
+
+    <div id="screen-sound" class="screen hidden">
+      <h2 id="sound-title"></h2>
+      <div class="settings-group">
         <label><input type="checkbox" id="chk-mute"><span id="chk-mute-label"></span></label>
         <label><span id="rng-sfx-label"></span><input type="range" id="rng-sfx" min="0" max="1" step="0.05"></label>
         <label><span id="rng-music-label"></span><input type="range" id="rng-music" min="0" max="1" step="0.05"></label>
+      </div>
+      <button id="btn-close-sound" class="menu-btn"></button>
+    </div>
+
+    <div id="screen-display" class="screen hidden">
+      <h2 id="display-title"></h2>
+      <div class="settings-group">
         <div id="zoom-row">
           <span id="zoom-label"></span>
           <button id="btn-zoom-half" class="menu-btn zoom-btn"></button>
@@ -70,27 +109,25 @@
           <button id="btn-zoom-2x" class="menu-btn zoom-btn"></button>
           <button id="btn-zoom-fit" class="menu-btn zoom-btn"></button>
         </div>
+        <button id="btn-options-fullscreen" class="menu-btn"></button>
       </div>
-      <button id="btn-controls" class="menu-btn"></button>
-      <button id="btn-options-fullscreen" class="menu-btn"></button>
-      <!-- Erasing is irreversible, so it asks first: pressing ERASE
-           PROGRESS reveals this row rather than doing anything, and
-           leaving the options screen puts it away again (see ui.js). -->
-      <button id="btn-erase" class="menu-btn"></button>
-      <div id="erase-confirm" class="hidden">
-        <p id="erase-warning" class="hint"></p>
-        <button id="btn-erase-yes" class="menu-btn"></button>
-        <button id="btn-erase-no" class="menu-btn"></button>
-      </div>
+      <button id="btn-close-display" class="menu-btn"></button>
+    </div>
+
+    <!-- Erasing is irreversible, so the door does not do it: opening this
+         screen only shows what would be lost, and the two answers are
+         side by side under it. -->
+    <div id="screen-erase" class="screen hidden">
+      <h2 id="erase-title"></h2>
+      <p id="erase-warning"></p>
+      <button id="btn-erase-yes" class="menu-btn"></button>
+      <button id="btn-close-erase" class="menu-btn"></button>
       <p id="erase-done" class="hint hidden"></p>
-      <button id="btn-close-options" class="menu-btn"></button>
     </div>
 
     <div id="screen-keys" class="screen hidden">
       <h2 id="keys-title"></h2>
       <div id="keys-list"></div>
-      <p id="keys-hint" class="hint"></p>
-      <button id="btn-keys-reset" class="menu-btn"></button>
       <button id="btn-close-keys" class="menu-btn"></button>
     </div>
 
@@ -105,7 +142,6 @@
       <button id="btn-resume" class="menu-btn"></button>
       <button id="btn-pause-restart" class="menu-btn hidden"></button>
       <button id="btn-pause-editor" class="menu-btn hidden"></button>
-      <button id="btn-fullscreen-pause" class="menu-btn"></button>
       <button id="btn-quit" class="menu-btn"></button>
     </div>
 

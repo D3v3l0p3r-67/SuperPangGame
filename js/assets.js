@@ -174,6 +174,13 @@ export const PLAYER_DUST_ANIM_KEY = 'player-dust-puff';
 // ever swapped for one.
 export const OBSTACLE_TEXTURE_DIR = 'assets/obstacles/';
 
+// What the playfield frame is drawn from (GameScene.drawBorder) -- and so
+// what a painted block has to be made of to be continuous with it (see
+// Obstacle.js's isFrameMaterial). Named once here rather than spelled out
+// in both places, so the frame and the rule about the frame cannot come
+// apart.
+export const FRAME_TILE_TEXTURE = 'wall';
+
 export function obstacleTextureKey(name) {
   return `obstacle_${name}`;
 }
@@ -246,7 +253,23 @@ export const BULLET_HIT_TEXTURE_KEY = 'bullet-hit';
 export const BULLET_HIT_TEXTURE_PATH = 'assets/weapons/bullet_hit.webp';
 export const BULLET_HIT_FRAMES = 2;
 export const BULLET_HIT_SIZE = 16;
+
+// The beams leave a different mark: half again as wide and grey, dust off
+// the block rather than a spark (see tools/impact_puffs.py). One thick
+// shaft arriving in one place is not four darts striking in a scatter,
+// and wearing the same small spark it looked like a stray bullet had gone
+// off -- while the machine gun's own sparks are on screen, telling them
+// apart at a glance is the whole job of this picture.
+export const BEAM_HIT_TEXTURE_KEY = 'beam-hit';
+export const BEAM_HIT_TEXTURE_PATH = 'assets/weapons/beam_hit.webp';
+export const BEAM_HIT_FRAMES = 2;
+// Wider than it is tall, and drawn hanging DOWN from its top edge (see
+// tools/impact_puffs.py): the puff is placed with that edge on the
+// surface the shot stopped against, so it spreads along the block rather
+// than into it. Anything above that line would be dust inside stone.
+export const BEAM_HIT_FRAME = { frameWidth: 32, frameHeight: 20 };
 export const BULLET_HIT_ANIM_KEY = 'bullet-hit-splash';
+export const BEAM_HIT_ANIM_KEY = 'beam-hit-puff';
 
 // Loading screen: the splash shown while BootScene loads everything else,
 // plus a "%" glyph for the progress readout (the intro font has no percent

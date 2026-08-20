@@ -1,5 +1,9 @@
-import { WEAPON_SHOTS_KEY, WEAPON_SHOTS_FRAME, SHOT_BEAM_WIDTH, weaponShotFrame } from './assets.js';
+import {
+  WEAPON_SHOTS_KEY, WEAPON_SHOTS_FRAME, SHOT_BEAM_WIDTH, weaponShotFrame,
+  BEAM_HIT_TEXTURE_KEY, BEAM_HIT_ANIM_KEY,
+} from './assets.js';
 import { BORDER_THICKNESS } from './constants.js';
+import { SHOT_SHAKE_MAX_SEC } from './config.js';
 
 // The shot is a BEAM, not a travelling bullet: its foot stays planted at
 // the height the player fired from and its head climbs upward (at the
@@ -73,6 +77,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.releaseWarnSec = releaseWarnSec;
     this.phase = 'flying';
     this.stickLeft = 0;
+    // How much of its hang this beam can still be shaken out of (see
+    // shakeLoose). Spent, not renewed: it is a budget for the ONE beam,
+    // so holding the trigger down does not simply cancel the weapon.
+    this.shakeLeft = SHOT_SHAKE_MAX_SEC;
     // Behind the player (depth 4), so the shot reads as coming from
     // behind the character rather than being painted across it -- but
     // still above the balls (3) and obstacles (1-2) it travels past.
@@ -110,6 +118,23 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.setLength(this.length);
   }
 
+  // Where the climbing end of the beam is right now: what reaches the
+  // ceiling, and so where an impact belongs (see GameScene's
+  // playShotImpact). The sprite is positioned by its head, but only after
+  // setLength has run -- this works it out from the foot instead, which
+  // is fixed for the beam's whole life.
+  get head() {
+    return { x: this.beamX, y: this.footY - this.length };
+  }
+
+  // What it leaves where it stops -- the beams' own, bigger and grey (see
+  // Bullet.js's for the other half of the pair).
+  get impact() {
+    // originY 0: the puff hangs from the surface it came off rather than
+    // straddling it, so no part of the cloud is drawn inside the block.
+    return { textureKey: BEAM_HIT_TEXTURE_KEY, animKey: BEAM_HIT_ANIM_KEY, originY: 0 };
+  }
+
   // True once the beam has caught hold of something and stopped climbing.
   get isAnchored() {
     return this.phase !== 'flying';
@@ -144,6 +169,26 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
+  // Rattling the trigger while this beam is hanging brings it down
+  // sooner: `seconds` off what is left of its stick, out of a budget that
+  // does not refill. Nothing happens to a beam that is still climbing --
+  // that press was refused because the slot is full, and a shot in
+  // flight is about to free the slot on its own anyway.
+  //
+  // Returns whether it actually took anything off, so the caller can say
+  // so (a press that changes nothing should not sound like one that did).
+  shakeLoose(seconds) {
+    if (!this.isAnchored || this.shakeLeft <= 0) return false;
+    const cut = Math.min(seconds, this.shakeLeft, this.stickLeft);
+    if (cut <= 0) return false;
+    this.shakeLeft -= cut;
+    this.stickLeft -= cut;
+    // The "letting go" frame is the warning, and it has to appear as soon
+    // as the shortened clock is inside it rather than at the next tick.
+    if (this.stickLeft <= this.releaseWarnSec) this.setPhase('releasing');
+    return true;
+  }
+
   // Called once per frame from GameScene.updatePlaying. Returns false once
   // the beam is spent and should be destroyed -- on reaching the ceiling
   // for a weapon that doesn't stick, or at the end of the stick for one
@@ -162,6 +207,13 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.setLength(this.maxLength);
+    // Reaching the ceiling is a shot stopping on something it cannot
+    // break, which is exactly the event the machine gun's bullets have
+    // always marked with a puff. A beam gets the same one now, whether it
+    // then dies there (the harpoon) or catches hold (the grapple) -- it
+    // only ever fires once per shot, because the next frame either finds
+    // the beam gone or finds it anchored and returns above.
+    this.scene.playShotImpact(this.beamX, this.footY - this.maxLength, this.impact);
     return this.anchorAt(this.footY - this.maxLength);
   }
 

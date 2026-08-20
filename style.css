@@ -186,7 +186,16 @@ body {
   gap: 1.4cqmin;
   background: rgba(5, 4, 10, 0.88);
   text-align: center;
-  padding: 4cqmin 3cqmin;
+  /* The extra bottom padding is what centres a menu on the FRAME rather
+     than on the canvas. The canvas is 500 tall but the last 84 of that is
+     the HUD strip (constants.js's VIRTUAL_H/HUD_H), so centring in the
+     whole thing put every screen 42px below the middle of the playfield
+     -- visibly low, with the room left over piled above the title.
+     Padding the bottom by the HUD's full height moves the centre up by
+     half of it, which is exactly the 42. In cqh because the canvas is
+     scaled (see DisplayZoom.js) and percentages would resolve against
+     its WIDTH. */
+  padding: 4cqmin 3cqmin calc(4cqmin + 16.8cqh);
   /* Only ever scrolls when a screen genuinely does not fit -- a phone in
      landscape is barely 390 CSS px tall with the menu on it. Centred as
      before whenever it does. */
@@ -243,6 +252,44 @@ body {
   cursor: pointer;
 }
 
+/* One width per screen, for the buttons that are a stack of peers --
+   direct children of a screen, or of a settings group. A column of
+   buttons that each shrink to their own label reads as ragged rather than
+   as a menu, and the eye has nothing to run down.
+
+   Deliberately NOT every .menu-btn: the size picker is a row of four
+   (0.5X/1X/2X/FIT), the level list is a grid of fifty, and the key
+   bindings are a table -- all of them nested, all of them wrong at a
+   menu's width. */
+.screen > .menu-btn,
+.settings-group > .menu-btn {
+  width: var(--menu-w, min(46cqw, 300px));
+}
+
+/* The play screen's cards hold a sentence, so its column is wider -- and
+   its BACK matches the cards rather than the other screens. */
+#screen-play {
+  --menu-w: min(58cqw, 420px);
+}
+
+/* Going back is not a choice anyone came to this screen to make, so it
+   does not compete with the ones they did. Every one of them is named
+   btn-close-* (BACK on five screens, CANCEL on the erase screen), which
+   is what lets this be one rule rather than a list to keep up to date.
+   It brightens to a normal button on hover, so it never looks disabled. */
+.screen > [id^="btn-close-"] {
+  background: transparent;
+  border-color: var(--panel);
+  opacity: 0.7;
+}
+
+.screen > [id^="btn-close-"]:hover,
+.screen > [id^="btn-close-"]:focus-visible {
+  background: var(--panel-border);
+  border-color: var(--panel-border);
+  opacity: 1;
+}
+
 .menu-btn:hover,
 .menu-btn:focus-visible {
   background: var(--panel-border);
@@ -254,38 +301,55 @@ body {
 }
 
 
-#settings-row {
+/* One screen's worth of settings -- the controls under SOUND or under
+   DISPLAY. Options itself is now a list of buttons like every other menu,
+   so there is nothing left to lay out there. */
+.settings-group {
   display: flex;
   flex-direction: column;
   gap: 1cqmin;
+  align-items: center;
   margin-top: 1cqmin;
 }
 
-#settings-row label {
+.settings-group label {
   display: flex;
   align-items: center;
   gap: 8px;
   justify-content: center;
 }
 
-/* The erase confirmation, which takes the ERASE PROGRESS button's own
-   place while it is up (see ui.js's showEraseConfirm) rather than pushing
-   the rest of the options screen down -- on a phone in landscape this
-   screen is already close to scrolling. Its warning line spans both
-   answers above them, so what is about to be lost is read before either
-   is pressed. */
-#erase-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 1cqmin;
-  max-width: 100%;
+/* A way to play, as one card rather than a button with a caption loose
+   underneath it. Two loose lines per choice read as a list of settings;
+   put inside the thing you press, they read as three things to choose
+   between -- and the whole card lights up together on hover, so what is
+   about to be picked is never in doubt. */
+.menu-card {
+  flex-direction: column;
+  gap: 0.6cqmin;
+  padding: 1.6cqmin 3cqmin;
 }
 
-#erase-confirm #erase-warning {
-  flex-basis: 100%;
-  opacity: 1; /* not the dimmed .hint: this one is the point */
+/* Dimmer and smaller than the name above it: the name is what is being
+   chosen, the line under it is only there to say what that means. */
+.card-hint {
+  opacity: 0.7;
+  transform: scale(0.8);
+}
+
+/* Pixel text is a canvas (see PixelText.js), and the only one in the UI
+   drawn at a fraction of its natural size is this one -- so it is the
+   only one that would be resampled smooth, in among glyphs that are not. */
+.card-hint canvas {
+  image-rendering: pixelated;
+}
+
+/* What an erase would cost, on the screen that asks. Not the dimmed
+   .hint the other explanatory lines use -- this one is the point of the
+   screen, and it is read before either answer is pressed. */
+#erase-warning {
+  max-width: 100%;
+  margin: 0 0 1cqmin;
 }
 
 /* Display size -- exactly three discrete choices (see constants.js's
@@ -801,14 +865,6 @@ body {
    no prompt to trigger there, only a menu to point at. */
 #ios-install-hint {
   max-width: 80cqw;
-}
-
-/* The keyboard cheat-sheet under the main menu, on a phone where none of
-   those keys exist -- the room it takes is better spent on the menu
-   fitting a short screen (see ui.js's showTouchControlsIfNeeded, which
-   sets is-touch). */
-body.is-touch .keyboard-hint {
-  display: none;
 }
 
 /* A hint is one image (see PixelText.js), so a long one cannot reflow --

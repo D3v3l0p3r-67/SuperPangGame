@@ -141,6 +141,33 @@ test('the cache is named after what is in it, file by file', () => {
     'service-worker.js\'s CACHE_VERSION is stale -- rerun tools/build_precache.mjs');
 });
 
+test('an install takes a whole release, not a mixture of two', () => {
+  // The bug this guards against did not look like a caching problem: the
+  // game froze the moment a machine gun was fired, because the caller and
+  // the file it called had come from different releases. cache.add()
+  // fetches through the browser's ordinary HTTP cache, so files still
+  // inside their max-age arrive from the LAST deploy while the rest
+  // arrive from this one.
+  // Comments dropped first: store()'s own comment names cache.add() as
+  // the thing it replaces, and that sentence is worth keeping.
+  const code = SW.split('\n').filter((line) => !/^\s*(\/\/|\*)/.test(line)).join('\n');
+  assert.doesNotMatch(code, /cache\.add(All)?\(/,
+    "cache.add() fetches through the HTTP cache -- store() with cache:'reload' is what installs one whole release");
+  assert.match(SW, /fetch\(url\(path\), \{ cache: 'reload' \}\)/,
+    'every precached file must be fetched straight from the network');
+
+  // And a file carried over from the previous cache is checked before it
+  // is trusted: the manifest records what the last install MEANT to
+  // store, so without this a single bad copy is copied forward release
+  // after release and never fetched again.
+  assert.match(SW, /crypto\.subtle\.digest\('SHA-256'/,
+    'the delta install must verify the bytes it carries over');
+  const slice = SW.match(/\.join\(''\)\.slice\(0, (\d+)\)/);
+  assert.ok(slice, "the worker's digest has to be cut to the manifest's hash length");
+  assert.equal(Number(slice[1]), PRECACHE.files['index.html'].length,
+    'the worker cuts its hash to a different length than tools/build_precache.mjs writes');
+});
+
 test('the precache list is relative and holds nothing server-side', () => {
   for (const path of PRECACHE_PATHS) {
     assert.ok(!path.startsWith('/') && !path.startsWith('.') && !path.includes('://'),

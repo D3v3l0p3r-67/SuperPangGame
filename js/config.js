@@ -17,6 +17,24 @@ export const PLAYER_CONFIG = {
   speed: 180,
   startLives: 3,
   invulnMs: 1500,
+  // How quickly the feet get what they are asking for on a surface that
+  // is not solid footing (an obstacle whose element gives it a `grip`
+  // below 1 -- the icy wall, see elements/obstacle-icy-wall.json). Per
+  // second, multiplied by that grip: at the ice's 0.12 this works out at
+  // 2.4, i.e. about four tenths of a second to lose or gain most of a
+  // speed, which is long enough to slide past what you were aiming for
+  // and short enough not to feel broken. Surfaces at full grip never
+  // reach this at all -- they set the speed outright, exactly as every
+  // surface in the game did before ice existed.
+  slideResponsePerSec: 20,
+  // And how much of that response is left when the direction being asked
+  // for is the OPPOSITE of the way the player is already travelling.
+  // Turning round on ice is the hard part -- momentum has to be undone
+  // before it can be rebuilt -- so it is deliberately the slowest thing
+  // the surface does: at half the rate, a full-speed run takes about a
+  // second and a half to come back the other way. Stopping and setting
+  // off are not touched by this, only reversing.
+  slideTurnFactor: 0.5,
 };
 
 // Every weapon fires the same way -- one shot per press, a beam whose foot
@@ -83,6 +101,18 @@ export const WEAPON_TYPES = {
 // frame rate from this number, so the pose and the pause end together.
 export const SHOT_LOCK_SEC = 0.15;
 
+// A grapple hanging from the ceiling holds the player's only shot for its
+// whole four seconds, and pressing fire in the meantime did nothing at
+// all -- which reads as the game ignoring the button rather than as the
+// weapon being busy. Each refused press now shakes the beam loose a
+// little sooner: SHOT_SHAKE_SEC off its remaining stick, up to
+// SHOT_SHAKE_MAX_SEC over the life of that one beam. Six presses reach
+// the cap, and the cap is what stops a rattled trigger from turning the
+// grapple into an ordinary harpoon -- putting a barrier up still costs
+// most of what it costs.
+export const SHOT_SHAKE_SEC = 0.25;
+export const SHOT_SHAKE_MAX_SEC = 1.5;
+
 // How high a ledge the player can walk straight up, without jumping (it
 // cannot jump at all). One obstacle block: anything taller is a wall to
 // stop at, a stack of these is a staircase to climb. See Player.js's
@@ -130,3 +160,16 @@ export const LEVEL_TRANSITION = 'push';
 // that plays on the change). With the route in levels/regions.json this is
 // what decides how far into a run each new place turns up.
 export const LEVELS_PER_REGION = 5;
+
+// What plays behind the menus, so opening the game is not silence.
+//
+// One of the two generic tracks rather than a new one: every campaign
+// level takes its continent's music (see js/regions.js) and Panic Mode
+// takes music02, which leaves music01 playing almost nowhere. Change this
+// name to change what the menus sound like -- nothing else needs to know.
+//
+// It cannot start before the player has touched something: a browser will
+// not let a page make noise until it has been interacted with, so the
+// very first moment of the very first visit is silent whatever this says
+// (see ui.js's syncMenuMusic, which starts it on that first press).
+export const MENU_MUSIC = 'music01';
