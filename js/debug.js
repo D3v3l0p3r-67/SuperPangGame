@@ -160,6 +160,12 @@ export class Debug {
     const jumpTo = (idx) => {
       this.scene.levelIndex = idx;
       this.scene.loadLevel(idx);
+      // Going straight to PLAYING skips the countdown, and the countdown
+      // is what un-pauses the world (see startLevelIntro/update's
+      // LEVEL_INTRO branch). Jumping from anywhere that left the physics
+      // frozen -- the menu, straight after a run -- would otherwise land
+      // on a level that just sits there.
+      this.scene.physics.resume();
       this.scene.state = GAME_STATES.PLAYING;
     };
     const chosenLevel = () => Math.max(0, Math.min(LEVELS.length - 1, parseInt(levelInput.value, 10) - 1));
@@ -243,10 +249,23 @@ export class Debug {
   // it (a fresh run starts at the beginning) -- and loadLevel, which it
   // calls, is what rewinds the pattern to its first step and clears any
   // hold, so nothing here has to.
+  //
+  // The countdown is EXPIRED rather than skipped. beginRun ends in
+  // startLevelIntro, which pauses the physics; the handover back --
+  // resuming them, going to PLAYING, starting the music -- is what the
+  // LEVEL_INTRO branch of update() does when its timer runs out. Setting
+  // the state here instead left the world paused and the run looked like
+  // it had not started at all. Running the timer out leaves that one
+  // place in charge of it.
   jumpToPanicWave(n) {
     this.scene.startPanicMode();
     this.scene.panicWaveIndex = n - 1;
-    this.scene.state = GAME_STATES.PLAYING;
+    this.scene.introLeadInSec = 0;
+    this.scene.stateTimer = 0;
+    // The two countdown cues would otherwise both fire on the same frame,
+    // which is a jump-cut's worth of noise for a debug button.
+    this.scene.setSoundPlayed = true;
+    this.scene.goSoundPlayed = true;
   }
 
   // The single place either overlay is switched, so the panel button and
